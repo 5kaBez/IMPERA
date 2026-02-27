@@ -4,7 +4,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: cd client && npm install --include=dev && npm run build && cd ../server && npm install && npx prisma generate
+    buildCommand: cd client && npm install --include=dev && npm run build && cd ../server && npm install && ./node_modules/.bin/prisma generate
     startCommand: cd server && NODE_ENV=production npx tsx src/index.ts
     envVars:
       - key: NODE_ENV
