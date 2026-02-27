@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Institute {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  shortName  String?
+  directions Direction[]
+  createdAt  DateTime    @default(now())
+}
+
+model Direction {
+  id          Int        @id @default(autoincrement())
+  name        String
+  instituteId Int
+  institute   Institute  @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  programs    Program[]
+  createdAt   DateTime   @default(now())
+
+  @@unique([name, instituteId])
+}
+
+model Program {
+  id          Int        @id @default(autoincrement())
+  name        String
+  directionId Int
+  direction   Direction  @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  groups      Group[]
+  createdAt   DateTime   @default(now())
+
+  @@unique([name, directionId])
+}
+
+model Group {
+  id             Int      @id @default(autoincrement())
+  name           String
+  number         Int
+  course         Int
+  studyForm      String   @default("Очная")
+  educationLevel String   @default("Бакалавриат")
+  programId      Int
+  program        Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  lessons        Lesson[]
+  users          User[]
+  createdAt      DateTime @default(now())
+
+  @@unique([number, programId, course, studyForm])
+}
+
+model Lesson {
+  id         Int      @id @default(autoincrement())
+  groupId    Int
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+  pairNumber Int
+  timeStart  String
+  timeEnd    String
+  parity     Int      // 0=чёт, 1=нечёт, 2=обе
+  subject    String
+  lessonType String   // Лекция, Практика, Лабораторная, ПЗ
+  teacher    String
+  room       String
+  weekStart  Int      @default(1)
+  weekEnd    Int      @default(18)
+  createdAt  DateTime @default(now())
+
+  @@index([groupId, dayOfWeek])
+  @@index([groupId, dayOfWeek, parity])
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  telegramId     String   @unique
+  firstName      String
+  lastName       String?
+  username       String?
+  photoUrl       String?
+  groupId        Int?
+  group          Group?   @relation(fields: [groupId], references: [id])
+  role           String   @default("student") // student, admin
+  notifyBefore   Boolean  @default(true)
+  notifyChanges  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

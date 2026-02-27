@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: impera
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: cd client && npm install && npm run build && cd ../server && npm install && npx prisma generate
+    startCommand: cd server && NODE_ENV=production npx tsx src/index.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        value: 8754741222:AAGuf227ViMtUuffYDt9j1xlciP5O2Wpfrg
+      - key: WEB_APP_URL
+        value: https://impera-4nqp.onrender.com
+      - key: PORT
+        value: 3001
