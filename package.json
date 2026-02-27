@@ -11,6 +11,9 @@
     "start": "cd server && npx tsx src/index.ts",
     "install:all": "npm install && cd client && npm install && cd ../server && npm install"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
