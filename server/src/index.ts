@@ -22,6 +22,7 @@ const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
 
 app.use(helmet({
   contentSecurityPolicy: false, // Allow Telegram Web App scripts
+  frameguard: false, // Allow Telegram Desktop to open Mini App in iframe
 }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
