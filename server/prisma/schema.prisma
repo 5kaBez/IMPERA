@@ -88,8 +88,9 @@ model User {
   notifyChanges  Boolean    @default(true)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
-  feedbacks      Feedback[]
-  reviews        Review[]
+  feedbacks       Feedback[]
+  reviews         Review[]
+  sportFavorites  SportFavorite[]
 }
 
 model Feedback {
@@ -126,4 +127,41 @@ model Review {
 
   @@index([teacherId])
   @@unique([teacherId, userId])
+}
+
+// ===== Физкультура =====
+model SportSection {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique // Атлетизм, Аэробика, Баскетбол, etc.
+  emoji     String?     // 🏋️, 💃, 🏀, etc.
+  slots     SportSlot[]
+  favorites SportFavorite[]
+  createdAt DateTime    @default(now())
+}
+
+model SportSlot {
+  id         Int          @id @default(autoincrement())
+  sectionId  Int
+  section    SportSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int          // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+  timeStart  String       // "09:00"
+  timeEnd    String       // "10:30"
+  teacher    String
+  location   String?      // Спортзал, Бассейн, etc.
+  capacity   Int?         // Максимум студентов (опционально)
+  createdAt  DateTime     @default(now())
+
+  @@index([sectionId, dayOfWeek])
+  @@unique([sectionId, dayOfWeek, timeStart])
+}
+
+model SportFavorite {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionId Int
+  section   SportSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, sectionId])
 }

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Calendar, User, Sun, Moon, LogOut, Menu, X, Shield, LayoutDashboard, Upload, Users, MessageSquare } from 'lucide-react';
+import { Calendar, User, Sun, Moon, LogOut, Menu, X, Shield, LayoutDashboard, Upload, Users, MessageSquare, Dumbbell } from 'lucide-react';
 import CurrentLessonBanner from './CurrentLessonBanner';
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -18,6 +18,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { path: '/', icon: Calendar, label: 'Расписание' },
+    { path: '/sports', icon: Dumbbell, label: 'Спорт' },
     { path: '/feedback', icon: MessageSquare, label: 'Связь' },
     { path: '/profile', icon: User, label: 'Профиль' },
   ];

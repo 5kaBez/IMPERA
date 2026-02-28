@@ -136,3 +136,40 @@ export interface Review {
     username?: string;
   };
 }
+
+// ===== Физкультура =====
+export interface SportSection {
+  id: number;
+  name: string;
+  emoji?: string;
+  slots: SportSlot[];
+  _count?: { favorites: number };
+}
+
+export interface SportSlot {
+  id: number;
+  sectionId: number;
+  section?: SportSection;
+  dayOfWeek: number;
+  timeStart: string;
+  timeEnd: string;
+  teacher: string;
+  location?: string;
+  capacity?: number;
+}
+
+export const SPORT_EMOJIS: Record<string, string> = {
+  'Атлетизм': '🏋️',
+  'Аэробика': '💃',
+  'Баскетбол': '🏀',
+  'Бокс': '🥊',
+  'Бадминтон': '🏸',
+  'Волейбол': '🏐',
+  'Н. теннис': '🏓',
+  'Плавание': '🏊',
+  'Самооборона': '🥋',
+  'СМГ': '❤️‍🩹',
+  'Фитнес': '💪',
+  'Футбол': '⚽',
+  'Шахматы': '♟️',
+};
