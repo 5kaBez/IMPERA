@@ -186,31 +186,34 @@ router.post('/webapp', async (req: Request, res: Response) => {
 router.post('/webapp-user', async (req: Request, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
-    const { user: telegramUser } = req.body;
+    const { user: tgUser } = req.body;
 
-    if (!telegramUser?.id) {
+    if (!tgUser?.id) {
       res.status(400).json({ error: 'Данные пользователя отсутствуют' });
       return;
     }
 
-    // Find or create user
-    let user = await prisma.user.upsert({
-      where: { telegramId: String(telegramUser.id) },
-      update: {
-        firstName: telegramUser.first_name || 'User',
-        lastName: telegramUser.last_name || undefined,
-        username: telegramUser.username || undefined,
-        photoUrl: telegramUser.photo_url || undefined,
-      },
-      create: {
-        telegramId: String(telegramUser.id),
-        firstName: telegramUser.first_name || 'User',
-        lastName: telegramUser.last_name || null,
-        username: telegramUser.username || null,
-        photoUrl: telegramUser.photo_url || null,
-      },
+    const telegramId = String(tgUser.id);
+
+    // Try to find existing user first
+    let user = await prisma.user.findUnique({
+      where: { telegramId },
       include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
     });
+
+    if (!user) {
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          telegramId,
+          firstName: tgUser.first_name || 'User',
+          lastName: tgUser.last_name || null,
+          username: tgUser.username || null,
+          photoUrl: tgUser.photo_url || null,
+        },
+        include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+      });
+    }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
 
