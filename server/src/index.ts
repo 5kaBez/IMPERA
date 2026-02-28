@@ -9,6 +9,8 @@ import scheduleRoutes from './routes/schedule';
 import structureRoutes from './routes/structure';
 import userRoutes from './routes/user';
 import adminRoutes from './routes/admin';
+import feedbackRoutes from './routes/feedback';
+import teacherRoutes from './routes/teachers';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
@@ -38,15 +40,17 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/structure', structureRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/teachers', teacherRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// SPA fallback in production
+// SPA fallback in production (Express v5 requires {*path} instead of *)
 if (process.env.NODE_ENV === 'production') {
-  app.get('*', (_req, res) => {
+  app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
   });
 }

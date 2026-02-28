@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api/client';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface ImportResult {
@@ -12,8 +12,11 @@ interface ImportResult {
 export default function AdminImport() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
+  const [deleteResult, setDeleteResult] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleImport = async () => {
@@ -130,6 +133,62 @@ export default function AdminImport() {
               <AlertCircle className="w-5 h-5 text-red-500" />
               <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Schedule Section */}
+      <div className="mt-6 bg-white dark:bg-gray-900 rounded-2xl border border-red-200 dark:border-red-500/20 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Удалить расписание</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Удалить все записи расписания из базы данных перед загрузкой нового. Это необратимое действие.
+        </p>
+
+        {deleteResult && (
+          <div className="mb-4 p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 text-sm text-green-600 dark:text-green-400">
+            {deleteResult}
+          </div>
+        )}
+
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 border border-red-200 dark:border-red-500/20 transition-all"
+          >
+            <Trash2 className="w-4 h-4" />
+            Удалить всё расписание
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                setDeleting(true);
+                setDeleteResult(null);
+                try {
+                  const data = await api.delete<{ deleted: number }>('/admin/schedule/all');
+                  setDeleteResult(`Удалено ${data.deleted} записей расписания`);
+                } catch (err: any) {
+                  setError(err.message);
+                }
+                setDeleting(false);
+                setConfirmDelete(false);
+              }}
+              disabled={deleting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-all disabled:opacity-50"
+            >
+              {deleting ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Да, удалить всё
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+            >
+              Отмена
+            </button>
           </div>
         )}
       </div>

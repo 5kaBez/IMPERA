@@ -93,3 +93,46 @@ export const LESSON_TYPE_COLORS: Record<string, string> = {
   'Лабораторная': 'bg-orange-500/20 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300',
   'Другое': 'bg-gray-500/20 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
 };
+
+export interface Feedback {
+  id: number;
+  userId: number;
+  type: string;
+  message: string;
+  status: string;
+  reply?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    firstName: string;
+    lastName?: string;
+    username?: string;
+    telegramId?: string;
+    group?: { name: string; course: number; number: number };
+  };
+}
+
+export interface Teacher {
+  id: number;
+  name: string;
+  department?: string;
+  photoUrl?: string;
+  reviews: Review[];
+  avgRating: number;
+  reviewCount: number;
+}
+
+export interface Review {
+  id: number;
+  teacherId: number;
+  userId: number;
+  rating: number;
+  text?: string;
+  anonymous: boolean;
+  createdAt: string;
+  user?: {
+    firstName: string;
+    lastName?: string;
+    username?: string;
+  };
+}

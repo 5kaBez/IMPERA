@@ -75,17 +75,55 @@ model Lesson {
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  telegramId     String   @unique
+  id             Int        @id @default(autoincrement())
+  telegramId     String     @unique
   firstName      String
   lastName       String?
   username       String?
   photoUrl       String?
   groupId        Int?
-  group          Group?   @relation(fields: [groupId], references: [id])
-  role           String   @default("student") // student, admin
-  notifyBefore   Boolean  @default(true)
-  notifyChanges  Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  group          Group?     @relation(fields: [groupId], references: [id])
+  role           String     @default("student") // student, admin
+  notifyBefore   Boolean    @default(true)
+  notifyChanges  Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  feedbacks      Feedback[]
+  reviews        Review[]
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("suggestion") // suggestion, complaint, bug, other
+  message   String
+  status    String   @default("new") // new, read, resolved
+  reply     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Teacher {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  department String?
+  photoUrl   String?
+  reviews    Review[]
+  createdAt  DateTime @default(now())
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  teacherId Int
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int      // 1-5
+  text      String?
+  anonymous Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([teacherId])
+  @@unique([teacherId, userId])
 }

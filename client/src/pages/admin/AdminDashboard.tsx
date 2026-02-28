@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
-import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers } from 'lucide-react';
+import type { Feedback } from '../../types';
+import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Clock, Eye } from 'lucide-react';
 
 interface Stats {
   users: number;
@@ -12,6 +13,9 @@ interface Stats {
   programs: number;
   dau: number;
   mau: number;
+  notifyEnabled: number;
+  feedbackCount: number;
+  feedbackNew: number;
 }
 
 type Tab = 'dashboard' | 'analytics' | 'feedback';
@@ -94,7 +98,7 @@ function DashboardTab({ stats }: { stats: Stats }) {
       </div>
 
       {/* Users & Activity */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={Users}
           label="Всего пользователей"
@@ -113,7 +117,23 @@ function DashboardTab({ stats }: { stats: Stats }) {
           value={stats.mau}
           gradient="from-blue-500 to-indigo-600"
         />
+        <StatCard
+          icon={Bell}
+          label="Оповещения вкл."
+          value={stats.notifyEnabled}
+          color="orange"
+        />
       </div>
+
+      {/* Feedback summary */}
+      {stats.feedbackNew > 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center gap-3">
+          <MessageSquare className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            <b>{stats.feedbackNew}</b> новых обращений в разделе обратной связи
+          </p>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Быстрые действия</h2>
@@ -188,15 +208,128 @@ function AnalyticsTab({ stats }: { stats: Stats }) {
 }
 
 function FeedbackTab() {
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    setLoading(true);
+    api.get<{ items: Feedback[]; total: number }>(`/admin/feedback?limit=100&status=${filter}`)
+      .then(d => setFeedbacks(d.items))
+      .finally(() => setLoading(false));
+  }, [filter]);
+
+  const updateStatus = async (id: number, status: string) => {
+    await api.put(`/admin/feedback/${id}`, { status });
+    setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
+  };
+
+  const typeLabels: Record<string, string> = { suggestion: 'Предложение', complaint: 'Жалоба', bug: 'Баг', other: 'Другое' };
+  const typeColors: Record<string, string> = {
+    suggestion: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400',
+    complaint: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
+    bug: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
+    other: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+  };
+  const statusLabels: Record<string, string> = { new: 'Новое', read: 'Прочитано', resolved: 'Решено' };
+  const statusColors: Record<string, string> = {
+    new: 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400',
+    read: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400',
+    resolved: 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400',
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8 text-center">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-        <BookOpen className="w-8 h-8 text-indigo-500" />
+    <div>
+      {/* Filter */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[
+          { key: 'all', label: 'Все' },
+          { key: 'new', label: 'Новые' },
+          { key: 'read', label: 'Прочитано' },
+          { key: 'resolved', label: 'Решено' },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              filter === f.key
+                ? 'bg-indigo-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Обратная связь</h3>
-      <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Раздел обратной связи находится в разработке. Здесь будут отображаться отзывы и предложения пользователей.
-      </p>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : feedbacks.length === 0 ? (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8 text-center">
+          <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
+          <p className="text-gray-500">Обращений нет</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {feedbacks.map(fb => (
+            <div key={fb.id} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeColors[fb.type] || typeColors.other}`}>
+                    {typeLabels[fb.type] || fb.type}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColors[fb.status] || statusColors.new}`}>
+                    {statusLabels[fb.status] || fb.status}
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                  {new Date(fb.createdAt).toLocaleDateString('ru-RU')}
+                </span>
+              </div>
+
+              {/* User info */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[9px] font-bold">
+                  {fb.user?.firstName?.[0] || '?'}
+                </div>
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  {fb.user?.firstName} {fb.user?.lastName || ''} {fb.user?.username ? `(@${fb.user.username})` : ''}
+                </span>
+                {fb.user?.group && (
+                  <span className="text-[10px] text-gray-400">
+                    {fb.user.group.course}к {fb.user.group.number}гр
+                  </span>
+                )}
+              </div>
+
+              {/* Message */}
+              <p className="text-sm text-gray-900 dark:text-gray-100 mb-3 whitespace-pre-wrap">{fb.message}</p>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                {fb.status === 'new' && (
+                  <button
+                    onClick={() => updateStatus(fb.id, 'read')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all"
+                  >
+                    <Eye className="w-3 h-3" /> Прочитано
+                  </button>
+                )}
+                {fb.status !== 'resolved' && (
+                  <button
+                    onClick={() => updateStatus(fb.id, 'resolved')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-all"
+                  >
+                    <CheckCircle className="w-3 h-3" /> Решено
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

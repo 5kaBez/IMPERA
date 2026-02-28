@@ -9,6 +9,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminSchedule from './pages/admin/AdminSchedule';
 import AdminImport from './pages/admin/AdminImport';
 import AdminUsers from './pages/admin/AdminUsers';
+import FeedbackPage from './pages/FeedbackPage';
 
 function App() {
   const { user, loading } = useAuth();
@@ -38,6 +39,7 @@ function App() {
         <Route path="/" element={<SchedulePage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
         {user.role === 'admin' && (
           <>
             <Route path="/admin" element={<AdminDashboard />} />
