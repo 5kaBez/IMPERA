@@ -45,8 +45,25 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/teachers', teacherRoutes);
 
 // Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  let dbStatus = 'unknown';
+  let dbError = '';
+  let userCount = 0;
+  try {
+    userCount = await prisma.user.count();
+    dbStatus = 'connected';
+  } catch (e: any) {
+    dbStatus = 'error';
+    dbError = e?.message || String(e);
+  }
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    db: dbStatus,
+    dbError: dbError || undefined,
+    users: userCount,
+    hasDbUrl: !!process.env.DATABASE_URL,
+  });
 });
 
 // SPA fallback in production (Express v5 requires {*path} instead of *)
