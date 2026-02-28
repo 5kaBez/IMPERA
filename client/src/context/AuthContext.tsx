@@ -41,6 +41,13 @@ declare global {
   }
 }
 
+/** Detect Telegram WebApp: check initData OR initDataUnsafe.user */
+function detectTelegramWebApp(): boolean {
+  const wa = window.Telegram?.WebApp;
+  if (!wa) return false;
+  return !!wa.initData || !!wa.initDataUnsafe?.user;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -64,7 +71,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const isTelegramWebApp = !!window.Telegram?.WebApp?.initData;
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState(detectTelegramWebApp());
 
   useEffect(() => {
     // Initialize Telegram Web App
@@ -73,34 +80,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.Telegram.WebApp.expand();
     }
 
-    if (isTelegramWebApp) {
-      // Telegram Mini App — ALWAYS authenticate via initData
-      // This prevents stale token from a different TG account
+    const isTgApp = detectTelegramWebApp();
+    setIsTelegramWebApp(isTgApp);
+
+    if (isTgApp) {
+      // Telegram Mini App — authenticate via initData
       loginViaWebApp();
+    } else if (window.Telegram?.WebApp) {
+      // Telegram SDK loaded but initData empty — retry after short delay
+      // (Telegram Desktop sometimes injects initData late)
+      setTimeout(() => {
+        if (detectTelegramWebApp()) {
+          setIsTelegramWebApp(true);
+          loginViaWebApp();
+        } else {
+          // Still no initData — fall back to token-based auth
+          tryTokenAuth();
+        }
+      }, 500);
     } else {
-      // Regular browser — try existing token from localStorage
-      const token = api.getToken();
-      if (token) {
-        api.get<{ user: User }>('/auth/me')
-          .then(data => {
-            setUser(data.user);
-            setLoading(false);
-          })
-          .catch(() => {
-            api.setToken(null);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
+      // Regular browser — try token
+      tryTokenAuth();
     }
   }, []);
+
+  const tryTokenAuth = () => {
+    const token = api.getToken();
+    if (token) {
+      api.get<{ user: User }>('/auth/me')
+        .then(data => {
+          setUser(data.user);
+          setLoading(false);
+        })
+        .catch(() => {
+          api.setToken(null);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  };
 
   const loginViaWebApp = async () => {
     try {
       const initData = window.Telegram?.WebApp?.initData;
       if (!initData) {
-        setLoading(false);
+        // initData empty but user exists in initDataUnsafe — try token fallback
+        tryTokenAuth();
         return;
       }
 
@@ -109,6 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
     } catch (err) {
       console.error('WebApp auth failed:', err);
+      // Fallback to token
+      tryTokenAuth();
+      return;
     } finally {
       setLoading(false);
     }

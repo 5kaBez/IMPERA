@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Sun, Moon, GraduationCap, Zap, Shield, Clock } from 'lucide-react';
+import { Sun, Moon, GraduationCap, Zap, Shield, Clock, MessageCircle } from 'lucide-react';
+
+const IS_PRODUCTION = import.meta.env.PROD;
+const BOT_USERNAME = 'Imper4_bot';
 
 export default function LoginPage() {
   const { login, devLogin } = useAuth();
@@ -14,19 +17,6 @@ export default function LoginPage() {
     setError('');
     try {
       await devLogin(role === 'admin' ? 'Администратор' : 'Студент', role);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Telegram Login Widget callback
-  (window as any).onTelegramAuth = async (user: any) => {
-    setLoading(true);
-    setError('');
-    try {
-      await login(user);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -86,33 +76,53 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Telegram Login Placeholder */}
-            <div className="mb-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-center">
-              <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                Авторизация через Telegram
-              </p>
-              <p className="text-xs text-blue-500/70">
-                Добавьте BOT_TOKEN в .env для активации
-              </p>
-            </div>
-
-            {/* Dev login buttons */}
-            <div className="space-y-3">
-              <button
-                onClick={() => handleDevLogin('student')}
-                disabled={loading}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium hover:from-indigo-600 hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/25"
-              >
-                {loading ? 'Вход...' : 'Войти как студент'}
-              </button>
-              <button
-                onClick={() => handleDevLogin('admin')}
-                disabled={loading}
-                className="w-full py-3 px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50 border border-gray-200 dark:border-gray-700"
-              >
-                {loading ? 'Вход...' : 'Войти как администратор'}
-              </button>
-            </div>
+            {IS_PRODUCTION ? (
+              /* Production: open via Telegram bot */
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-center">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                    Откройте через Telegram
+                  </p>
+                  <p className="text-xs text-blue-500/70">
+                    Для входа используйте бота IMPERA в Telegram
+                  </p>
+                </div>
+                <a
+                  href={`https://t.me/${BOT_USERNAME}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium text-center hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg shadow-blue-500/25"
+                >
+                  Открыть бота @{BOT_USERNAME}
+                </a>
+              </div>
+            ) : (
+              /* Dev: test login buttons */
+              <>
+                <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-center">
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    🛠 Режим разработки — тестовый вход
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleDevLogin('student')}
+                    disabled={loading}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium hover:from-indigo-600 hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/25"
+                  >
+                    {loading ? 'Вход...' : 'Войти как студент'}
+                  </button>
+                  <button
+                    onClick={() => handleDevLogin('admin')}
+                    disabled={loading}
+                    className="w-full py-3 px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50 border border-gray-200 dark:border-gray-700"
+                  >
+                    {loading ? 'Вход...' : 'Войти как администратор'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">
