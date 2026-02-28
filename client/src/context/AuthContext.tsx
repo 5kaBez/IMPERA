@@ -78,7 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       // Try existing token
       api.get<{ user: User }>('/auth/me')
-        .then(data => setUser(data.user))
+        .then(data => {
+          setUser(data.user);
+          setLoading(false);
+        })
         .catch(() => {
           api.setToken(null);
           // If in Telegram WebApp, try auto-login
@@ -87,9 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setLoading(false);
           }
-        })
-        .finally(() => {
-          if (!isTelegramWebApp) setLoading(false);
         });
     } else if (isTelegramWebApp) {
       // Auto-login via Telegram WebApp
