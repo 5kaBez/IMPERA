@@ -181,6 +181,61 @@ router.post('/webapp', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/auth/webapp-user — fallback auth for Telegram Desktop (initDataUnsafe)
+// Used when initData is empty but WebApp context has user info
+router.post('/webapp-user', async (req: Request, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const { user: telegramUser } = req.body;
+
+    if (!telegramUser?.id) {
+      res.status(400).json({ error: 'Данные пользователя отсутствуют' });
+      return;
+    }
+
+    // Find or create user
+    let user = await prisma.user.upsert({
+      where: { telegramId: String(telegramUser.id) },
+      update: {
+        firstName: telegramUser.first_name || 'User',
+        lastName: telegramUser.last_name || undefined,
+        username: telegramUser.username || undefined,
+        photoUrl: telegramUser.photo_url || undefined,
+      },
+      create: {
+        telegramId: String(telegramUser.id),
+        firstName: telegramUser.first_name || 'User',
+        lastName: telegramUser.last_name || null,
+        username: telegramUser.username || null,
+        photoUrl: telegramUser.photo_url || null,
+      },
+      include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+    });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        telegramId: user.telegramId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        photoUrl: user.photoUrl,
+        role: user.role,
+        groupId: user.groupId,
+        group: user.group,
+        notifyBefore: user.notifyBefore,
+        notifyChanges: user.notifyChanges,
+      }
+    });
+  } catch (err) {
+    console.error('WebApp-user auth error:', err);
+    res.status(500).json({ error: 'Ошибка авторизации' });
+  }
+});
+
 // Dev-only: login without Telegram
 router.post('/dev-login', async (req: Request, res: Response) => {
   if (process.env.NODE_ENV === 'production') {

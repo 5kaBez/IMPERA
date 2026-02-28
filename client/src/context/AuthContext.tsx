@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initAuth = async () => {
-    // Step 1: If initData available (Telegram Mobile) — use it, most reliable
+    // Step 1: If initData available (Telegram Mobile) — hash-verified, most reliable
     if (window.Telegram?.WebApp?.initData) {
       try {
         const data = await api.post<{ token: string; user: User }>('/auth/webapp', {
@@ -77,12 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       } catch (err) {
-        console.error('WebApp auth failed:', err);
-        // Fall through to token auth
+        console.error('WebApp initData auth failed:', err);
       }
     }
 
-    // Step 2: Try existing token (Telegram Desktop, regular browser)
+    // Step 2: Try existing token (works for any context with saved session)
     const token = api.getToken();
     if (token) {
       try {
@@ -95,7 +94,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Step 3: Nothing worked — show login page
+    // Step 3: Telegram Desktop fallback — initData empty but initDataUnsafe.user available
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tgUser) {
+      try {
+        const data = await api.post<{ token: string; user: User }>('/auth/webapp-user', {
+          user: tgUser,
+        });
+        api.setToken(data.token);
+        setUser(data.user);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.error('WebApp-user auth failed:', err);
+      }
+    }
+
+    // Step 4: Not in Telegram context at all — show login page
     setLoading(false);
   };
 
