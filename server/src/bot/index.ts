@@ -232,8 +232,21 @@ export async function startBot(prisma: PrismaClient) {
       console.log('⚠️  Could not set menu button (need valid HTTPS URL)');
     }
 
-    bot.start();
-    console.log('🤖 Telegram bot started successfully');
+    // Start polling with conflict handling (during Render redeploys)
+    const startPolling = (attempt = 1) => {
+      bot!.start({
+        drop_pending_updates: true,
+        onStart: () => console.log('🤖 Telegram bot started successfully'),
+      }).catch((err: any) => {
+        if (err?.error_code === 409 && attempt <= 5) {
+          console.log(`⚠️ Bot conflict (attempt ${attempt}/5), retrying in ${attempt * 3}s...`);
+          setTimeout(() => startPolling(attempt + 1), attempt * 3000);
+        } else {
+          console.error('Bot polling error:', err.message || err);
+        }
+      });
+    };
+    startPolling();
   } catch (err) {
     console.error('Failed to start bot:', err);
   }
