@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import { execSync } from 'child_process';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import scheduleRoutes from './routes/schedule';
@@ -14,6 +15,19 @@ import teacherRoutes from './routes/teachers';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
+
+// Ensure database tables exist on startup
+try {
+  console.log('📦 Syncing database schema...');
+  execSync('npx prisma db push --skip-generate --accept-data-loss', {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'inherit',
+    timeout: 30000,
+  });
+  console.log('✅ Database schema synced');
+} catch (e) {
+  console.error('⚠️ Schema sync failed (will retry):', e instanceof Error ? e.message : e);
+}
 
 const app = express();
 const prisma = new PrismaClient();
