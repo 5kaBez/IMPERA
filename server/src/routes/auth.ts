@@ -233,9 +233,9 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
         notifyChanges: user.notifyChanges,
       }
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('WebApp-user auth error:', err);
-    res.status(500).json({ error: 'Ошибка авторизации' });
+    res.status(500).json({ error: 'Ошибка авторизации', debug: err?.message || String(err) });
   }
 });
 
