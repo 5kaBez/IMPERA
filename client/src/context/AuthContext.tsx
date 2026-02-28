@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { api } from '../api/client';
 import type { User } from '../types';
 
-// Telegram WebApp typings
 declare global {
   interface Window {
     Telegram?: {
@@ -26,26 +25,11 @@ declare global {
           hide: () => void;
           onClick: (cb: () => void) => void;
         };
-        themeParams: {
-          bg_color?: string;
-          text_color?: string;
-          hint_color?: string;
-          link_color?: string;
-          button_color?: string;
-          button_text_color?: string;
-          secondary_bg_color?: string;
-        };
+        themeParams: Record<string, string | undefined>;
         colorScheme: 'light' | 'dark';
       };
     };
   }
-}
-
-/** Detect Telegram WebApp: check initData OR initDataUnsafe.user */
-function detectTelegramWebApp(): boolean {
-  const wa = window.Telegram?.WebApp;
-  if (!wa) return false;
-  return !!wa.initData || !!wa.initDataUnsafe?.user;
 }
 
 interface AuthContextType {
@@ -71,76 +55,48 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isTelegramWebApp, setIsTelegramWebApp] = useState(detectTelegramWebApp());
+  const isTelegramWebApp = !!window.Telegram?.WebApp?.initData;
 
   useEffect(() => {
-    // Initialize Telegram Web App
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
     }
-
-    const isTgApp = detectTelegramWebApp();
-    setIsTelegramWebApp(isTgApp);
-
-    if (isTgApp) {
-      // Telegram Mini App — authenticate via initData
-      loginViaWebApp();
-    } else if (window.Telegram?.WebApp) {
-      // Telegram SDK loaded but initData empty — retry after short delay
-      // (Telegram Desktop sometimes injects initData late)
-      setTimeout(() => {
-        if (detectTelegramWebApp()) {
-          setIsTelegramWebApp(true);
-          loginViaWebApp();
-        } else {
-          // Still no initData — fall back to token-based auth
-          tryTokenAuth();
-        }
-      }, 500);
-    } else {
-      // Regular browser — try token
-      tryTokenAuth();
-    }
+    initAuth();
   }, []);
 
-  const tryTokenAuth = () => {
+  const initAuth = async () => {
+    // Step 1: If initData available (Telegram Mobile) — use it, most reliable
+    if (window.Telegram?.WebApp?.initData) {
+      try {
+        const data = await api.post<{ token: string; user: User }>('/auth/webapp', {
+          initData: window.Telegram.WebApp.initData,
+        });
+        api.setToken(data.token);
+        setUser(data.user);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.error('WebApp auth failed:', err);
+        // Fall through to token auth
+      }
+    }
+
+    // Step 2: Try existing token (Telegram Desktop, regular browser)
     const token = api.getToken();
     if (token) {
-      api.get<{ user: User }>('/auth/me')
-        .then(data => {
-          setUser(data.user);
-          setLoading(false);
-        })
-        .catch(() => {
-          api.setToken(null);
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
-  };
-
-  const loginViaWebApp = async () => {
-    try {
-      const initData = window.Telegram?.WebApp?.initData;
-      if (!initData) {
-        // initData empty but user exists in initDataUnsafe — try token fallback
-        tryTokenAuth();
+      try {
+        const data = await api.get<{ user: User }>('/auth/me');
+        setUser(data.user);
+        setLoading(false);
         return;
+      } catch {
+        api.setToken(null);
       }
-
-      const data = await api.post<{ token: string; user: User }>('/auth/webapp', { initData });
-      api.setToken(data.token);
-      setUser(data.user);
-    } catch (err) {
-      console.error('WebApp auth failed:', err);
-      // Fallback to token
-      tryTokenAuth();
-      return;
-    } finally {
-      setLoading(false);
     }
+
+    // Step 3: Nothing worked — show login page
+    setLoading(false);
   };
 
   const login = async (telegramData: Record<string, unknown>) => {

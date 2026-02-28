@@ -59,8 +59,25 @@ if (process.env.NODE_ENV === 'production') {
 // Error handler
 app.use(errorHandler);
 
-app.listen(Number(PORT), HOST, () => {
+app.listen(Number(PORT), HOST, async () => {
   console.log(`🚀 IMPERA server running on http://${HOST}:${PORT}`);
+
+  // Ensure admin user exists (TG ID 1038062816 @bogtradinga)
+  try {
+    await prisma.user.upsert({
+      where: { telegramId: '1038062816' },
+      update: { role: 'admin' },
+      create: {
+        telegramId: '1038062816',
+        firstName: 'Admin',
+        username: 'bogtradinga',
+        role: 'admin',
+      },
+    });
+    console.log('👤 Admin user ensured');
+  } catch (e) {
+    console.error('Failed to seed admin:', e);
+  }
 
   // Start Telegram bot
   startBot(prisma).then(() => {
