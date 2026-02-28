@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
-import type { Feedback } from '../../types';
-import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Clock, Eye } from 'lucide-react';
+import type { Feedback, Teacher } from '../../types';
+import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Clock, Eye, Star } from 'lucide-react';
 
 interface Stats {
   users: number;
@@ -18,7 +18,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback';
+type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -50,6 +50,7 @@ export default function AdminDashboard() {
           { key: 'dashboard', label: 'Дашборд' },
           { key: 'analytics', label: 'Аналитика' },
           { key: 'feedback', label: 'Обратная связь' },
+          { key: 'teachers', label: 'Преподаватели' },
         ] as const).map(t => (
           <button
             key={t.key}
@@ -68,6 +69,7 @@ export default function AdminDashboard() {
       {tab === 'dashboard' && stats && <DashboardTab stats={stats} />}
       {tab === 'analytics' && stats && <AnalyticsTab stats={stats} />}
       {tab === 'feedback' && <FeedbackTab />}
+      {tab === 'teachers' && <TeachersTab />}
     </div>
   );
 }
@@ -330,6 +332,131 @@ function FeedbackTab() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function TeachersTab() {
+  const [teachers, setTeachers] = useState<(Teacher & { avgRating: number; reviewCount: number })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.get<(Teacher & { avgRating: number; reviewCount: number })[]>('/admin/teachers')
+      .then(setTeachers)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (teachers.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-8 text-center">
+        <GraduationCap className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
+        <p className="text-gray-500">Преподаватели ещё не добавлены</p>
+        <p className="text-xs text-gray-400 mt-1">Они появятся когда студенты оставят первый отзыв</p>
+      </div>
+    );
+  }
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map(i => (
+          <Star key={i} className={`w-3.5 h-3.5 ${i <= Math.round(rating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`} />
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{teachers.length}</p>
+          <p className="text-xs text-gray-500">Преподавателей</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {teachers.reduce((s, t) => s + t.reviewCount, 0)}
+          </p>
+          <p className="text-xs text-gray-500">Отзывов всего</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+          <p className="text-2xl font-bold text-amber-500">
+            {teachers.length > 0
+              ? (teachers.reduce((s, t) => s + t.avgRating, 0) / teachers.filter(t => t.avgRating > 0).length || 0).toFixed(1)
+              : '—'}
+          </p>
+          <p className="text-xs text-gray-500">Средняя оценка</p>
+        </div>
+      </div>
+
+      {/* Teachers list */}
+      <div className="space-y-3">
+        {teachers.sort((a, b) => b.reviewCount - a.reviewCount).map(teacher => (
+          <div key={teacher.id} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <button
+              onClick={() => setExpanded(expanded === teacher.id ? null : teacher.id)}
+              className="w-full p-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all"
+            >
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {teacher.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{teacher.name}</p>
+                {teacher.department && (
+                  <p className="text-xs text-gray-400 truncate">{teacher.department}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {renderStars(teacher.avgRating)}
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{teacher.avgRating.toFixed(1)}</span>
+                <span className="text-xs text-gray-400">({teacher.reviewCount})</span>
+              </div>
+            </button>
+
+            {/* Expanded reviews */}
+            {expanded === teacher.id && teacher.reviews.length > 0 && (
+              <div className="border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
+                <p className="text-xs font-semibold text-gray-500 mt-3 mb-2">Отзывы:</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {teacher.reviews.map(review => (
+                    <div key={review.id} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          {renderStars(review.rating)}
+                          {!review.anonymous && review.user && (
+                            <span className="text-xs text-gray-500">
+                              {review.user.firstName} {review.user.lastName || ''}
+                            </span>
+                          )}
+                          {review.anonymous && (
+                            <span className="text-xs text-gray-400 italic">Анонимно</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(review.createdAt).toLocaleDateString('ru-RU')}
+                        </span>
+                      </div>
+                      {review.text && (
+                        <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">{review.text}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -113,14 +113,29 @@ router.delete('/lessons/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// DELETE /api/admin/schedule/all — delete ALL schedule data
+// DELETE /api/admin/schedule/all — delete ALL schedule + structure data
 router.delete('/schedule/all', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   try {
-    const deleted = await prisma.lesson.deleteMany({});
-    // Also clean up empty structural data
-    await prisma.group.deleteMany({ where: { lessons: { none: {} }, users: { none: {} } } });
-    res.json({ success: true, deleted: deleted.count });
+    // Delete in correct order (bottom-up due to foreign keys)
+    const lessons = await prisma.lesson.deleteMany({});
+    // Detach users from groups (keep users, just unlink)
+    await prisma.user.updateMany({ where: { groupId: { not: null } }, data: { groupId: null } });
+    const groups = await prisma.group.deleteMany({});
+    const programs = await prisma.program.deleteMany({});
+    const directions = await prisma.direction.deleteMany({});
+    const institutes = await prisma.institute.deleteMany({});
+    res.json({
+      success: true,
+      deleted: lessons.count,
+      details: {
+        lessons: lessons.count,
+        groups: groups.count,
+        programs: programs.count,
+        directions: directions.count,
+        institutes: institutes.count,
+      }
+    });
   } catch (err: any) {
     console.error('Delete schedule error:', err);
     res.status(500).json({ error: 'Ошибка удаления расписания' });
@@ -163,6 +178,32 @@ router.put('/feedback/:id', async (req: Request, res: Response) => {
     data: { ...(status && { status }), ...(reply !== undefined && { reply }) },
   });
   res.json(feedback);
+});
+
+// Teachers list with reviews
+router.get('/teachers', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const teachers = await prisma.teacher.findMany({
+    include: {
+      reviews: {
+        include: {
+          user: { select: { firstName: true, lastName: true, username: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const result = teachers.map(t => ({
+    ...t,
+    avgRating: t.reviews.length > 0
+      ? Math.round(t.reviews.reduce((s, r) => s + r.rating, 0) / t.reviews.length * 10) / 10
+      : 0,
+    reviewCount: t.reviews.length,
+  }));
+
+  res.json(result);
 });
 
 // Users list

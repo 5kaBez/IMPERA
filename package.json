@@ -7,7 +7,7 @@
     "dev:client": "cd client && npm run dev",
     "dev:server": "cd server && npm run dev",
     "build": "cd client && npm run build",
-    "build:all": "cd client && npm install && npm run build && cd ../server && npm install && npx prisma generate",
+    "build:all": "cd client && npm install && npm run build && cd ../server && npm install && npx prisma generate && npx prisma db push --accept-data-loss",
     "start": "cd server && npx tsx src/index.ts",
     "install:all": "npm install && cd client && npm install && cd ../server && npm install"
   },

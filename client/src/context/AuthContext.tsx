@@ -73,29 +73,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.Telegram.WebApp.expand();
     }
 
-    const token = api.getToken();
-
-    if (token) {
-      // Try existing token
-      api.get<{ user: User }>('/auth/me')
-        .then(data => {
-          setUser(data.user);
-          setLoading(false);
-        })
-        .catch(() => {
-          api.setToken(null);
-          // If in Telegram WebApp, try auto-login
-          if (isTelegramWebApp) {
-            loginViaWebApp();
-          } else {
-            setLoading(false);
-          }
-        });
-    } else if (isTelegramWebApp) {
-      // Auto-login via Telegram WebApp
+    if (isTelegramWebApp) {
+      // Telegram Mini App — ALWAYS authenticate via initData
+      // This prevents stale token from a different TG account
       loginViaWebApp();
     } else {
-      setLoading(false);
+      // Regular browser — try existing token from localStorage
+      const token = api.getToken();
+      if (token) {
+        api.get<{ user: User }>('/auth/me')
+          .then(data => {
+            setUser(data.user);
+            setLoading(false);
+          })
+          .catch(() => {
+            api.setToken(null);
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -136,7 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     api.setToken(null);
     setUser(null);
-    // Close Telegram WebApp if running inside it
     if (isTelegramWebApp) {
       window.Telegram?.WebApp?.close();
     }

@@ -23,3 +23,11 @@ Thumbs.db
 
 # Temp
 *.tmp
+
+# SQLite database (now using PostgreSQL)
+server/prisma/dev.db
+server/prisma/dev.db-journal
+
+# Prisma temp
+server/prisma/cleanup.ts
+server/prisma/seed-admin.ts

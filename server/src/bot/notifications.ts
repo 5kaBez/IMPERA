@@ -1,10 +1,10 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { sendMessage } from './index';
-import { getSemesterWeekNumber, getSemesterWeekParity, getDayOfWeek } from './scheduleUtils';
+import { getSemesterWeekNumber, getSemesterWeekParity, getDayOfWeek, getMoscowDate } from './scheduleUtils';
 
 export function startNotifications(prisma: PrismaClient) {
-  // Проверяем каждую минуту
+  // Check every minute
   cron.schedule('* * * * *', async () => {
     try {
       await checkAndNotify(prisma);
@@ -17,20 +17,26 @@ export function startNotifications(prisma: PrismaClient) {
 }
 
 async function checkAndNotify(prisma: PrismaClient) {
-  const now = new Date();
-  const dayOfWeek = getDayOfWeek(now);
+  // Use Moscow time for all calculations
+  const msk = getMoscowDate();
+  const dayOfWeek = getDayOfWeek(msk);
   const weekNum = getSemesterWeekNumber();
   const parity = getSemesterWeekParity();
 
-  // Рассчитываем время через 15 минут
-  const in15min = new Date(now.getTime() + 15 * 60 * 1000);
+  const mskHours = msk.getHours();
+  const mskMinutes = msk.getMinutes();
+
+  // Calculate time 15 minutes from now (in MSK)
+  const in15min = new Date(msk.getTime() + 15 * 60 * 1000);
   const targetHours = in15min.getHours();
   const targetMinutes = in15min.getMinutes();
 
-  // Форматируем время для поиска — ищем пары, начинающиеся в HH:MM
+  // Format time for lesson lookup — e.g. "09:00"
   const timeTarget = `${targetHours.toString().padStart(2, '0')}:${targetMinutes.toString().padStart(2, '0')}`;
 
-  // Находим все пары, которые начинаются через 15 минут
+  console.log(`[Notify] MSK ${mskHours}:${mskMinutes.toString().padStart(2, '0')} | day=${dayOfWeek} week=${weekNum} parity=${parity} | checking for lessons at ${timeTarget}`);
+
+  // Find lessons starting in 15 minutes
   const lessons = await prisma.lesson.findMany({
     where: {
       dayOfWeek,
@@ -50,7 +56,7 @@ async function checkAndNotify(prisma: PrismaClient) {
     },
   });
 
-  // Отправляем уведомления
+  // Send 15-min pre-class notifications
   for (const lesson of lessons) {
     const users = lesson.group.users;
     if (users.length === 0) continue;
@@ -67,19 +73,26 @@ async function checkAndNotify(prisma: PrismaClient) {
     if (lesson.teacher) text += `👤 ${escMd(lesson.teacher)}\n`;
     if (lesson.room) text += `📍 Ауд\\. ${escMd(lesson.room)}\n`;
 
+    console.log(`[Notify] Sending 15-min alert for "${lesson.subject}" to ${users.length} users`);
+
     for (const user of users) {
-      await sendMessage(user.telegramId, text, 'MarkdownV2');
+      try {
+        await sendMessage(user.telegramId, text, 'MarkdownV2');
+      } catch (e) {
+        console.error(`Failed to notify user ${user.telegramId}:`, e);
+      }
     }
   }
 
-  // Утреннее уведомление — расписание на день (в 7:30)
-  if (now.getHours() === 7 && now.getMinutes() === 30) {
+  // Morning schedule notification at 7:30 MSK
+  if (mskHours === 7 && mskMinutes === 30) {
+    console.log('[Notify] Sending morning schedule...');
     await sendDailySchedule(prisma, dayOfWeek, weekNum, parity);
   }
 }
 
 async function sendDailySchedule(prisma: PrismaClient, dayOfWeek: number, weekNum: number, parity: number) {
-  // Воскресенье — не отправляем
+  // Sunday — skip
   if (dayOfWeek === 7) return;
 
   const DAY_NAMES: Record<number, string> = {
@@ -87,7 +100,7 @@ async function sendDailySchedule(prisma: PrismaClient, dayOfWeek: number, weekNu
     5: 'Пятница', 6: 'Суббота', 7: 'Воскресенье',
   };
 
-  // Получаем всех пользователей с уведомлениями
+  // Get all users with notifications enabled
   const users = await prisma.user.findMany({
     where: {
       notifyBefore: true,
@@ -96,7 +109,7 @@ async function sendDailySchedule(prisma: PrismaClient, dayOfWeek: number, weekNu
     include: { group: true },
   });
 
-  // Группируем по groupId
+  // Group by groupId
   const groupMap = new Map<number, typeof users>();
   for (const user of users) {
     const gid = user.groupId!;
@@ -136,7 +149,11 @@ async function sendDailySchedule(prisma: PrismaClient, dayOfWeek: number, weekNu
     text += `\nХорошего дня\\! 💪`;
 
     for (const user of groupUsers) {
-      await sendMessage(user.telegramId, text, 'MarkdownV2');
+      try {
+        await sendMessage(user.telegramId, text, 'MarkdownV2');
+      } catch (e) {
+        console.error(`Failed to send daily to ${user.telegramId}:`, e);
+      }
     }
   }
 }
