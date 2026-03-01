@@ -158,6 +158,45 @@ export interface SportSlot {
   capacity?: number;
 }
 
+export interface SportProgress {
+  confirmed: number;
+  pending: number;
+  rejected: number;
+  total: number;
+  required: number;
+  percentage: number;
+  completed: boolean;
+}
+
+export interface SportAttendanceRecord {
+  id: number;
+  section: string;
+  sectionEmoji?: string;
+  teacher: string;
+  status: 'pending' | 'confirmed' | 'rejected';
+  checkedInAt: string;
+  confirmedAt?: string;
+}
+
+export interface SportSessionInfo {
+  sessionId: number;
+  section: string;
+  sectionEmoji?: string;
+  code: string;
+  ttl: number;
+  status: string;
+  startedAt: string;
+  students: Array<{
+    id: number;
+    firstName: string;
+    lastName?: string;
+    username?: string;
+    status: string;
+    checkedInAt: string;
+  }>;
+  studentCount: number;
+}
+
 export const SPORT_EMOJIS: Record<string, string> = {
   'Атлетизм': '🏋️',
   'Аэробика': '💃',

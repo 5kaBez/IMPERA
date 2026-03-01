@@ -90,7 +90,10 @@ model User {
   updatedAt      DateTime   @updatedAt
   feedbacks       Feedback[]
   reviews         Review[]
-  sportFavorites  SportFavorite[]
+  sportFavorites    SportFavorite[]
+  sportTeaching     SportTeacher[]     // Секции, где юзер — преподаватель физры
+  sportSessions     SportSession[]     @relation("SessionTeacher")
+  sportAttendances  SportAttendance[]  @relation("AttendanceStudent")
 }
 
 model Feedback {
@@ -136,6 +139,8 @@ model SportSection {
   emoji     String?     // 🏋️, 💃, 🏀, etc.
   slots     SportSlot[]
   favorites SportFavorite[]
+  teachers  SportTeacher[]
+  sessions  SportSession[]
   createdAt DateTime    @default(now())
 }
 
@@ -149,6 +154,7 @@ model SportSlot {
   teacher    String
   location   String?      // Спортзал, Бассейн, etc.
   capacity   Int?         // Максимум студентов (опционально)
+  sessions   SportSession[]
   createdAt  DateTime     @default(now())
 
   @@index([sectionId, dayOfWeek])
@@ -164,4 +170,54 @@ model SportFavorite {
   createdAt DateTime     @default(now())
 
   @@unique([userId, sectionId])
+}
+
+// ===== Антифрод-система посещений =====
+
+// Связь «преподаватель физры ↔ секция» (один юзер может вести несколько секций)
+model SportTeacher {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionId Int
+  section   SportSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, sectionId])
+}
+
+// Сессия занятия — преподаватель «открывает пару»
+model SportSession {
+  id          Int              @id @default(autoincrement())
+  sectionId   Int
+  section     SportSection     @relation(fields: [sectionId], references: [id])
+  slotId      Int?
+  slot        SportSlot?       @relation(fields: [slotId], references: [id])
+  teacherId   Int
+  teacher     User             @relation("SessionTeacher", fields: [teacherId], references: [id])
+  status      String           @default("active") // active, completed, cancelled
+  secretSeed  String           // Секрет для генерации ротирующих кодов (HMAC)
+  startedAt   DateTime         @default(now())
+  endedAt     DateTime?
+  attendances SportAttendance[]
+
+  @@index([status, startedAt])
+  @@index([teacherId])
+}
+
+// Посещение студента с хеш-цепочкой (tamper-proof)
+model SportAttendance {
+  id          Int          @id @default(autoincrement())
+  sessionId   Int
+  session     SportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId   Int
+  student     User         @relation("AttendanceStudent", fields: [studentId], references: [id])
+  status      String       @default("pending") // pending → confirmed / rejected
+  checkedInAt DateTime     @default(now())
+  confirmedAt DateTime?
+  hash        String       // SHA256(studentId:sessionId:timestamp:prevHash)
+  prevHash    String?      // Хеш предыдущей записи этого студента
+
+  @@unique([sessionId, studentId]) // Один студент — одна отметка за сессию
+  @@index([studentId, checkedInAt])
 }
