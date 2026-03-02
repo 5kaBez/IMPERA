@@ -4,8 +4,8 @@ import { sendMessage } from './index';
 import { getSemesterWeekNumber, getSemesterWeekParity, getDayOfWeek, getMoscowDate } from './scheduleUtils';
 
 export function startNotifications(prisma: PrismaClient) {
-  // Check every minute
-  cron.schedule('* * * * *', async () => {
+  // Check every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
     try {
       await checkAndNotify(prisma);
     } catch (err) {
