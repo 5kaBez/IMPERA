@@ -165,9 +165,14 @@ export default function SelectGroupPage() {
             </div>
           )}
 
-          <button onClick={logout} className="mt-8 text-sm text-gray-400 hover:text-red-500 mx-auto block transition-colors">
-            Выйти
-          </button>
+          <div className="flex items-center justify-center gap-4 mt-8">
+            <button onClick={() => { localStorage.setItem('impera_skip_group', '1'); updateUser({ ...user!, groupId: -1 } as any); }} className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors">
+              Пропустить →
+            </button>
+            <button onClick={logout} className="text-sm text-gray-400 hover:text-red-500 transition-colors">
+              Выйти
+            </button>
+          </div>
         </div>
       </div>
     </div>

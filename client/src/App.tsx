@@ -30,7 +30,7 @@ function App() {
     return <LoginPage />;
   }
 
-  if (!user.groupId && user.role !== 'admin') {
+  if (!user.groupId && user.role !== 'admin' && !user.isSportTeacher && !localStorage.getItem('impera_skip_group')) {
     return <SelectGroupPage />;
   }
 

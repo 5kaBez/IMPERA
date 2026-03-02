@@ -63,20 +63,23 @@ router.post('/telegram', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const enriched = await enrichUserWithSportInfo(prisma, user);
 
     res.json({
       token,
       user: {
-        id: user.id,
-        telegramId: user.telegramId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        photoUrl: user.photoUrl,
-        role: user.role,
-        group: user.group,
-        notifyBefore: user.notifyBefore,
-        notifyChanges: user.notifyChanges,
+        id: enriched.id,
+        telegramId: enriched.telegramId,
+        firstName: enriched.firstName,
+        lastName: enriched.lastName,
+        username: enriched.username,
+        photoUrl: enriched.photoUrl,
+        role: enriched.role,
+        group: enriched.group,
+        notifyBefore: enriched.notifyBefore,
+        notifyChanges: enriched.notifyChanges,
+        isSportTeacher: enriched.isSportTeacher,
+        teachingSections: enriched.teachingSections,
       }
     });
   } catch (err) {
@@ -158,21 +161,24 @@ router.post('/webapp', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const enriched = await enrichUserWithSportInfo(prisma, user);
 
     res.json({
       token,
       user: {
-        id: user.id,
-        telegramId: user.telegramId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        photoUrl: user.photoUrl,
-        role: user.role,
-        groupId: user.groupId,
-        group: user.group,
-        notifyBefore: user.notifyBefore,
-        notifyChanges: user.notifyChanges,
+        id: enriched.id,
+        telegramId: enriched.telegramId,
+        firstName: enriched.firstName,
+        lastName: enriched.lastName,
+        username: enriched.username,
+        photoUrl: enriched.photoUrl,
+        role: enriched.role,
+        groupId: enriched.groupId,
+        group: enriched.group,
+        notifyBefore: enriched.notifyBefore,
+        notifyChanges: enriched.notifyChanges,
+        isSportTeacher: enriched.isSportTeacher,
+        teachingSections: enriched.teachingSections,
       }
     });
   } catch (err) {
@@ -216,21 +222,24 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const enriched = await enrichUserWithSportInfo(prisma, user);
 
     res.json({
       token,
       user: {
-        id: user.id,
-        telegramId: user.telegramId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        photoUrl: user.photoUrl,
-        role: user.role,
-        groupId: user.groupId,
-        group: user.group,
-        notifyBefore: user.notifyBefore,
-        notifyChanges: user.notifyChanges,
+        id: enriched.id,
+        telegramId: enriched.telegramId,
+        firstName: enriched.firstName,
+        lastName: enriched.lastName,
+        username: enriched.username,
+        photoUrl: enriched.photoUrl,
+        role: enriched.role,
+        groupId: enriched.groupId,
+        group: enriched.group,
+        notifyBefore: enriched.notifyBefore,
+        notifyChanges: enriched.notifyChanges,
+        isSportTeacher: enriched.isSportTeacher,
+        teachingSections: enriched.teachingSections,
       }
     });
   } catch (err: any) {
@@ -238,6 +247,50 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Ошибка авторизации', debug: err?.message || String(err) });
   }
 });
+
+// Helper: enrich user object with sport teacher info
+// Auto-detects teachers by matching lastName to SportSlot.teacher field
+async function enrichUserWithSportInfo(prisma: PrismaClient, user: any) {
+  let teachingSections = await prisma.sportTeacher.findMany({
+    where: { userId: user.id },
+    include: { section: { select: { id: true, name: true, emoji: true } } },
+  });
+
+  // Auto-detect: if user's lastName matches a teacher name in sport slots, auto-assign
+  // Teacher names in slots are formatted as "Фамилия И.О." (e.g. "Дзигуа Д.В.")
+  if (teachingSections.length === 0) {
+    const lastName = user.lastName || user.firstName;
+    if (lastName && lastName.length >= 3) {
+      const matchingSlots = await prisma.sportSlot.findMany({
+        where: { teacher: { startsWith: lastName } },
+        select: { sectionId: true },
+        distinct: ['sectionId'],
+      });
+
+      if (matchingSlots.length > 0) {
+        for (const slot of matchingSlots) {
+          await prisma.sportTeacher.upsert({
+            where: { userId_sectionId: { userId: user.id, sectionId: slot.sectionId } },
+            update: {},
+            create: { userId: user.id, sectionId: slot.sectionId },
+          });
+        }
+        console.log(`🏋️ Auto-assigned teacher "${lastName}" (userId=${user.id}) to ${matchingSlots.length} sections`);
+        // Re-fetch
+        teachingSections = await prisma.sportTeacher.findMany({
+          where: { userId: user.id },
+          include: { section: { select: { id: true, name: true, emoji: true } } },
+        });
+      }
+    }
+  }
+
+  return {
+    ...user,
+    isSportTeacher: teachingSections.length > 0,
+    teachingSections: teachingSections.map(t => t.section),
+  };
+}
 
 // Dev-only: login without Telegram
 router.post('/dev-login', async (req: Request, res: Response) => {
@@ -265,8 +318,9 @@ router.post('/dev-login', async (req: Request, res: Response) => {
     });
   }
 
+  const enriched = await enrichUserWithSportInfo(prisma, user);
   const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user });
+  res.json({ token, user: enriched });
 });
 
 // GET /api/auth/me — current user
@@ -283,7 +337,8 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    res.json({ user });
+    const enriched = await enrichUserWithSportInfo(prisma, user);
+    res.json({ user: enriched });
   } catch (err) {
     console.error('Me error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

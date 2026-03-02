@@ -1,69 +1,67 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import type { SportSection, SportSlot, SportProgress, SportAttendanceRecord, SportSessionInfo } from '../types';
+import type {
+  SportSection, SportSlot, SportProgress, SportAttendanceRecord,
+  SportSessionInfo, SportEnrollment, SportActiveSession,
+} from '../types';
 import { DAY_NAMES_SHORT, SPORT_EMOJIS } from '../types';
 import {
-  Heart, Clock, MapPin, User, Filter, ChevronDown, ChevronUp, Star,
-  QrCode, CheckCircle2, XCircle, Timer, Play, Square, Users, Shield, Hash,
+  Heart, Clock, MapPin, User, ChevronDown, ChevronUp, Star,
+  CheckCircle2, XCircle, Timer, Play, Square, Users, Shield,
+  Navigation, Fingerprint, Link2, AlertTriangle, Calendar,
+  BarChart3, Search, Dumbbell, LogOut, Filter, Grid3X3,
 } from 'lucide-react';
-
-type ViewMode = 'sections' | 'schedule' | 'attendance';
 
 const TIME_SLOTS = ['09:00', '10:40', '12:55', '14:35', '16:15', '17:55'];
 const DAYS = [1, 2, 3, 5, 6];
 
+/* ==========================================================
+   MAIN PAGE — роутер по роли
+   ========================================================== */
 export default function SportsPage() {
   const { user } = useAuth();
-  const [view, setView] = useState<ViewMode>('attendance');
+
+  if (user?.role === 'admin') return <AdminSportsView />;
+  if (user?.isSportTeacher) return <TeacherSportsView />;
+  return <StudentSportsView />;
+}
+
+/* ==========================================================
+   СТУДЕНТ — прогресс на топе, запись, чекин, секции
+   ========================================================== */
+function StudentSportsView() {
+  const { user } = useAuth();
   const [sections, setSections] = useState<SportSection[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [enrollment, setEnrollment] = useState<SportEnrollment | null>(null);
+  const [progress, setProgress] = useState<SportProgress | null>(null);
+  const [attendance, setAttendance] = useState<SportAttendanceRecord[]>([]);
+  const [activeSession, setActiveSession] = useState<SportActiveSession | null>(null);
+  const [tab, setTab] = useState<'sections' | 'schedule' | 'history'>('sections');
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const [filterDay, setFilterDay] = useState<number | null>(null);
 
-  // Attendance state
-  const [progress, setProgress] = useState<SportProgress | null>(null);
-  const [attendance, setAttendance] = useState<SportAttendanceRecord[]>([]);
-  const [showCheckin, setShowCheckin] = useState(false);
-
-  // Teacher state
-  const [isTeacher, setIsTeacher] = useState(false);
-  const [activeSession, setActiveSession] = useState<SportSessionInfo | null>(null);
-  const [showTeacherPanel, setShowTeacherPanel] = useState(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [sectionsData, favData, progressData, attendanceData] = await Promise.all([
+      const [sectionsData, favData, enrollData, progressData, attendanceData, activeData] = await Promise.all([
         api.get<SportSection[]>('/sports/sections'),
-        user ? api.get<SportSection[]>('/sports/favorites').catch(() => []) : Promise.resolve([]),
-        user ? api.get<SportProgress>('/sports/attendance/my-progress').catch(() => null) : Promise.resolve(null),
-        user ? api.get<SportAttendanceRecord[]>('/sports/attendance/my-attendance').catch(() => []) : Promise.resolve([]),
+        api.get<SportSection[]>('/sports/favorites').catch(() => []),
+        api.get<SportEnrollment | null>('/sports/attendance/my-enrollment').catch(() => null),
+        api.get<SportProgress>('/sports/attendance/my-progress').catch(() => null),
+        api.get<SportAttendanceRecord[]>('/sports/attendance/my-attendance').catch(() => []),
+        api.get<SportActiveSession | null>('/sports/attendance/my-active-session').catch(() => null),
       ]);
       setSections(sectionsData);
       setFavorites(favData.map((s: SportSection) => s.id));
+      setEnrollment(enrollData);
       if (progressData) setProgress(progressData);
       setAttendance(attendanceData);
-
-      // Check if user is a sport teacher
-      if (user) {
-        try {
-          const sessions = await api.get<any[]>('/sports/attendance/my-sessions');
-          setIsTeacher(true);
-          const active = sessions.find((s: any) => s.status === 'active');
-          if (active) {
-            const sessionData = await api.get<SportSessionInfo>(`/sports/attendance/session/${active.id}/code`);
-            setActiveSession(sessionData);
-          }
-        } catch {
-          // Not a teacher — that's fine
-        }
-      }
+      setActiveSession(activeData);
     } catch (err) {
       console.error('Failed to load sports:', err);
     } finally {
@@ -75,60 +73,68 @@ export default function SportsPage() {
     try {
       const result = await api.post<{ favorited: boolean }>(`/sports/favorites/${sectionId}`, {});
       setFavorites(prev => result.favorited ? [...prev, sectionId] : prev.filter(id => id !== sectionId));
-    } catch (err) {
-      console.error('Favorite error:', err);
+    } catch {}
+  };
+
+  const enroll = async (sectionId: number) => {
+    try {
+      await api.post('/sports/attendance/enroll', { sectionId });
+      loadData();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка записи');
     }
   };
 
-  const filteredSections = sections;
-  const filteredByDay = filterDay
-    ? filteredSections.map(s => ({ ...s, slots: s.slots.filter(slot => slot.dayOfWeek === filterDay) })).filter(s => s.slots.length > 0)
-    : filteredSections;
+  const unenroll = async () => {
+    if (!confirm('Отписаться от секции?')) return;
+    try {
+      await api.delete('/sports/attendance/enroll');
+      setEnrollment(null);
+      loadData();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка');
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Физкультура</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {sections.length} {sections.length === 1 ? 'секция' : sections.length < 5 ? 'секции' : 'секций'}
-          </p>
-        </div>
-        {(isTeacher || user?.role === 'admin') && (
-          <button
-            onClick={() => setShowTeacherPanel(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-lg"
-          >
-            <Play className="w-3.5 h-3.5" /> Преподавателю
-          </button>
-        )}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <Dumbbell className="w-5 h-5 inline mr-1.5 -mt-0.5 text-indigo-500" />
+          Физкультура
+        </h1>
       </div>
 
-      {/* Progress bar */}
+      {/* === ПРОГРЕСС-БАР — САМЫЙ ВАЖНЫЙ, ВСЕГДА СВЕРХУ === */}
       {progress && <ProgressBar progress={progress} />}
 
-      {/* Quick check-in button */}
-      <button
-        onClick={() => setShowCheckin(true)}
-        className="w-full mb-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-      >
-        <QrCode className="w-5 h-5" />
-        Отметиться на занятии
-      </button>
+      {/* Запись на секцию */}
+      {enrollment ? (
+        <EnrollmentCard enrollment={enrollment} onUnenroll={unenroll} />
+      ) : (
+        <EnrollmentPrompt sections={sections} onEnroll={enroll} />
+      )}
 
-      {/* View Toggle */}
+      {/* Кнопка "Я на месте" (если есть активная сессия) */}
+      {enrollment && (
+        <CheckinArea activeSession={activeSession} onCheckin={() => loadData()} />
+      )}
+
+      {/* Вкладки: Секции / Сетка / Мои посещения */}
       <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl mb-3">
         {([
-          { key: 'attendance' as const, label: 'Посещения' },
-          { key: 'sections' as const, label: 'Секции' },
-          { key: 'schedule' as const, label: 'Сетка' },
+          { key: 'sections' as const, label: '📋 Секции' },
+          { key: 'schedule' as const, label: '📅 Сетка' },
+          { key: 'history' as const, label: '📊 Посещения' },
         ]).map(t => (
           <button
             key={t.key}
-            onClick={() => setView(t.key)}
+            onClick={() => setTab(t.key)}
             className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-              view === t.key
+              tab === t.key
                 ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400'
             }`}
@@ -138,49 +144,849 @@ export default function SportsPage() {
         ))}
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      {/* Фильтр по дням (для Секции и Сетка) */}
+      {(tab === 'sections' || tab === 'schedule') && (
+        <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+          <button
+            onClick={() => setFilterDay(null)}
+            className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              filterDay === null
+                ? 'bg-indigo-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            Все дни
+          </button>
+          {DAYS.map(day => (
+            <button
+              key={day}
+              onClick={() => setFilterDay(filterDay === day ? null : day)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                filterDay === day
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+              }`}
+            >
+              {DAY_NAMES_SHORT[day]}
+            </button>
+          ))}
         </div>
-      ) : view === 'attendance' ? (
-        <AttendanceHistory records={attendance} />
-      ) : view === 'schedule' ? (
-        <>
-          <DayFilterChips filterDay={filterDay} setFilterDay={setFilterDay} />
-          <ScheduleGrid sections={filteredByDay} filterDay={filterDay} />
-        </>
+      )}
+
+      {/* Контент вкладок */}
+      {tab === 'sections' ? (
+        <SectionList
+          sections={filterDay ? sections.map(s => ({ ...s, slots: s.slots.filter(sl => sl.dayOfWeek === filterDay) })).filter(s => s.slots.length > 0) : sections}
+          favorites={favorites}
+          expandedSection={expandedSection}
+          enrolledSectionId={enrollment?.sectionId}
+          onToggleExpand={(id) => setExpandedSection(expandedSection === id ? null : id)}
+          onToggleFavorite={toggleFavorite}
+          onEnroll={enroll}
+        />
+      ) : tab === 'schedule' ? (
+        <ScheduleGrid
+          sections={filterDay ? sections.map(s => ({ ...s, slots: s.slots.filter(sl => sl.dayOfWeek === filterDay) })).filter(s => s.slots.length > 0) : sections}
+          filterDay={filterDay}
+          enrolledSectionId={enrollment?.sectionId}
+        />
       ) : (
-        <>
-          <DayFilterChips filterDay={filterDay} setFilterDay={setFilterDay} />
-          <SectionList
-            sections={filteredByDay}
-            favorites={favorites}
-            expandedSection={expandedSection}
-            onToggleExpand={(id) => setExpandedSection(expandedSection === id ? null : id)}
-            onToggleFavorite={toggleFavorite}
+        <AttendanceHistory records={attendance} />
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================
+   ПРЕПОДАВАТЕЛЬ — своё расписание, быстрый старт сессии
+   ========================================================== */
+function TeacherSportsView() {
+  const { user } = useAuth();
+  const teachingSections = user?.teachingSections || [];
+  const [sections, setSections] = useState<SportSection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<SportSessionInfo | null>(null);
+  const [existingSession, setExistingSession] = useState<{ sessionId: number; section: string; sectionEmoji?: string } | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [checkedStudents, setCheckedStudents] = useState<Set<number>>(new Set());
+  const [pastSessions, setPastSessions] = useState<any[]>([]);
+  const [teacherTab, setTeacherTab] = useState<'session' | 'schedule' | 'history'>('session');
+  const [filterDay, setFilterDay] = useState<number | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [sectionsData, teacherSession, sessions] = await Promise.all([
+        api.get<SportSection[]>('/sports/sections'),
+        api.get<any>('/sports/attendance/my-teacher-session').catch(() => null),
+        api.get<any[]>('/sports/attendance/my-sessions').catch(() => []),
+      ]);
+      setSections(sectionsData);
+      setPastSessions(sessions.filter((s: any) => s.status !== 'active'));
+
+      if (teacherSession) {
+        setExistingSession(teacherSession);
+        await loadSession(teacherSession.sessionId);
+      }
+    } catch (err) {
+      console.error('Teacher load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSession = async (id: number) => {
+    try {
+      const data = await api.get<SportSessionInfo>(`/sports/attendance/session/${id}`);
+      setSession(data);
+      setCheckedStudents(new Set(data.students.map(s => s.id)));
+    } catch (err) {
+      console.error('Load session error:', err);
+    }
+  };
+
+  // Polling для новых студентов
+  useEffect(() => {
+    if (session?.status === 'active') {
+      pollRef.current = setInterval(async () => {
+        try {
+          const data = await api.get<SportSessionInfo>(`/sports/attendance/session/${session.sessionId}`);
+          setSession(data);
+          setCheckedStudents(prev => {
+            const next = new Set(prev);
+            data.students.forEach(s => next.add(s.id));
+            return next;
+          });
+        } catch {}
+      }, 5000);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [session?.sessionId, session?.status]);
+
+  const startSession = async (sectionId: number) => {
+    setStarting(true);
+    try {
+      const data = await api.post<any>('/sports/attendance/start-session', { sectionId });
+      await loadSession(data.sessionId);
+      setExistingSession({ sessionId: data.sessionId, section: data.section, sectionEmoji: data.sectionEmoji });
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const endSession = async () => {
+    if (!session) return;
+    if (!confirm(`Завершить занятие?\nПодтвердить: ${checkedStudents.size} студентов`)) return;
+    setEnding(true);
+    try {
+      await api.post(`/sports/attendance/session/${session.sessionId}/end`, {
+        confirmedStudentIds: Array.from(checkedStudents),
+      });
+      setSession(null);
+      setExistingSession(null);
+      loadData();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка');
+    } finally {
+      setEnding(false);
+    }
+  };
+
+  const cancelSession = async () => {
+    if (!session) return;
+    if (!confirm('Отменить занятие?')) return;
+    try {
+      await api.post(`/sports/attendance/session/${session.sessionId}/cancel`);
+      setSession(null);
+      setExistingSession(null);
+      loadData();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка');
+    }
+  };
+
+  const toggleStudent = (id: number) => {
+    setCheckedStudents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Мои секции (только те, которые препод ведёт)
+  const mySections = sections.filter(s => teachingSections.some(ts => ts.id === s.id));
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <Shield className="w-5 h-5 inline mr-1.5 -mt-0.5 text-emerald-500" />
+          Панель преподавателя
+        </h1>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {user?.firstName} {user?.lastName || ''} · {teachingSections.map(s => `${s.emoji || ''} ${s.name}`).join(', ')}
+        </p>
+      </div>
+
+      {/* === АКТИВНАЯ СЕССИЯ (всегда показывается сверху если есть) === */}
+      {session?.status === 'active' && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border-2 border-emerald-300 dark:border-emerald-500/40 overflow-hidden mb-4">
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                {session.sectionEmoji || '🏃'} {session.section} — занятие идёт
+              </p>
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                Начато: {new Date(session.startedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-xs font-medium text-emerald-600">LIVE</span>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-3">
+              <Users className="w-4 h-4" /> Студенты ({session.studentCount})
+            </h3>
+
+            {session.students.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-500 animate-pulse">Ожидание студентов...</p>
+                <p className="text-[10px] text-gray-400 mt-1">Они нажимают «✋ Я на месте» в приложении</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {session.students.map(s => {
+                  const ok = checkedStudents.has(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => toggleStudent(s.id)}
+                      className={`w-full flex items-center gap-2 p-3 rounded-xl text-left text-sm transition-all ${
+                        ok
+                          ? 'bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30'
+                          : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'
+                      }`}
+                    >
+                      {ok ? <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                      <span className="flex-1 font-medium text-gray-900 dark:text-gray-100">
+                        {s.firstName} {s.lastName || ''}
+                        {s.username && <span className="text-gray-400 ml-1 text-xs font-normal">@{s.username}</span>}
+                      </span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        s.geoOk
+                          ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
+                          : 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400'
+                      }`}>
+                        {s.geoOk ? `📍 ${s.geoDistM}м` : `🚩 ${s.geoDistM ?? '?'}м`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {session.students.some(s => !s.geoOk) && (
+              <div className="mt-3 p-2.5 bg-red-50 dark:bg-red-500/10 rounded-xl text-xs text-red-500 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                🚩 = отметились далеко от зала. Проверьте лично!
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={endSession}
+                disabled={ending}
+                className="flex-1 py-3 bg-emerald-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                {ending ? 'Завершаем...' : `Завершить (${checkedStudents.size} ✓)`}
+              </button>
+              <button
+                onClick={cancelSession}
+                className="py-3 px-4 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Вкладки: Занятие / Сетка расписания / История */}
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl mb-3">
+        {([
+          { key: 'session' as const, label: '🎯 Занятие' },
+          { key: 'schedule' as const, label: '📅 Сетка' },
+          { key: 'history' as const, label: '📊 История' },
+        ]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTeacherTab(t.key)}
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-all ${
+              teacherTab === t.key
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* === Вкладка «Занятие» — кнопки старта или информация === */}
+      {teacherTab === 'session' && !session?.status && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Начните занятие — студенты смогут отметиться</p>
+
+          <div className="space-y-2">
+            {mySections.map(s => {
+              const emoji = s.emoji || SPORT_EMOJIS[s.name] || '🏃';
+              const todayDay = new Date().getDay() || 7;
+              const todaySlots = s.slots.filter(sl => sl.dayOfWeek === todayDay);
+              const now = new Date();
+              const nowMin = now.getHours() * 60 + now.getMinutes();
+              const nextSlot = todaySlots.find(sl => {
+                const [h, m] = sl.timeEnd.split(':').map(Number);
+                return h * 60 + m > nowMin;
+              });
+
+              return (
+                <div key={s.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{emoji} {s.name}</p>
+                      {nextSlot ? (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                          Сегодня: {nextSlot.timeStart} — {nextSlot.timeEnd}
+                        </p>
+                      ) : todaySlots.length > 0 ? (
+                        <p className="text-xs text-gray-400">Сегодня занятий больше нет</p>
+                      ) : (
+                        <p className="text-xs text-gray-400">Сегодня нет занятий</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => startSession(s.id)}
+                    disabled={starting}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+                  >
+                    <Play className="w-5 h-5" />
+                    {starting ? 'Создаём...' : 'Начать занятие'}
+                  </button>
+
+                  {/* Мини-расписание секции */}
+                  <div className="mt-3 grid grid-cols-5 gap-1">
+                    {DAYS.map(day => {
+                      const daySlots = s.slots.filter(sl => sl.dayOfWeek === day);
+                      const isToday = day === todayDay;
+                      return (
+                        <div key={day} className={`text-center p-1.5 rounded-lg ${isToday ? 'bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-300 dark:ring-indigo-500/30' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                          <p className={`text-[10px] font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500'}`}>{DAY_NAMES_SHORT[day]}</p>
+                          {daySlots.length > 0 ? daySlots.map(sl => (
+                            <p key={sl.id} className="text-[9px] text-gray-600 dark:text-gray-400">{sl.timeStart}</p>
+                          )) : (
+                            <p className="text-[9px] text-gray-300 dark:text-gray-600">—</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Антифрод-инфо */}
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+            <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1.5">🛡️ 5 уровней антифрод:</p>
+            <div className="grid grid-cols-5 gap-1 text-[9px] text-gray-500 text-center">
+              {['📋 Запись', '📍 Гео 1км', '📱 Device', '👁 Визуал', '🔗 SHA-256'].map(l => (
+                <span key={l} className="bg-white dark:bg-gray-800 rounded px-1 py-1">{l}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {teacherTab === 'session' && session?.status === 'active' && !session && null}
+
+      {/* === Вкладка «Сетка» — полное расписание всех секций === */}
+      {teacherTab === 'schedule' && (
+        <div>
+          {/* Фильтр по дням */}
+          <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+            <button
+              onClick={() => setFilterDay(null)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                filterDay === null
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+              }`}
+            >
+              Все дни
+            </button>
+            {DAYS.map(day => (
+              <button
+                key={day}
+                onClick={() => setFilterDay(filterDay === day ? null : day)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                  filterDay === day
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                {DAY_NAMES_SHORT[day]}
+              </button>
+            ))}
+          </div>
+          <ScheduleGrid
+            sections={filterDay ? sections.map(s => ({ ...s, slots: s.slots.filter(sl => sl.dayOfWeek === filterDay) })).filter(s => s.slots.length > 0) : sections}
+            filterDay={filterDay}
           />
-        </>
+        </div>
       )}
 
-      {/* Check-in modal */}
-      {showCheckin && (
-        <CheckinModal
-          onClose={() => setShowCheckin(false)}
-          onSuccess={() => { setShowCheckin(false); loadData(); }}
-        />
+      {/* === Вкладка «История» — прошедшие занятия === */}
+      {teacherTab === 'history' && (
+        <div>
+          {pastSessions.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
+              <p className="text-sm text-gray-500">Нет прошедших занятий</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {pastSessions.slice(0, 20).map((s: any) => (
+                <div key={s.id} className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                  <span className="text-lg">{s.sectionEmoji || '🏃'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{s.section}</p>
+                    <p className="text-[10px] text-gray-500">
+                      {new Date(s.startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                      {' · '}{s.studentCount} студ.
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    s.status === 'completed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                  }`}>
+                    {s.status === 'completed' ? '✓' : s.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================
+   АДМИН — статистика, управление преподами, поиск студентов
+   ========================================================== */
+function AdminSportsView() {
+  const [stats, setStats] = useState<any>(null);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [sections, setSections] = useState<SportSection[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [tab, setTab] = useState<'stats' | 'teachers' | 'students'>('stats');
+  const [loading, setLoading] = useState(true);
+  const [integrityResult, setIntegrityResult] = useState<any>(null);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [statsData, teachersData, sectionsData] = await Promise.all([
+        api.get<any>('/sports/attendance/admin/stats').catch(() => null),
+        api.get<any[]>('/sports/attendance/admin/teachers').catch(() => []),
+        api.get<SportSection[]>('/sports/sections').catch(() => []),
+      ]);
+      setStats(statsData);
+      setTeachers(teachersData);
+      setSections(sectionsData);
+    } catch (err) {
+      console.error('Admin load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchStudents = async () => {
+    if (searchQuery.length < 2) return;
+    setSearching(true);
+    try {
+      const results = await api.get<any[]>(`/sports/attendance/admin/student-search?q=${encodeURIComponent(searchQuery)}`);
+      setSearchResults(results);
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка поиска');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const checkIntegrity = async (studentId: number) => {
+    try {
+      const result = await api.get<any>(`/sports/attendance/admin/integrity/${studentId}`);
+      setIntegrityResult(result);
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка проверки');
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <Shield className="w-5 h-5 inline mr-1.5 -mt-0.5 text-indigo-500" />
+          Физкультура — Админ
+        </h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl mb-4">
+        {([
+          { key: 'stats' as const, label: '📊 Статистика' },
+          { key: 'teachers' as const, label: '👥 Преподаватели' },
+          { key: 'students' as const, label: '🔍 Студенты' },
+        ]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+              tab === t.key
+                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Stats */}
+      {tab === 'stats' && stats && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Секций', value: sections.length, icon: '📋' },
+              { label: 'Преподавателей', value: stats.teacherCount, icon: '👨‍🏫' },
+              { label: 'Записано студ.', value: stats.enrollmentCount, icon: '✍️' },
+              { label: 'Всего сессий', value: stats.totalSessions, icon: '🏷️' },
+              { label: 'Активных', value: stats.activeSessions, icon: '🟢' },
+              { label: 'Подтв. посещений', value: stats.confirmedAttendances, icon: '✅' },
+              { label: 'Закрыли семестр', value: stats.completedStudents, icon: '🎓' },
+              { label: 'Норма', value: `${stats.requiredClasses} зан.`, icon: '📏' },
+            ].map((s, i) => (
+              <div key={i} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+                <p className="text-[10px] text-gray-500">{s.icon} {s.label}</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Sections list */}
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">Секции и расписание</h3>
+          <div className="space-y-1.5">
+            {sections.map(s => {
+              const emoji = s.emoji || SPORT_EMOJIS[s.name] || '🏃';
+              const uniqueDays = [...new Set(s.slots.map(sl => sl.dayOfWeek))];
+              const teacher = s.slots[0]?.teacher || '—';
+              return (
+                <div key={s.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                  <span className="text-xl">{emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{s.name}</p>
+                    <p className="text-[10px] text-gray-500">{teacher} · {uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} · {s.slots.length} зан.</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
-      {/* Teacher panel */}
-      {showTeacherPanel && (
-        <TeacherPanel
-          sections={sections}
-          activeSession={activeSession}
-          onClose={() => setShowTeacherPanel(false)}
-          onSessionUpdate={(s) => { setActiveSession(s); }}
-          onRefresh={loadData}
-        />
+      {/* Teachers */}
+      {tab === 'teachers' && (
+        <div className="space-y-2">
+          {teachers.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Нет назначенных преподавателей</p>
+            </div>
+          ) : (
+            teachers.map((t: any) => (
+              <div key={t.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-lg">
+                  {t.sectionEmoji || '🏃'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {t.firstName} {t.lastName || ''}
+                    {t.username && <span className="text-gray-400 ml-1 text-xs">@{t.username}</span>}
+                  </p>
+                  <p className="text-[11px] text-gray-500">{t.section} · TG: {t.telegramId}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       )}
+
+      {/* Students search */}
+      {tab === 'students' && (
+        <div>
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Имя, фамилия или @username"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchStudents()}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+            </div>
+            <button
+              onClick={searchStudents}
+              disabled={searching || searchQuery.length < 2}
+              className="px-4 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+            >
+              {searching ? '...' : 'Найти'}
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="space-y-1.5">
+              {searchResults.map((s: any) => (
+                <div key={s.id} className="p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {s.firstName} {s.lastName || ''}
+                      {s.username && <span className="text-gray-400 ml-1 text-xs">@{s.username}</span>}
+                    </p>
+                    <button
+                      onClick={() => checkIntegrity(s.id)}
+                      className="text-[10px] text-indigo-500 hover:text-indigo-600 font-medium"
+                    >
+                      🔗 Проверить цепочку
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                    {s.section && <span>{s.sectionEmoji || '🏃'} {s.section}</span>}
+                    <span>✅ {s.confirmedClasses}/{s.required} ({s.percentage}%)</span>
+                    {s.geoFlags > 0 && <span className="text-red-400">🚩 {s.geoFlags} гео</span>}
+                    {s.group && <span>📚 {s.group}</span>}
+                  </div>
+                  {/* Progress mini bar */}
+                  <div className="mt-1.5 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min(100, s.percentage)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Integrity result */}
+          {integrityResult && (
+            <div className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+              <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5">
+                🔗 Проверка хеш-цепочки
+              </h3>
+              <p className="text-sm text-gray-900 dark:text-gray-100 mb-1">{integrityResult.student}</p>
+              <p className={`text-sm font-bold ${integrityResult.valid ? 'text-green-500' : 'text-red-500'}`}>
+                {integrityResult.valid ? '✅ Цепочка валидна' : '❌ Цепочка нарушена!'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Записей: {integrityResult.totalRecords} · Проверено: {integrityResult.checkedRecords}
+              </p>
+              {!integrityResult.valid && integrityResult.brokenAt && (
+                <p className="text-xs text-red-400 mt-1">Нарушение на записи #{integrityResult.brokenAt}</p>
+              )}
+              <button onClick={() => setIntegrityResult(null)} className="mt-2 text-xs text-gray-400 hover:text-gray-600">Закрыть</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================
+   SHARED COMPONENTS
+   ========================================================== */
+
+function LoadingSpinner() {
+  return (
+    <div className="flex justify-center py-16">
+      <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+/* ===== Enrollment Card ===== */
+function EnrollmentCard({ enrollment, onUnenroll }: { enrollment: SportEnrollment; onUnenroll: () => void }) {
+  const emoji = enrollment.section?.emoji || SPORT_EMOJIS[enrollment.section?.name || ''] || '🏃';
+  return (
+    <div className="mb-3 p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-200 dark:border-indigo-500/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{emoji}</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{enrollment.section?.name}</p>
+            <p className="text-[10px] text-indigo-600 dark:text-indigo-400">Вы записаны на эту секцию</p>
+          </div>
+        </div>
+        <button onClick={onUnenroll} className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 rounded">
+          Сменить
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Enrollment Prompt ===== */
+function EnrollmentPrompt({ sections, onEnroll }: { sections: SportSection[]; onEnroll: (id: number) => void }) {
+  return (
+    <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-500/10 rounded-xl border border-yellow-200 dark:border-yellow-500/30">
+      <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">📋 Выберите секцию</p>
+      <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-3">Чтобы отмечаться, нужно записаться</p>
+      <div className="grid grid-cols-2 gap-2">
+        {sections.map(s => {
+          const emoji = s.emoji || SPORT_EMOJIS[s.name] || '🏃';
+          const days = [...new Set(s.slots.map(sl => sl.dayOfWeek))];
+          return (
+            <button key={s.id} onClick={() => onEnroll(s.id)} className="p-2.5 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-left hover:border-indigo-400 transition-colors">
+              <span className="text-lg">{emoji}</span>
+              <p className="text-xs font-semibold mt-0.5 text-gray-900 dark:text-gray-100">{s.name}</p>
+              <p className="text-[10px] text-gray-400">{days.map(d => DAY_NAMES_SHORT[d]).join(', ')}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ===== Check-in Area ===== */
+function CheckinArea({ activeSession, onCheckin }: { activeSession: SportActiveSession | null; onCheckin: () => void }) {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; geoOk?: boolean; dist?: number; error?: string } | null>(null);
+
+  if (!activeSession) return null; // Не показываем ничего если нет сессии
+
+  if (activeSession.done) {
+    const cfgs: Record<string, { bg: string; text: string; label: string }> = {
+      confirmed: { bg: 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30', text: 'text-green-600', label: '✅ Подтверждено преподавателем' },
+      rejected: { bg: 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30', text: 'text-red-600', label: '❌ Отклонено' },
+      pending: { bg: 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30', text: 'text-yellow-600', label: '⏳ Ожидает подтверждения' },
+    };
+    const cfg = cfgs[activeSession.status || 'pending'] || cfgs.pending;
+    return (
+      <div className={`mb-4 p-3 rounded-xl border ${cfg.bg}`}>
+        <p className={`text-sm font-semibold ${cfg.text}`}>{cfg.label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {activeSession.emoji} {activeSession.section} · {activeSession.teacher}
+          {activeSession.geoOk !== null && (activeSession.geoOk ? ' · 📍 В зоне' : ' · 🚩 Далеко')}
+        </p>
+      </div>
+    );
+  }
+
+  const getDeviceHash = () => {
+    const s = navigator.userAgent + navigator.language + screen.width + 'x' + screen.height + new Date().getTimezoneOffset();
+    let h = 0;
+    for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+    return 'dev_' + Math.abs(h).toString(36);
+  };
+
+  const doCheckin = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      let geoLat: number | null = null;
+      let geoLon: number | null = null;
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: false })
+        );
+        geoLat = pos.coords.latitude;
+        geoLon = pos.coords.longitude;
+      } catch {}
+      const r = await api.post<{ success: boolean; geoOk: boolean; dist: number | null }>('/sports/attendance/checkin', {
+        sessionId: activeSession.sessionId,
+        geoLat, geoLon,
+        deviceHash: getDeviceHash(),
+      });
+      setResult({ success: true, geoOk: r.geoOk, dist: r.dist ?? undefined });
+      setTimeout(onCheckin, 1500);
+    } catch (err: any) {
+      setResult({ success: false, error: err?.message || 'Ошибка' });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  if (result?.success) {
+    return (
+      <div className={`mb-4 p-4 rounded-xl border text-center ${result.geoOk ? 'bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30' : 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30'}`}>
+        <p className="text-3xl mb-1">✅</p>
+        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Отмечено!</p>
+        <p className="text-xs text-gray-500 mt-1">{result.geoOk ? `📍 В зоне (${result.dist}м)` : `🚩 Далеко (${result.dist}м)`}</p>
+        <p className="text-[10px] text-gray-400 mt-1">Убери телефон. Преподаватель подтвердит в конце.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 p-4 bg-white dark:bg-gray-900 rounded-xl border-2 border-emerald-200 dark:border-emerald-500/30">
+      <div className="text-center mb-2">
+        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          {activeSession.emoji} {activeSession.section} — занятие идёт!
+        </p>
+        <p className="text-xs text-gray-500">Преподаватель: {activeSession.teacher}</p>
+      </div>
+      <button
+        onClick={doCheckin}
+        disabled={checking}
+        className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+      >
+        {checking ? (
+          <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Отмечаемся...</>
+        ) : (
+          <>✋ Я на месте!</>
+        )}
+      </button>
+      {result?.error && <p className="text-xs text-red-500 text-center mt-2">{result.error}</p>}
+      <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-gray-400">
+        <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> Гео 1км</span>
+        <span className="flex items-center gap-1"><Fingerprint className="w-3 h-3" /> Device ID</span>
+        <span className="flex items-center gap-1"><Link2 className="w-3 h-3" /> Hash chain</span>
+      </div>
     </div>
   );
 }
@@ -189,105 +995,26 @@ export default function SportsPage() {
 function ProgressBar({ progress }: { progress: SportProgress }) {
   const pct = Math.min(100, Math.round((progress.confirmed / progress.required) * 100));
   const pendingPct = Math.min(100 - pct, Math.round((progress.pending / progress.required) * 100));
-
   return (
-    <div className="mb-4 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+    <div className="mb-4 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Прогресс: {progress.confirmed}/{progress.required}
+        <span className="text-base font-bold text-gray-900 dark:text-gray-100">
+          {progress.confirmed} / {progress.required}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          progress.completed ? 'bg-green-100 dark:bg-green-500/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+        }`}>
           {progress.completed ? '✅ Закрыто!' : `Осталось ${progress.required - progress.confirmed}`}
         </span>
       </div>
-      <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
-        <div
-          className="h-full bg-green-500 transition-all duration-500 rounded-l-full"
-          style={{ width: `${pct}%` }}
-        />
-        {pendingPct > 0 && (
-          <div
-            className="h-full bg-yellow-400 transition-all duration-500"
-            style={{ width: `${pendingPct}%` }}
-          />
-        )}
+      <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
+        <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500 rounded-l-full" style={{ width: `${pct}%` }} />
+        {pendingPct > 0 && <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${pendingPct}%` }} />}
       </div>
-      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Подтв. {progress.confirmed}</span>
-        {progress.pending > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" /> Ожидает {progress.pending}</span>}
-        {progress.rejected > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Отклон. {progress.rejected}</span>}
-      </div>
-    </div>
-  );
-}
-
-/* ===== Check-in Modal ===== */
-function CheckinModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const submit = async () => {
-    if (code.length !== 6) { setError('Введите 6-значный код'); return; }
-    setLoading(true);
-    setError('');
-    try {
-      const result = await api.post<{ section: string; sectionEmoji?: string }>('/sports/attendance/checkin', { code });
-      setSuccess(`${result.sectionEmoji || '✅'} ${result.section}`);
-      setTimeout(onSuccess, 1500);
-    } catch (err: any) {
-      setError(err?.message || 'Ошибка отметки');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 mx-4 w-full max-w-sm shadow-xl">
-        <h2 className="text-lg font-bold mb-1 text-center">Отметиться</h2>
-        <p className="text-xs text-gray-500 text-center mb-4">Введите 6-значный код с экрана преподавателя</p>
-
-        {success ? (
-          <div className="text-center py-4">
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-2 text-green-500" />
-            <p className="text-lg font-bold text-green-600">{success}</p>
-            <p className="text-xs text-gray-500 mt-1">Ожидает подтверждения преподавателя</p>
-          </div>
-        ) : (
-          <>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-              className="w-full text-center text-3xl font-mono font-bold tracking-[0.5em] py-4 px-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 focus:border-indigo-500 focus:outline-none"
-              placeholder="------"
-            />
-            {error && <p className="text-xs text-red-500 text-center mt-2">{error}</p>}
-            <button
-              onClick={submit}
-              disabled={loading || code.length !== 6}
-              className="w-full mt-4 py-3 bg-indigo-500 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Проверяем...' : 'Подтвердить'}
-            </button>
-          </>
-        )}
-
-        <button onClick={onClose} className="w-full mt-2 py-2 text-sm text-gray-500 hover:text-gray-700">
-          Отмена
-        </button>
+      <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Подтв. {progress.confirmed}</span>
+        {progress.pending > 0 && <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400" /> Ожидает {progress.pending}</span>}
+        {progress.rejected > 0 && <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> Отклон. {progress.rejected}</span>}
       </div>
     </div>
   );
@@ -298,23 +1025,21 @@ function AttendanceHistory({ records }: { records: SportAttendanceRecord[] }) {
   if (records.length === 0) {
     return (
       <div className="text-center py-12">
-        <QrCode className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
+        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
         <p className="text-sm font-medium text-gray-500">Нет посещений</p>
-        <p className="text-xs text-gray-400 mt-1">Отметьтесь на занятии с помощью кода</p>
+        <p className="text-xs text-gray-400 mt-1">Отметьтесь на занятии «Я на месте»</p>
       </div>
     );
   }
-
-  const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
+  const statusCfg: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
     confirmed: { icon: CheckCircle2, color: 'text-green-500', label: 'Подтверждено' },
     pending: { icon: Timer, color: 'text-yellow-500', label: 'Ожидание' },
     rejected: { icon: XCircle, color: 'text-red-500', label: 'Отклонено' },
   };
-
   return (
     <div className="space-y-2">
       {records.map(r => {
-        const cfg = statusConfig[r.status] || statusConfig.pending;
+        const cfg = statusCfg[r.status] || statusCfg.pending;
         const Icon = cfg.icon;
         return (
           <div key={r.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
@@ -322,6 +1047,11 @@ function AttendanceHistory({ records }: { records: SportAttendanceRecord[] }) {
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
                 {r.sectionEmoji || '🏃'} {r.section}
+                {r.geoOk !== undefined && (
+                  <span className={`ml-1.5 text-[10px] ${r.geoOk ? 'text-green-500' : 'text-red-400'}`}>
+                    {r.geoOk ? '📍' : `🚩 ${r.geoDistM}м`}
+                  </span>
+                )}
               </p>
               <p className="text-[11px] text-gray-500">
                 {r.teacher} · {new Date(r.checkedInAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -335,230 +1065,10 @@ function AttendanceHistory({ records }: { records: SportAttendanceRecord[] }) {
   );
 }
 
-/* ===== Teacher Panel ===== */
-function TeacherPanel({
-  sections,
-  activeSession,
-  onClose,
-  onSessionUpdate,
-  onRefresh,
-}: {
-  sections: SportSection[];
-  activeSession: SportSessionInfo | null;
-  onClose: () => void;
-  onSessionUpdate: (s: SportSessionInfo | null) => void;
-  onRefresh: () => void;
-}) {
-  const [session, setSession] = useState<SportSessionInfo | null>(activeSession);
-  const [selectedSection, setSelectedSection] = useState<number>(sections[0]?.id || 0);
-  const [starting, setStarting] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const [checkedStudents, setCheckedStudents] = useState<Set<number>>(new Set());
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
-
-  // Poll for code updates and new students
-  useEffect(() => {
-    if (session?.status === 'active') {
-      // Init all students as checked
-      setCheckedStudents(new Set(session.students.map(s => s.id)));
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const data = await api.get<SportSessionInfo>(`/sports/attendance/session/${session.sessionId}/code`);
-          setSession(data);
-          // Auto-check new students
-          setCheckedStudents(prev => {
-            const next = new Set(prev);
-            data.students.forEach(s => next.add(s.id));
-            return next;
-          });
-        } catch {
-          // Session may have ended
-        }
-      }, 5000); // Обновляем каждые 5 сек
-    }
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [session?.sessionId, session?.status]);
-
-  const startSession = async () => {
-    setStarting(true);
-    try {
-      const data = await api.post<any>('/sports/attendance/start-session', { sectionId: selectedSection });
-      const sessionData = await api.get<SportSessionInfo>(`/sports/attendance/session/${data.sessionId}/code`);
-      setSession(sessionData);
-      onSessionUpdate(sessionData);
-    } catch (err: any) {
-      alert(err?.message || 'Ошибка');
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const endSession = async () => {
-    if (!session) return;
-    setEnding(true);
-    try {
-      await api.post(`/sports/attendance/session/${session.sessionId}/end`, {
-        confirmedStudentIds: Array.from(checkedStudents),
-      });
-      setSession(null);
-      onSessionUpdate(null);
-      onRefresh();
-    } catch (err: any) {
-      alert(err?.message || 'Ошибка');
-    } finally {
-      setEnding(false);
-    }
-  };
-
-  const toggleStudent = (id: number) => {
-    setCheckedStudents(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-xl">
-        <div className="sticky top-0 bg-white dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-lg font-bold">
-            <Shield className="w-5 h-5 inline mr-1.5 text-green-500" />
-            Панель преподавателя
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
-        </div>
-
-        <div className="p-4">
-          {!session || session.status !== 'active' ? (
-            /* Start session form */
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Начните занятие, чтобы студенты могли отметиться</p>
-              <select
-                value={selectedSection}
-                onChange={(e) => setSelectedSection(Number(e.target.value))}
-                className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 mb-3 text-sm"
-              >
-                {sections.map(s => (
-                  <option key={s.id} value={s.id}>{s.emoji || SPORT_EMOJIS[s.name] || '🏃'} {s.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={startSession}
-                disabled={starting}
-                className="w-full py-3 bg-green-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <Play className="w-5 h-5" />
-                {starting ? 'Создаём...' : 'Начать занятие'}
-              </button>
-            </div>
-          ) : (
-            /* Active session */
-            <div>
-              <p className="text-sm text-gray-500 mb-2 text-center">
-                {session.sectionEmoji || '🏃'} <strong>{session.section}</strong>
-              </p>
-
-              {/* Rotating code display */}
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 mb-4 text-center">
-                <p className="text-white/70 text-xs mb-1">Код для студентов:</p>
-                <p className="text-white text-5xl font-mono font-black tracking-[0.3em] leading-none">
-                  {session.code}
-                </p>
-                <p className="text-white/50 text-[10px] mt-2">
-                  <Timer className="w-3 h-3 inline mr-1" />
-                  Обновится через ~{session.ttl}с
-                </p>
-              </div>
-
-              {/* Students list */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold flex items-center gap-1">
-                    <Users className="w-4 h-4" /> Студенты ({session.studentCount})
-                  </h3>
-                </div>
-                {session.students.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">Пока никто не отметился</p>
-                ) : (
-                  <div className="space-y-1">
-                    {session.students.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => toggleStudent(s.id)}
-                        className={`w-full flex items-center gap-2 p-2 rounded-lg text-left text-sm transition-all ${
-                          checkedStudents.has(s.id)
-                            ? 'bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30'
-                            : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'
-                        }`}
-                      >
-                        {checkedStudents.has(s.id)
-                          ? <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                          : <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                        }
-                        <span className="flex-1">
-                          {s.firstName} {s.lastName || ''}
-                          {s.username && <span className="text-gray-400 ml-1">@{s.username}</span>}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(s.checkedInAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* End session */}
-              <button
-                onClick={endSession}
-                disabled={ending}
-                className="w-full py-3 bg-red-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <Square className="w-5 h-5" />
-                {ending ? 'Завершаем...' : `Завершить (${checkedStudents.size} подтв.)`}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== Day filter chips ===== */
-function DayFilterChips({ filterDay, setFilterDay }: { filterDay: number | null; setFilterDay: (d: number | null) => void }) {
-  return (
-    <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-      <button
-        onClick={() => setFilterDay(null)}
-        className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-          filterDay === null ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-        }`}
-      >
-        Все дни
-      </button>
-      {DAYS.map(day => (
-        <button
-          key={day}
-          onClick={() => setFilterDay(filterDay === day ? null : day)}
-          className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-            filterDay === day ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-          }`}
-        >
-          {DAY_NAMES_SHORT[day]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ===== Section List View ===== */
-function SectionList({ sections, favorites, expandedSection, onToggleExpand, onToggleFavorite }: {
-  sections: SportSection[]; favorites: number[]; expandedSection: number | null;
-  onToggleExpand: (id: number) => void; onToggleFavorite: (id: number) => void;
+/* ===== Section List ===== */
+function SectionList({ sections, favorites, expandedSection, enrolledSectionId, onToggleExpand, onToggleFavorite, onEnroll }: {
+  sections: SportSection[]; favorites: number[]; expandedSection: number | null; enrolledSectionId?: number;
+  onToggleExpand: (id: number) => void; onToggleFavorite: (id: number) => void; onEnroll: (id: number) => void;
 }) {
   if (sections.length === 0) {
     return (
@@ -574,14 +1084,20 @@ function SectionList({ sections, favorites, expandedSection, onToggleExpand, onT
         const emoji = section.emoji || SPORT_EMOJIS[section.name] || '🏃';
         const isFav = favorites.includes(section.id);
         const isExpanded = expandedSection === section.id;
+        const isEnrolled = enrolledSectionId === section.id;
         const uniqueDays = [...new Set(section.slots.map(s => s.dayOfWeek))];
         return (
-          <div key={section.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div key={section.id} className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden ${
+            isEnrolled ? 'border-indigo-300 dark:border-indigo-500/40' : 'border-gray-200 dark:border-gray-800'
+          }`}>
             <button onClick={() => onToggleExpand(section.id)} className="w-full p-3 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <span className="text-2xl">{emoji}</span>
               <div className="flex-1 min-w-0">
-                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">{section.name}</h3>
-                <p className="text-[11px] text-gray-500">{uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} · {section.slots.length} зан.</p>
+                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">
+                  {section.name}
+                  {isEnrolled && <span className="ml-1.5 text-[10px] text-indigo-500 font-normal">✓ записаны</span>}
+                </h3>
+                <p className="text-[11px] text-gray-500">{uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} · {section.slots[0]?.teacher || ''}</p>
               </div>
               <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(section.id); }} className="p-1.5 -m-1.5">
                 <Heart className={`w-5 h-5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-300 dark:text-gray-600'}`} />
@@ -595,7 +1111,8 @@ function SectionList({ sections, favorites, expandedSection, onToggleExpand, onT
                     <span className="text-[11px] font-bold text-indigo-500 w-6 text-center">{DAY_NAMES_SHORT[slot.dayOfWeek]}</span>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-[12px] text-gray-700 dark:text-gray-300">
-                        <Clock className="w-3 h-3 text-gray-400" /><span className="font-medium">{slot.timeStart} — {slot.timeEnd}</span>
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        <span className="font-medium">{slot.timeStart} — {slot.timeEnd}</span>
                       </div>
                       <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
                         <span className="flex items-center gap-1"><User className="w-3 h-3" /> {slot.teacher}</span>
@@ -604,6 +1121,13 @@ function SectionList({ sections, favorites, expandedSection, onToggleExpand, onT
                     </div>
                   </div>
                 ))}
+                {!isEnrolled && (
+                  <div className="p-2">
+                    <button onClick={() => onEnroll(section.id)} className="w-full py-2 bg-indigo-500 text-white text-xs font-semibold rounded-lg">
+                      Записаться на {section.name}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -613,67 +1137,204 @@ function SectionList({ sections, favorites, expandedSection, onToggleExpand, onT
   );
 }
 
-/* ===== Schedule Grid View ===== */
-function ScheduleGrid({ sections, filterDay }: { sections: SportSection[]; filterDay: number | null }) {
-  const allSlots: SportSlot[] = sections.flatMap(s =>
-    s.slots.map(slot => ({ ...slot, section: { id: s.id, name: s.name, emoji: s.emoji, slots: [] } }))
+/* ===== Schedule Grid View (Сетка расписания) ===== */
+function ScheduleGrid({ sections, filterDay, enrolledSectionId }: {
+  sections: SportSection[]; filterDay: number | null; enrolledSectionId?: number;
+}) {
+  const [selectedSlot, setSelectedSlot] = useState<{ slot: SportSlot; section: SportSection } | null>(null);
+
+  const allSlots: (SportSlot & { _section: SportSection })[] = sections.flatMap(s =>
+    s.slots.map(slot => ({ ...slot, _section: s, section: { id: s.id, name: s.name, emoji: s.emoji, slots: [] } as SportSection }))
   );
+
   const days = filterDay ? [filterDay] : DAYS;
-  const byTime = new Map<string, Map<number, SportSlot[]>>();
+
+  // Group by time
+  const byTime = new Map<string, Map<number, (SportSlot & { _section: SportSection })[]>>();
   for (const slot of allSlots) {
     if (!byTime.has(slot.timeStart)) byTime.set(slot.timeStart, new Map());
     const dayMap = byTime.get(slot.timeStart)!;
     if (!dayMap.has(slot.dayOfWeek)) dayMap.set(slot.dayOfWeek, []);
     dayMap.get(slot.dayOfWeek)!.push(slot);
   }
+
   const times = TIME_SLOTS.filter(t => byTime.has(t));
 
   if (times.length === 0) {
     return (
       <div className="text-center py-12">
         <Filter className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
-        <p className="text-sm text-gray-500">Нет занятий</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Нет занятий</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto -mx-4 px-4">
-      <table className="w-full text-[11px] border-collapse min-w-[500px]">
-        <thead>
-          <tr>
-            <th className="py-2 px-1 text-gray-400 font-medium text-left w-[50px]">Время</th>
-            {days.map(day => (<th key={day} className="py-2 px-1 text-indigo-500 font-bold text-center">{DAY_NAMES_SHORT[day]}</th>))}
-          </tr>
-        </thead>
-        <tbody>
-          {times.map(time => {
-            const dayMap = byTime.get(time)!;
-            return (
-              <tr key={time} className="border-t border-gray-100 dark:border-gray-800">
-                <td className="py-2 px-1 font-bold text-gray-600 dark:text-gray-400 align-top">{time}</td>
-                {days.map(day => {
-                  const slots = dayMap.get(day) || [];
-                  return (
-                    <td key={day} className="py-1 px-0.5 align-top">
-                      <div className="space-y-0.5">
-                        {slots.map(slot => (
-                          <div key={slot.id} className="bg-indigo-50 dark:bg-indigo-500/10 rounded-md px-1.5 py-1 text-[10px] leading-tight">
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">
-                              {slot.section?.emoji || SPORT_EMOJIS[slot.section?.name || ''] || ''} {slot.section?.name}
-                            </span>
-                            <div className="text-gray-500 dark:text-gray-400 truncate">{slot.teacher}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <>
+      <div className="overflow-x-auto -mx-4 px-4">
+        <table className="w-full text-[11px] border-collapse min-w-[500px]">
+          <thead>
+            <tr>
+              <th className="py-2 px-1 text-gray-400 font-medium text-left w-[50px]">Время</th>
+              {days.map(day => (
+                <th key={day} className="py-2 px-1 text-indigo-500 font-bold text-center">
+                  {DAY_NAMES_SHORT[day]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {times.map(time => {
+              const dayMap = byTime.get(time)!;
+              return (
+                <tr key={time} className="border-t border-gray-100 dark:border-gray-800">
+                  <td className="py-2 px-1 font-bold text-gray-600 dark:text-gray-400 align-top">
+                    {time}
+                  </td>
+                  {days.map(day => {
+                    const slots = dayMap.get(day) || [];
+                    return (
+                      <td key={day} className="py-1 px-0.5 align-top">
+                        <div className="space-y-0.5">
+                          {slots.map(slot => {
+                            const emoji = slot.section?.emoji || SPORT_EMOJIS[slot.section?.name || ''] || '';
+                            const isMine = enrolledSectionId != null && slot.sectionId === enrolledSectionId;
+                            const isSelected = selectedSlot?.slot.id === slot.id;
+                            return (
+                              <button
+                                key={slot.id}
+                                onClick={() => setSelectedSlot(isSelected ? null : { slot, section: slot._section })}
+                                className={`w-full text-left rounded-md px-1.5 py-1 text-[10px] leading-tight transition-all ${
+                                  isMine
+                                    ? 'bg-emerald-100 dark:bg-emerald-500/20 ring-1 ring-emerald-400 dark:ring-emerald-500/50'
+                                    : isSelected
+                                      ? 'bg-indigo-100 dark:bg-indigo-500/20 ring-1 ring-indigo-400'
+                                      : 'bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/15'
+                                } active:scale-95`}
+                              >
+                                <span className={`font-semibold ${isMine ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-800 dark:text-gray-200'}`}>
+                                  {emoji} {slot.section?.name}
+                                </span>
+                                <div className={`truncate ${isMine ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {slot.teacher}
+                                </div>
+                                {isMine && <div className="text-[8px] text-emerald-500 font-bold mt-0.5">✓ моя</div>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Карточка выбранного занятия */}
+      {selectedSlot && (
+        <SlotDetailCard
+          slot={selectedSlot.slot}
+          section={selectedSlot.section}
+          isMine={enrolledSectionId === selectedSlot.section.id}
+          onClose={() => setSelectedSlot(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/* ===== Карточка деталей занятия ===== */
+function SlotDetailCard({ slot, section, isMine, onClose }: {
+  slot: SportSlot; section: SportSection; isMine: boolean; onClose: () => void;
+}) {
+  const emoji = section.emoji || SPORT_EMOJIS[section.name] || '🏃';
+  // Все слоты этой секции (для отображения полного расписания)
+  const sectionSlots = section.slots || [];
+  const uniqueDays = [...new Set(sectionSlots.map(s => s.dayOfWeek))].sort();
+  const favCount = (section as any)._count?.favorites;
+
+  return (
+    <div className="mt-3 bg-white dark:bg-gray-900 rounded-xl border-2 border-indigo-200 dark:border-indigo-500/30 overflow-hidden shadow-lg animate-in slide-in-from-bottom-2">
+      {/* Header */}
+      <div className={`px-4 py-3 flex items-center justify-between ${
+        isMine ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-indigo-50 dark:bg-indigo-500/10'
+      }`}>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{emoji}</span>
+          <div>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+              {section.name}
+              {isMine && <span className="ml-1.5 text-[10px] text-emerald-500 font-medium">✓ моя секция</span>}
+            </p>
+            <p className="text-[11px] text-gray-500">
+              {uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} · {sectionSlots.length} занятий
+            </p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          <XCircle className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Выбранное занятие */}
+      <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-2">Выбранное занятие</p>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+            isMine
+              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600'
+              : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600'
+          }`}>
+            {DAY_NAMES_SHORT[slot.dayOfWeek]}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
+              <Clock className="w-3.5 h-3.5 text-gray-400" />
+              <span className="font-semibold">{slot.timeStart} — {slot.timeEnd}</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
+              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {slot.teacher}</span>
+              {slot.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {slot.location}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Полное расписание секции */}
+      {sectionSlots.length > 1 && (
+        <div className="p-4">
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-2">Все занятия секции</p>
+          <div className="grid grid-cols-5 gap-1">
+            {DAYS.map(day => {
+              const daySlots = sectionSlots.filter(sl => sl.dayOfWeek === day);
+              const isCurrentDay = slot.dayOfWeek === day;
+              return (
+                <div key={day} className={`text-center p-1.5 rounded-lg ${
+                  isCurrentDay
+                    ? isMine
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 ring-1 ring-emerald-300 dark:ring-emerald-500/30'
+                      : 'bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-300 dark:ring-indigo-500/30'
+                    : 'bg-gray-50 dark:bg-gray-800'
+                }`}>
+                  <p className={`text-[10px] font-bold ${isCurrentDay ? (isMine ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400') : 'text-gray-500'}`}>
+                    {DAY_NAMES_SHORT[day]}
+                  </p>
+                  {daySlots.length > 0 ? daySlots.map(sl => (
+                    <p key={sl.id} className={`text-[9px] ${
+                      sl.id === slot.id ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-500'
+                    }`}>{sl.timeStart}</p>
+                  )) : (
+                    <p className="text-[9px] text-gray-300 dark:text-gray-600">—</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

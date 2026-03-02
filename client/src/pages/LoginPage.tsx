@@ -12,11 +12,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleDevLogin = async (role: string) => {
+  const handleDevLogin = async (role: string, telegramId?: string, firstName?: string) => {
     setLoading(true);
     setError('');
     try {
-      await devLogin(role === 'admin' ? 'Администратор' : 'Студент', role);
+      const name = firstName || (role === 'admin' ? 'Администратор' : 'Студент');
+      await devLogin(name, role, telegramId);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -107,18 +108,25 @@ export default function LoginPage() {
                 </div>
                 <div className="space-y-3">
                   <button
-                    onClick={() => handleDevLogin('student')}
+                    onClick={() => handleDevLogin('student', '100001', 'Иван')}
                     disabled={loading}
                     className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium hover:from-indigo-600 hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/25"
                   >
-                    {loading ? 'Вход...' : 'Войти как студент'}
+                    {loading ? 'Вход...' : '👨‍🎓 Студент — Иванов'}
                   </button>
                   <button
-                    onClick={() => handleDevLogin('admin')}
+                    onClick={() => handleDevLogin('student', '200001', 'Дзигуа')}
+                    disabled={loading}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/25"
+                  >
+                    {loading ? 'Вход...' : '🏋️ Преподаватель — Дзигуа (Атлетизм)'}
+                  </button>
+                  <button
+                    onClick={() => handleDevLogin('admin', '1038062816', 'Admin')}
                     disabled={loading}
                     className="w-full py-3 px-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50 border border-gray-200 dark:border-gray-700"
                   >
-                    {loading ? 'Вход...' : 'Войти как администратор'}
+                    {loading ? 'Вход...' : '🛡️ Администратор'}
                   </button>
                 </div>
               </>

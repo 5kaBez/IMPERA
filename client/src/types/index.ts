@@ -57,6 +57,8 @@ export interface User {
   group?: Group;
   notifyBefore: boolean;
   notifyChanges: boolean;
+  isSportTeacher?: boolean;
+  teachingSections?: Array<{ id: number; name: string; emoji?: string }>;
 }
 
 export interface ScheduleDay {
@@ -158,6 +160,14 @@ export interface SportSlot {
   capacity?: number;
 }
 
+export interface SportEnrollment {
+  id: number;
+  userId: number;
+  sectionId: number;
+  section?: SportSection;
+  createdAt: string;
+}
+
 export interface SportProgress {
   confirmed: number;
   pending: number;
@@ -174,16 +184,28 @@ export interface SportAttendanceRecord {
   sectionEmoji?: string;
   teacher: string;
   status: 'pending' | 'confirmed' | 'rejected';
+  geoOk?: boolean;
+  geoDistM?: number;
   checkedInAt: string;
   confirmedAt?: string;
+}
+
+// Активная сессия по секции студента
+export interface SportActiveSession {
+  sessionId: number;
+  section: string;
+  emoji?: string;
+  location?: string;
+  teacher: string;
+  done: boolean;        // уже отметился?
+  status?: string;      // pending/confirmed/rejected
+  geoOk?: boolean;
 }
 
 export interface SportSessionInfo {
   sessionId: number;
   section: string;
   sectionEmoji?: string;
-  code: string;
-  ttl: number;
   status: string;
   startedAt: string;
   students: Array<{
@@ -192,6 +214,8 @@ export interface SportSessionInfo {
     lastName?: string;
     username?: string;
     status: string;
+    geoOk?: boolean;
+    geoDistM?: number;
     checkedInAt: string;
   }>;
   studentCount: number;

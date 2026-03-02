@@ -37,7 +37,7 @@ interface AuthContextType {
   loading: boolean;
   isTelegramWebApp: boolean;
   login: (telegramData: Record<string, unknown>) => Promise<void>;
-  devLogin: (firstName?: string, role?: string) => Promise<void>;
+  devLogin: (firstName?: string, role?: string, telegramId?: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -120,9 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
-  const devLogin = async (firstName = 'Dev User', role = 'student') => {
+  const devLogin = async (firstName = 'Dev User', role = 'student', telegramId?: string) => {
     const data = await api.post<{ token: string; user: User }>('/auth/dev-login', {
-      telegramId: Date.now().toString(),
+      telegramId: telegramId || Date.now().toString(),
       firstName,
       role,
     });

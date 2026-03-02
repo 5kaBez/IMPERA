@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "server",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "cd server && npx tsx src/index.ts"],
+      "port": 3001
+    },
+    {
+      "name": "client",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "cd client && npx vite --port 5173 --host 127.0.0.1"],
+      "port": 5173
+    }
+  ]
+}

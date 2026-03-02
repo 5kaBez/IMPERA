@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"           // Для локальной разработки; на Render → "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -91,6 +91,7 @@ model User {
   feedbacks       Feedback[]
   reviews         Review[]
   sportFavorites    SportFavorite[]
+  sportEnrollments  SportEnrollment[]  // На какую секцию записан
   sportTeaching     SportTeacher[]     // Секции, где юзер — преподаватель физры
   sportSessions     SportSession[]     @relation("SessionTeacher")
   sportAttendances  SportAttendance[]  @relation("AttendanceStudent")
@@ -134,14 +135,17 @@ model Review {
 
 // ===== Физкультура =====
 model SportSection {
-  id        Int         @id @default(autoincrement())
-  name      String      @unique // Атлетизм, Аэробика, Баскетбол, etc.
-  emoji     String?     // 🏋️, 💃, 🏀, etc.
-  slots     SportSlot[]
-  favorites SportFavorite[]
-  teachers  SportTeacher[]
-  sessions  SportSession[]
-  createdAt DateTime    @default(now())
+  id          Int              @id @default(autoincrement())
+  name        String           @unique // Атлетизм, Аэробика, Баскетбол, etc.
+  emoji       String?          // 🏋️, 💃, 🏀, etc.
+  geoLat      Float?           // Координаты зала для гео-проверки
+  geoLon      Float?
+  slots       SportSlot[]
+  favorites   SportFavorite[]
+  enrollments SportEnrollment[]
+  teachers    SportTeacher[]
+  sessions    SportSession[]
+  createdAt   DateTime         @default(now())
 }
 
 model SportSlot {
@@ -162,6 +166,18 @@ model SportSlot {
 }
 
 model SportFavorite {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionId Int
+  section   SportSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, sectionId])
+}
+
+// Запись студента на секцию (enrollment) — одна активная секция
+model SportEnrollment {
   id        Int          @id @default(autoincrement())
   userId    Int
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -196,7 +212,7 @@ model SportSession {
   teacherId   Int
   teacher     User             @relation("SessionTeacher", fields: [teacherId], references: [id])
   status      String           @default("active") // active, completed, cancelled
-  secretSeed  String           // Секрет для генерации ротирующих кодов (HMAC)
+  secretSeed  String?          // Секрет (legacy TOTP, теперь опционально)
   startedAt   DateTime         @default(now())
   endedAt     DateTime?
   attendances SportAttendance[]
@@ -205,7 +221,7 @@ model SportSession {
   @@index([teacherId])
 }
 
-// Посещение студента с хеш-цепочкой (tamper-proof)
+// Посещение студента с хеш-цепочкой + гео + отпечаток устройства
 model SportAttendance {
   id          Int          @id @default(autoincrement())
   sessionId   Int
@@ -213,6 +229,11 @@ model SportAttendance {
   studentId   Int
   student     User         @relation("AttendanceStudent", fields: [studentId], references: [id])
   status      String       @default("pending") // pending → confirmed / rejected
+  geoLat      Float?       // Откуда отметился студент
+  geoLon      Float?
+  geoDistM    Int?         // Расстояние до зала (метры)
+  geoOk       Boolean      @default(false) // <= 1км
+  deviceHash  String?      // Отпечаток устройства (1 телефон = 1 студент)
   checkedInAt DateTime     @default(now())
   confirmedAt DateTime?
   hash        String       // SHA256(studentId:sessionId:timestamp:prevHash)

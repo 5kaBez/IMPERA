@@ -171,8 +171,8 @@ router.post('/admin/import', authMiddleware, async (req: AuthRequest, res: Respo
     for (const s of sections) {
       const section = await prisma.sportSection.upsert({
         where: { name: s.name },
-        update: { emoji: s.emoji || undefined },
-        create: { name: s.name, emoji: s.emoji || null },
+        update: { emoji: s.emoji || undefined, geoLat: s.geoLat ?? undefined, geoLon: s.geoLon ?? undefined },
+        create: { name: s.name, emoji: s.emoji || null, geoLat: s.geoLat ?? null, geoLon: s.geoLon ?? null },
       });
       sectionCount++;
 
@@ -224,6 +224,7 @@ router.delete('/admin/all', authMiddleware, async (req: AuthRequest, res: Respon
       return;
     }
 
+    await prisma.sportEnrollment.deleteMany();
     await prisma.sportFavorite.deleteMany();
     await prisma.sportSlot.deleteMany();
     await prisma.sportSection.deleteMany();
