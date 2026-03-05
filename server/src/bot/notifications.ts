@@ -3,6 +3,37 @@ import { PrismaClient } from '@prisma/client';
 import { sendMessage } from './index';
 import { getSemesterWeekNumber, getSemesterWeekParity, getDayOfWeek, getMoscowDate } from './scheduleUtils';
 
+// Cache to prevent duplicate notifications within 15 minutes
+const notificationCache = new Map<string, number>();
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function getCacheKey(lessonId: number, telegramId: string): string {
+  return `${lessonId}:${telegramId}`;
+}
+
+function canSendNotification(lessonId: number, telegramId: string): boolean {
+  const key = getCacheKey(lessonId, telegramId);
+  const lastSent = notificationCache.get(key);
+  
+  if (lastSent && Date.now() - lastSent < CACHE_DURATION) {
+    return false;
+  }
+  
+  notificationCache.set(key, Date.now());
+  
+  // Clean old entries every hour
+  if (notificationCache.size > 1000) {
+    const now = Date.now();
+    for (const [key, timestamp] of notificationCache.entries()) {
+      if (now - timestamp > CACHE_DURATION) {
+        notificationCache.delete(key);
+      }
+    }
+  }
+  
+  return true;
+}
+
 export function startNotifications(prisma: PrismaClient) {
   // Check every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
@@ -56,6 +87,10 @@ async function checkAndNotify(prisma: PrismaClient) {
     },
   });
 
+  if (lessons.length > 0) {
+    console.log(`[Notify] Found ${lessons.length} lesson(s) starting at ${timeTarget}`);
+  }
+
   // Send 15-min pre-class notifications
   for (const lesson of lessons) {
     const users = lesson.group.users;
@@ -77,6 +112,12 @@ async function checkAndNotify(prisma: PrismaClient) {
 
     for (const user of users) {
       try {
+        // Check if we already sent this notification to this user in the last 15 minutes
+        if (!canSendNotification(lesson.id, user.telegramId)) {
+          console.log(`[Notify] Skipped duplicate notification for user ${user.telegramId}`);
+          continue;
+        }
+        
         await sendMessage(user.telegramId, text, 'MarkdownV2');
       } catch (e) {
         console.error(`Failed to notify user ${user.telegramId}:`, e);
@@ -84,10 +125,19 @@ async function checkAndNotify(prisma: PrismaClient) {
     }
   }
 
-  // Morning schedule notification at 7:30 MSK
+  // Morning schedule notification at 7:30 MSK (once per day only!)
+  const MORNING_NOTIFY_KEY = `morning_${getMoscowDate().toISOString().split('T')[0]}`;
+  
   if (mskHours === 7 && mskMinutes === 30) {
-    console.log('[Notify] Sending morning schedule...');
-    await sendDailySchedule(prisma, dayOfWeek, weekNum, parity);
+    // Check if we already sent morning notifications today
+    if (!notificationCache.has(MORNING_NOTIFY_KEY)) {
+      console.log('[Notify] Sending morning schedule...');
+      await sendDailySchedule(prisma, dayOfWeek, weekNum, parity);
+      // Mark that we sent morning notifications today
+      notificationCache.set(MORNING_NOTIFY_KEY, Date.now());
+    } else {
+      console.log('[Notify] Morning notifications already sent today, skipping');
+    }
   }
 }
 

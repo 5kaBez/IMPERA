@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
 import type { Institute, Direction, Program, Group } from '../types';
 import { ChevronRight, GraduationCap, Sun, Moon, ArrowLeft, Search } from 'lucide-react';
+import EmojiLoader from '../components/EmojiLoader';
 
 type Step = 'institute' | 'direction' | 'program' | 'group';
 
@@ -18,6 +19,7 @@ export default function SelectGroupPage() {
   const [selected, setSelected] = useState<{ institute?: Institute; direction?: Direction; program?: Program }>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const searchTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     api.get<Institute[]>('/structure/institutes').then(setInstitutes).finally(() => setLoading(false));
@@ -35,10 +37,13 @@ export default function SelectGroupPage() {
   const selectDirection = async (dir: Direction) => {
     setSelected({ ...selected, direction: dir });
     setLoading(true);
-    const progs = await api.get<Program[]>(`/structure/directions/${dir.id}/programs`);
-    setPrograms(progs);
-    if (progs.length === 1) {
-      await selectProgram(progs[0]);
+    const res = await api.get<any>(`/structure/institutes/${selected.institute?.id}/directions`);
+    // Get the first page of programs with search
+    const progs = await api.get<any>(`/structure/directions/${dir.id}/programs?page=1&limit=500`);
+    const programsArray = progs.items || progs;
+    setPrograms(programsArray);
+    if (programsArray.length === 1) {
+      await selectProgram(programsArray[0]);
     } else {
       setStep('program');
       setLoading(false);
@@ -48,8 +53,10 @@ export default function SelectGroupPage() {
   const selectProgram = async (prog: Program) => {
     setSelected({ ...selected, program: prog });
     setLoading(true);
-    const grps = await api.get<Group[]>(`/structure/programs/${prog.id}/groups`);
-    setGroups(grps);
+    // Get the first page of groups with search
+    const grpsRes = await api.get<any>(`/structure/programs/${prog.id}/groups?page=1&limit=500`);
+    const groupsArray = grpsRes.items || grpsRes;
+    setGroups(groupsArray);
     setStep('group');
     setLoading(false);
   };
@@ -80,81 +87,121 @@ export default function SelectGroupPage() {
   const filterItems = <T extends { name: string }>(items: T[]) =>
     search ? items.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) : items;
 
+  // Search effect for program/group search on server
+  useEffect(() => {
+    if (step === 'program' && selected.direction) {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      
+      searchTimeoutRef.current = window.setTimeout(async () => {
+        setLoading(true);
+        const query = search ? `?search=${encodeURIComponent(search)}&page=1&limit=500` : '?page=1&limit=500';
+        const progs = await api.get<any>(`/structure/directions/${selected.direction!.id}/programs${query}`);
+        const programsArray = progs.items || progs;
+        setPrograms(programsArray);
+        setLoading(false);
+      }, 300);
+    }
+    
+    if (step === 'group' && selected.program) {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      
+      searchTimeoutRef.current = window.setTimeout(async () => {
+        setLoading(true);
+        const query = search ? `?search=${encodeURIComponent(search)}&page=1&limit=500` : '?page=1&limit=500';
+        const grpsRes = await api.get<any>(`/structure/programs/${selected.program!.id}/groups${query}`);
+        const groupsArray = grpsRes.items || grpsRes;
+        setGroups(groupsArray);
+        setLoading(false);
+      }, 300);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [search, step, selected.direction, selected.program]);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
-      <div className="absolute top-4 right-4 flex gap-2">
-        <button onClick={toggleTheme} className="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 transition-all shadow-sm">
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+    <div className="min-h-screen bg-[var(--color-bg-apple)] flex flex-col smooth-transition relative overflow-hidden">
+      {/* Dynamic Background Accents */}
+      <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-blue-500/5 blur-[100px] rounded-full" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/5 blur-[120px] rounded-full" />
+
+      <div className="absolute top-6 right-6 z-50">
+        <button onClick={toggleTheme} className="p-3 rounded-2xl apple-glass shadow-xl hover:scale-110 active:scale-95 smooth-transition">
+          {theme === 'dark' ? <Sun className="w-6 h-6 text-amber-400" /> : <Moon className="w-6 h-6 text-slate-700" />}
         </button>
       </div>
 
       <div className="flex-1 flex items-start justify-center px-4 pt-12 sm:pt-20">
         <div className="w-full max-w-lg">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4 shadow-lg shadow-indigo-500/25">
-              <GraduationCap className="w-8 h-8 text-white" />
+          <div className="text-center mb-12 animate-in fade-in slide-in-from-top duration-1000">
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-[28px] bg-[var(--color-primary-apple)] mb-8 shadow-2xl">
+              <GraduationCap className="w-12 h-12 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            <h1 className="text-4xl font-black text-[var(--color-text-main)] tracking-[-0.04em] mb-3">
               Привет, {user?.firstName}!
             </h1>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-lg font-medium text-[var(--color-text-muted)] tracking-tight">
               {stepTitles[step]}
             </p>
           </div>
 
-          {/* Progress */}
-          <div className="flex items-center justify-center gap-2 mb-6">
-            {(['institute', 'direction', 'program', 'group'] as Step[]).map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  s === step ? 'bg-indigo-500 scale-125' :
-                  ['institute', 'direction', 'program', 'group'].indexOf(s) < ['institute', 'direction', 'program', 'group'].indexOf(step) ? 'bg-indigo-400' : 'bg-gray-300 dark:bg-gray-700'
-                }`} />
-                {i < 3 && <div className="w-8 h-0.5 bg-gray-200 dark:bg-gray-800" />}
-              </div>
-            ))}
+          {/* Progress Bullets */}
+          <div className="flex items-center justify-center gap-4 mb-10">
+            {(['institute', 'direction', 'program', 'group'] as Step[]).map((s) => {
+              const active = s === step;
+              const completed = (['institute', 'direction', 'program', 'group'] as Step[]).indexOf(s) < (['institute', 'direction', 'program', 'group'] as Step[]).indexOf(step);
+              return (
+                <div key={s} className="flex items-center">
+                  <div className={`h-2.5 rounded-full transition-all duration-700 ${active ? 'w-8 bg-[var(--color-primary-apple)] shadow-[0_0_15px_rgba(0,122,255,0.4)]' :
+                    completed ? 'w-2.5 bg-emerald-500' : 'w-2.5 bg-gray-300 dark:bg-zinc-800'
+                    }`} />
+                </div>
+              );
+            })}
           </div>
 
-          {/* Breadcrumb */}
+          {/* Back Action */}
           {step !== 'institute' && (
-            <button onClick={goBack} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-500 mb-4 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
+            <button
+              onClick={goBack}
+              className="flex items-center gap-2 mb-6 px-4 py-2.5 rounded-2xl bg-black/5 dark:bg-white/5 text-sm font-bold text-[var(--color-text-muted)] hover:text-[var(--color-primary-apple)] smooth-transition active:scale-95 group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               Назад
-              {selected.institute && <span className="text-gray-400 dark:text-gray-600">/ {selected.institute.name}</span>}
-              {selected.direction && <span className="text-gray-400 dark:text-gray-600">/ {selected.direction.name}</span>}
             </button>
           )}
 
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          {/* Search Bar */}
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-muted)]" />
             <input
               type="text"
               placeholder="Поиск..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+              className="w-full pl-12 pr-6 py-4 rounded-[22px] apple-glass border border-[var(--apple-border)] text-sm font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 transition-all shadow-sm"
             />
           </div>
 
           {/* Items */}
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="apple-card p-12 flex justify-center items-center h-[400px]">
+              <EmojiLoader />
             </div>
           ) : (
             <div className="space-y-2">
-              {step === 'institute' && filterItems(institutes).map(inst => (
+              {step === 'institute' && (search ? filterItems(institutes) : institutes).map(inst => (
                 <ItemButton key={inst.id} label={inst.name} onClick={() => selectInstitute(inst)} />
               ))}
-              {step === 'direction' && filterItems(directions).map(dir => (
+              {step === 'direction' && (search ? filterItems(directions) : directions).map(dir => (
                 <ItemButton key={dir.id} label={dir.name} onClick={() => selectDirection(dir)} />
               ))}
-              {step === 'program' && filterItems(programs).map(prog => (
+              {step === 'program' && programs.map(prog => (
                 <ItemButton key={prog.id} label={prog.name} onClick={() => selectProgram(prog)} />
               ))}
-              {step === 'group' && filterItems(groups).map(grp => (
+              {step === 'group' && groups.map(grp => (
                 <ItemButton
                   key={grp.id}
                   label={`${grp.course} курс ${grp.number} группа`}
@@ -162,15 +209,23 @@ export default function SelectGroupPage() {
                   onClick={() => selectGroup(grp)}
                 />
               ))}
+              {!loading && ((step === 'program' && programs.length === 0) || (step === 'group' && groups.length === 0)) && (
+                <div className="text-center py-12 text-[var(--color-text-muted)]">
+                  <p className="text-sm font-medium">Ничего не найдено</p>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <button onClick={() => { localStorage.setItem('impera_skip_group', '1'); updateUser({ ...user!, groupId: -1 } as any); }} className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors">
-              Пропустить →
+          <div className="flex flex-col items-center gap-6 mt-12 pb-12">
+            <button
+              onClick={() => { localStorage.setItem('impera_skip_group', '1'); updateUser({ ...user!, groupId: -1 } as any); }}
+              className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-primary-apple)] smooth-transition border-b border-transparent hover:border-[var(--color-primary-apple)]/30 pb-0.5"
+            >
+              Пропустить этот шаг →
             </button>
-            <button onClick={logout} className="text-sm text-gray-400 hover:text-red-500 transition-colors">
-              Выйти
+            <button onClick={logout} className="text-[11px] font-bold uppercase tracking-wider text-red-500/60 hover:text-red-500 smooth-transition">
+              Выйти из системы
             </button>
           </div>
         </div>
@@ -183,15 +238,17 @@ function ItemButton({ label, subtitle, onClick }: { label: string; subtitle?: st
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/5 transition-all group text-left"
+      className="w-full flex items-center justify-between px-6 py-5 apple-card shadow-sm hover:shadow-xl hover:-translate-y-0.5 group text-left mb-3 border border-[var(--apple-border)]"
     >
-      <div>
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+      <div className="flex-1 pr-4">
+        <p className="text-sm font-bold text-[var(--color-text-main)] group-hover:text-[var(--color-primary-apple)] smooth-transition">
           {label}
         </p>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs font-medium text-[var(--color-text-muted)] mt-1.5 opacity-80">{subtitle}</p>}
       </div>
-      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+      <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center group-hover:bg-[var(--color-primary-apple)] group-hover:text-white transition-all duration-300">
+        <ChevronRight className="w-4 h-4" />
+      </div>
     </button>
   );
 }

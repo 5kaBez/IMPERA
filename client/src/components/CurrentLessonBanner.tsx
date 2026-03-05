@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
-import { X, BookOpen, MapPin, User, Clock, Timer } from 'lucide-react';
+import { X, MapPin, User, Clock, Timer } from 'lucide-react';
 
 interface CurrentLessonData {
   id: number;
@@ -53,8 +53,16 @@ export default function CurrentLessonBanner() {
       const testH = urlParams.get('_testHour');
       const testM = urlParams.get('_testMinute');
       const testQuery = testH ? `?_testHour=${testH}&_testMinute=${testM || '0'}` : '';
-      const res = await api.get<CurrentResponse>(`/schedule/${groupId}/current${testQuery}`);
+      const res = await api.get<CurrentResponse>(`/schedule/${groupId}/current${testQuery}`, {
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      });
       setData(res);
+      // Debug log
+      console.log('[CurrentLesson] Fetched:', {
+        currentLesson: res.currentLesson ? `${res.currentLesson.pairNumber}: ${res.currentLesson.subject}` : null,
+        nextLesson: res.nextLesson ? `${res.nextLesson.pairNumber}: ${res.nextLesson.subject}` : null,
+        time: new Date().toLocaleTimeString(),
+      });
       // При новых данных сбрасываем dismiss (новая пара — новый баннер)
       if (res.currentLesson) {
         const prevId = sessionStorage.getItem('impera_dismissed_lesson');
@@ -62,15 +70,15 @@ export default function CurrentLessonBanner() {
           setDismissed(false);
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[CurrentLesson] Fetch error:', err);
     }
   }, [groupId]);
 
-  // Fetch current lesson data every 60 seconds
+  // Fetch current lesson data every 30 seconds (more frequent to catch transitions)
   useEffect(() => {
     fetchCurrent();
-    const interval = setInterval(fetchCurrent, 60000);
+    const interval = setInterval(fetchCurrent, 30000);
     return () => clearInterval(interval);
   }, [fetchCurrent]);
 
@@ -86,7 +94,8 @@ export default function CurrentLessonBanner() {
 
       if (remainingTotalSeconds <= 0) {
         setCountdown({ minutes: 0, seconds: 0 });
-        // Пара закончилась — обновляем данные
+        // Пара закончилась — обновляем данные и сбрасываем dismissed
+        setDismissed(false);
         fetchCurrent();
         return;
       }
@@ -116,7 +125,10 @@ export default function CurrentLessonBanner() {
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 dark:from-indigo-700 dark:via-purple-700 dark:to-indigo-800 text-white shadow-xl shadow-indigo-500/20 mb-6">
+    <div className="relative overflow-hidden apple-glass rounded-[32px] border border-[var(--apple-border)] shadow-2xl mb-10 transition-all duration-700 animate-in fade-in zoom-in group">
+      {/* Moving Background Accents */}
+      <div className="absolute top-0 right-0 w-[400px] h-full bg-[var(--color-primary-apple)]/10 blur-[100px] -z-10 animate-pulse" />
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-white/5 to-black/5 pointer-events-none" />
       {/* Animated background dots */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-2 right-20 w-24 h-24 rounded-full bg-white blur-2xl" />
@@ -126,59 +138,53 @@ export default function CurrentLessonBanner() {
       {/* Close button */}
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-white/20 transition-colors z-10"
+        className="absolute top-4 right-4 p-2.5 rounded-2xl bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 transition-all z-10 group/close"
         title="Скрыть"
       >
-        <X className="w-4 h-4" />
+        <X className="w-4 h-4 text-[var(--color-text-muted)] group-hover/close:scale-125 smooth-transition" />
       </button>
 
-      <div className="relative p-4 sm:p-5">
+      <div className="relative p-6 sm:p-8">
         {/* Top row: status + timer */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center gap-1.5">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-white/80">
-                Сейчас идёт {lesson.pairNumber}-я пара
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Идёт {lesson.pairNumber}-я пара
               </span>
             </div>
           </div>
 
-          {/* Countdown */}
-          <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-xl px-3 py-1.5">
-            <Timer className="w-3.5 h-3.5 text-white/70" />
-            <span className="text-sm font-bold tabular-nums tracking-wide">
+          {/* Countdown timer badge */}
+          <div className="flex items-center gap-2.5 h-10 px-4 rounded-2xl bg-[var(--color-text-main)] text-white shadow-xl scale-105">
+            <Timer className="w-4 h-4 animate-pulse" />
+            <span className="text-sm font-bold tabular-nums tracking-widest">
               {pad(countdown.minutes)}:{pad(countdown.seconds)}
             </span>
           </div>
         </div>
 
-        {/* Subject — large */}
-        <h2 className="text-lg sm:text-xl font-bold leading-snug mb-3 pr-8">
+        {/* Subject */}
+        <h2 className="text-3xl font-black text-[var(--color-text-main)] leading-[1.1] mb-6 pr-12 tracking-[-0.03em]">
           {lesson.subject}
         </h2>
 
-        {/* Details row */}
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {lesson.teacher && (
-            <div className="flex items-center gap-1.5 text-sm text-white/80">
-              <User className="w-4 h-4 text-white/60" />
-              <span>{lesson.teacher}</span>
+        {/* Details Cards */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          {[
+            { icon: User, text: lesson.teacher },
+            { icon: MapPin, text: `Аудитория ${lesson.room}` },
+            { icon: Clock, text: `${lesson.timeStart} — ${lesson.timeEnd}` },
+          ].map((info, idx) => (
+            <div key={idx} className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] shadow-sm">
+              <info.icon className="w-4 h-4 text-[var(--color-primary-apple)]" />
+              <span className="text-xs font-bold text-[var(--color-text-main)]">{info.text}</span>
             </div>
-          )}
-          {lesson.room && (
-            <div className="flex items-center gap-1.5 text-sm text-white/80">
-              <MapPin className="w-4 h-4 text-white/60" />
-              <span>Ауд. {lesson.room}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 text-sm text-white/80">
-            <Clock className="w-4 h-4 text-white/60" />
-            <span>{lesson.timeStart} — {lesson.timeEnd}</span>
-          </div>
+          ))}
         </div>
 
         {/* Progress bar */}
@@ -216,11 +222,13 @@ function ProgressBar({ lesson }: { lesson: CurrentLessonData }) {
   }, [lesson]);
 
   return (
-    <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+    <div className="w-full h-3 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden relative border border-[var(--apple-border)]">
       <div
-        className="h-full bg-white/60 rounded-full transition-all duration-1000 ease-linear"
+        className="h-full bg-gradient-to-r from-[var(--color-primary-apple)] to-indigo-500 rounded-full transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(0,122,255,0.4)] relative"
         style={{ width: `${progress}%` }}
-      />
+      >
+        <div className="absolute inset-0 bg-white/20 animate-pulse" />
+      </div>
     </div>
   );
 }

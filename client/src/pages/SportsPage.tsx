@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import type {
@@ -8,9 +8,9 @@ import type {
 import { DAY_NAMES_SHORT, SPORT_EMOJIS } from '../types';
 import {
   Heart, Clock, MapPin, User, ChevronDown, ChevronUp, Star,
-  CheckCircle2, XCircle, Timer, Play, Square, Users, Shield,
+  CheckCircle2, XCircle, Timer, Play, Users, Shield,
   Navigation, Fingerprint, Link2, AlertTriangle, Calendar,
-  BarChart3, Search, Dumbbell, LogOut, Filter, Grid3X3,
+  Search, Dumbbell, Filter,
 } from 'lucide-react';
 
 const TIME_SLOTS = ['09:00', '10:40', '12:55', '14:35', '16:15', '17:55'];
@@ -31,7 +31,6 @@ export default function SportsPage() {
    СТУДЕНТ — прогресс на топе, запись, чекин, секции
    ========================================================== */
 function StudentSportsView() {
-  const { user } = useAuth();
   const [sections, setSections] = useState<SportSection[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +72,7 @@ function StudentSportsView() {
     try {
       const result = await api.post<{ favorited: boolean }>(`/sports/favorites/${sectionId}`, {});
       setFavorites(prev => result.favorited ? [...prev, sectionId] : prev.filter(id => id !== sectionId));
-    } catch {}
+    } catch { }
   };
 
   const enroll = async (sectionId: number) => {
@@ -100,10 +99,11 @@ function StudentSportsView() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          <Dumbbell className="w-5 h-5 inline mr-1.5 -mt-0.5 text-indigo-500" />
+      <div className="mb-10 animate-in fade-in slide-in-from-top duration-700">
+        <h1 className="text-4xl font-black text-[var(--color-text-main)] tracking-[-0.04em] flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary-apple)]/10 text-[var(--color-primary-apple)] flex items-center justify-center shadow-inner">
+            <Dumbbell className="w-7 h-7" />
+          </div>
           Физкультура
         </h1>
       </div>
@@ -123,49 +123,46 @@ function StudentSportsView() {
         <CheckinArea activeSession={activeSession} onCheckin={() => loadData()} />
       )}
 
-      {/* Вкладки: Секции / Сетка / Мои посещения */}
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl mb-3">
+      {/* Tabs: Sections / Grid / My visits */}
+      <div className="flex gap-1 p-1.5 apple-glass rounded-2xl mb-8 border border-[var(--apple-border)]">
         {([
-          { key: 'sections' as const, label: '📋 Секции' },
-          { key: 'schedule' as const, label: '📅 Сетка' },
-          { key: 'history' as const, label: '📊 Посещения' },
+          { key: 'sections' as const, label: 'Секции' },
+          { key: 'schedule' as const, label: 'Сетка' },
+          { key: 'history' as const, label: 'История' },
         ]).map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-              tab === t.key
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
+            className={`flex-1 py-3 px-4 rounded-[14px] text-xs font-bold uppercase tracking-wider transition-all duration-500 scale-[0.98] active:scale-95 ${tab === t.key
+              ? 'bg-white dark:bg-zinc-800 text-[var(--color-text-main)] shadow-xl shadow-black/5 dark:shadow-white/5 opacity-100'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] opacity-70'
+              }`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Фильтр по дням (для Секции и Сетка) */}
+      {/* Day Filter */}
       {(tab === 'sections' || tab === 'schedule') && (
-        <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+        <div className="flex gap-3 mb-8 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
           <button
             onClick={() => setFilterDay(null)}
-            className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-              filterDay === null
-                ? 'bg-indigo-500 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-            }`}
+            className={`flex-shrink-0 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${filterDay === null
+              ? 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-black dark:border-white'
+              : 'bg-transparent text-[var(--color-text-muted)] border-[var(--apple-border)] hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
           >
-            Все дни
+            Все
           </button>
           {DAYS.map(day => (
             <button
               key={day}
               onClick={() => setFilterDay(filterDay === day ? null : day)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                filterDay === day
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-              }`}
+              className={`flex-shrink-0 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${filterDay === day
+                ? 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-black dark:border-white'
+                : 'bg-transparent text-[var(--color-text-muted)] border-[var(--apple-border)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
             >
               {DAY_NAMES_SHORT[day]}
             </button>
@@ -206,14 +203,13 @@ function TeacherSportsView() {
   const [sections, setSections] = useState<SportSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SportSessionInfo | null>(null);
-  const [existingSession, setExistingSession] = useState<{ sessionId: number; section: string; sectionEmoji?: string } | null>(null);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [checkedStudents, setCheckedStudents] = useState<Set<number>>(new Set());
   const [pastSessions, setPastSessions] = useState<any[]>([]);
   const [teacherTab, setTeacherTab] = useState<'session' | 'schedule' | 'history'>('session');
   const [filterDay, setFilterDay] = useState<number | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -229,7 +225,6 @@ function TeacherSportsView() {
       setPastSessions(sessions.filter((s: any) => s.status !== 'active'));
 
       if (teacherSession) {
-        setExistingSession(teacherSession);
         await loadSession(teacherSession.sessionId);
       }
     } catch (err) {
@@ -261,7 +256,7 @@ function TeacherSportsView() {
             data.students.forEach(s => next.add(s.id));
             return next;
           });
-        } catch {}
+        } catch { }
       }, 5000);
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -272,7 +267,6 @@ function TeacherSportsView() {
     try {
       const data = await api.post<any>('/sports/attendance/start-session', { sectionId });
       await loadSession(data.sessionId);
-      setExistingSession({ sessionId: data.sessionId, section: data.section, sectionEmoji: data.sectionEmoji });
     } catch (err: any) {
       alert(err?.message || 'Ошибка');
     } finally {
@@ -289,7 +283,6 @@ function TeacherSportsView() {
         confirmedStudentIds: Array.from(checkedStudents),
       });
       setSession(null);
-      setExistingSession(null);
       loadData();
     } catch (err: any) {
       alert(err?.message || 'Ошибка');
@@ -304,7 +297,6 @@ function TeacherSportsView() {
     try {
       await api.post(`/sports/attendance/session/${session.sessionId}/cancel`);
       setSession(null);
-      setExistingSession(null);
       loadData();
     } catch (err: any) {
       alert(err?.message || 'Ошибка');
@@ -376,22 +368,20 @@ function TeacherSportsView() {
                     <button
                       key={s.id}
                       onClick={() => toggleStudent(s.id)}
-                      className={`w-full flex items-center gap-2 p-3 rounded-xl text-left text-sm transition-all ${
-                        ok
-                          ? 'bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30'
-                          : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'
-                      }`}
+                      className={`w-full flex items-center gap-2 p-3 rounded-xl text-left text-sm transition-all ${ok
+                        ? 'bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30'
+                        : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'
+                        }`}
                     >
                       {ok ? <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
                       <span className="flex-1 font-medium text-gray-900 dark:text-gray-100">
                         {s.firstName} {s.lastName || ''}
                         {s.username && <span className="text-gray-400 ml-1 text-xs font-normal">@{s.username}</span>}
                       </span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        s.geoOk
-                          ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
-                          : 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400'
-                      }`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.geoOk
+                        ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
+                        : 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400'
+                        }`}>
                         {s.geoOk ? `📍 ${s.geoDistM}м` : `🚩 ${s.geoDistM ?? '?'}м`}
                       </span>
                     </button>
@@ -437,11 +427,10 @@ function TeacherSportsView() {
           <button
             key={t.key}
             onClick={() => setTeacherTab(t.key)}
-            className={`flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-all ${
-              teacherTab === t.key
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
+            className={`flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-all ${teacherTab === t.key
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+              : 'text-gray-500 dark:text-gray-400'
+              }`}
           >
             {t.label}
           </button>
@@ -534,11 +523,10 @@ function TeacherSportsView() {
           <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
             <button
               onClick={() => setFilterDay(null)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                filterDay === null
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-              }`}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${filterDay === null
+                ? 'bg-indigo-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
             >
               Все дни
             </button>
@@ -546,11 +534,10 @@ function TeacherSportsView() {
               <button
                 key={day}
                 onClick={() => setFilterDay(filterDay === day ? null : day)}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  filterDay === day
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                }`}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all ${filterDay === day
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}
               >
                 {DAY_NAMES_SHORT[day]}
               </button>
@@ -583,9 +570,8 @@ function TeacherSportsView() {
                       {' · '}{s.studentCount} студ.
                     </p>
                   </div>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                    s.status === 'completed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-                  }`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${s.status === 'completed' ? 'bg-green-100 dark:bg-green-500/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                    }`}>
                     {s.status === 'completed' ? '✓' : s.status}
                   </span>
                 </div>
@@ -676,11 +662,10 @@ function AdminSportsView() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-              tab === t.key
-                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
+            className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${tab === t.key
+              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+              : 'text-gray-500 dark:text-gray-400'
+              }`}
           >
             {t.label}
           </button>
@@ -852,16 +837,21 @@ function LoadingSpinner() {
 function EnrollmentCard({ enrollment, onUnenroll }: { enrollment: SportEnrollment; onUnenroll: () => void }) {
   const emoji = enrollment.section?.emoji || SPORT_EMOJIS[enrollment.section?.name || ''] || '🏃';
   return (
-    <div className="mb-3 p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-200 dark:border-indigo-500/30">
+    <div className="mb-6 p-4 apple-glass rounded-[22px] border border-[var(--color-primary-apple)]/20 shadow-xl shadow-blue-500/5 animate-in slide-in-from-right duration-500">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{emoji}</span>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary-apple)]/10 flex items-center justify-center text-2xl">
+            {emoji}
+          </div>
           <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{enrollment.section?.name}</p>
-            <p className="text-[10px] text-indigo-600 dark:text-indigo-400">Вы записаны на эту секцию</p>
+            <p className="text-sm font-bold text-[var(--color-text-main)] mb-0.5">{enrollment.section?.name}</p>
+            <p className="text-[10px] font-bold text-[var(--color-primary-apple)] uppercase tracking-wider">Вы записаны</p>
           </div>
         </div>
-        <button onClick={onUnenroll} className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 rounded">
+        <button
+          onClick={onUnenroll}
+          className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] hover:text-red-500 smooth-transition"
+        >
           Сменить
         </button>
       </div>
@@ -936,7 +926,7 @@ function CheckinArea({ activeSession, onCheckin }: { activeSession: SportActiveS
         );
         geoLat = pos.coords.latitude;
         geoLon = pos.coords.longitude;
-      } catch {}
+      } catch { }
       const r = await api.post<{ success: boolean; geoOk: boolean; dist: number | null }>('/sports/attendance/checkin', {
         sessionId: activeSession.sessionId,
         geoLat, geoLon,
@@ -996,25 +986,44 @@ function ProgressBar({ progress }: { progress: SportProgress }) {
   const pct = Math.min(100, Math.round((progress.confirmed / progress.required) * 100));
   const pendingPct = Math.min(100 - pct, Math.round((progress.pending / progress.required) * 100));
   return (
-    <div className="mb-4 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-base font-bold text-gray-900 dark:text-gray-100">
-          {progress.confirmed} / {progress.required}
-        </span>
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-          progress.completed ? 'bg-green-100 dark:bg-green-500/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-        }`}>
-          {progress.completed ? '✅ Закрыто!' : `Осталось ${progress.required - progress.confirmed}`}
-        </span>
+    <div className="mb-10 p-6 apple-card shadow-sm border border-[var(--apple-border)]">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-1">Ваш прогресс</p>
+          <span className="text-3xl font-black text-[var(--color-text-main)] tracking-tight">
+            {progress.confirmed} <span className="text-sm text-[var(--color-text-muted)] font-bold">/ {progress.required}</span>
+          </span>
+        </div>
+        <div className={`px-4 py-2 rounded-2xl text-[10px] font-bold uppercase tracking-wider ${progress.completed
+          ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+          : 'bg-zinc-100 dark:bg-zinc-800 text-[var(--color-text-muted)] border border-[var(--apple-border)]'
+          }`}>
+          {progress.completed ? '✅ Зачёт получен' : `Осталось ${progress.required - progress.confirmed} занятий`}
+        </div>
       </div>
-      <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
-        <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500 rounded-l-full" style={{ width: `${pct}%` }} />
-        {pendingPct > 0 && <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${pendingPct}%` }} />}
+      <div className="h-4 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden flex p-0.5 border border-[var(--apple-border)]">
+        <div
+          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+          style={{ width: `${pct}%` }}
+        />
+        {pendingPct > 0 && (
+          <div
+            className="h-full bg-amber-400/50 rounded-full transition-all duration-1000 ml-0.5"
+            style={{ width: `${pendingPct}%` }}
+          />
+        )}
       </div>
-      <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Подтв. {progress.confirmed}</span>
-        {progress.pending > 0 && <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400" /> Ожидает {progress.pending}</span>}
-        {progress.rejected > 0 && <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-400" /> Отклон. {progress.rejected}</span>}
+      <div className="flex items-center gap-6 mt-4">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase">Подтверждено: {progress.confirmed}</span>
+        </div>
+        {progress.pending > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase">Ожидает: {progress.pending}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1072,14 +1081,16 @@ function SectionList({ sections, favorites, expandedSection, enrolledSectionId, 
 }) {
   if (sections.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Star className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
-        <p className="text-sm text-gray-500">Нет секций</p>
+      <div className="text-center py-20 flex flex-col items-center">
+        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+          <Star className="w-10 h-10 text-zinc-300" />
+        </div>
+        <p className="text-lg font-bold text-[var(--color-text-muted)]">Нет доступных секций</p>
       </div>
     );
   }
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       {sections.map(section => {
         const emoji = section.emoji || SPORT_EMOJIS[section.name] || '🏃';
         const isFav = favorites.includes(section.id);
@@ -1087,46 +1098,59 @@ function SectionList({ sections, favorites, expandedSection, enrolledSectionId, 
         const isEnrolled = enrolledSectionId === section.id;
         const uniqueDays = [...new Set(section.slots.map(s => s.dayOfWeek))];
         return (
-          <div key={section.id} className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden ${
-            isEnrolled ? 'border-indigo-300 dark:border-indigo-500/40' : 'border-gray-200 dark:border-gray-800'
-          }`}>
-            <button onClick={() => onToggleExpand(section.id)} className="w-full p-3 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-              <span className="text-2xl">{emoji}</span>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[14px] font-semibold text-gray-900 dark:text-gray-100">
-                  {section.name}
-                  {isEnrolled && <span className="ml-1.5 text-[10px] text-indigo-500 font-normal">✓ записаны</span>}
-                </h3>
-                <p className="text-[11px] text-gray-500">{uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} · {section.slots[0]?.teacher || ''}</p>
+          <div key={section.id} className={`apple-card overflow-hidden smooth-transition border ${isEnrolled ? 'border-[var(--color-primary-apple)] shadow-lg shadow-blue-500/10' : 'border-[var(--apple-border)]'
+            }`}>
+            <button onClick={() => onToggleExpand(section.id)} className="w-full p-5 flex items-center gap-5 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl shadow-inner">
+                {emoji}
               </div>
-              <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(section.id); }} className="p-1.5 -m-1.5">
-                <Heart className={`w-5 h-5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-300 dark:text-gray-600'}`} />
-              </button>
-              {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-[var(--color-text-main)] mb-1 flex items-center gap-2">
+                  {section.name}
+                  {isEnrolled && <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[9px] font-black uppercase">Вы здесь</span>}
+                </h3>
+                <p className="text-xs font-semibold text-[var(--color-text-muted)]">{uniqueDays.map(d => DAY_NAMES_SHORT[d]).join(', ')} &bull; {section.slots[0]?.teacher || 'Инструктор'}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleFavorite(section.id); }}
+                  className={`p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 smooth-transition ${isFav ? 'text-red-500' : 'text-zinc-300'}`}
+                >
+                  <Heart className={`w-6 h-6 ${isFav ? 'fill-current' : ''}`} />
+                </button>
+                {isExpanded ? <ChevronUp className="w-5 h-5 text-zinc-400" /> : <ChevronDown className="w-5 h-5 text-zinc-400" />}
+              </div>
             </button>
             {isExpanded && (
-              <div className="border-t border-gray-100 dark:border-gray-800">
-                {section.slots.map(slot => (
-                  <div key={slot.id} className="px-3 py-2 flex items-center gap-3 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
-                    <span className="text-[11px] font-bold text-indigo-500 w-6 text-center">{DAY_NAMES_SHORT[slot.dayOfWeek]}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 text-[12px] text-gray-700 dark:text-gray-300">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="font-medium">{slot.timeStart} — {slot.timeEnd}</span>
+              <div className="px-5 pb-5 animate-in slide-in-from-top-2 duration-300">
+                <div className="h-px bg-[var(--apple-border)] mb-4" />
+                <div className="space-y-3 mb-6">
+                  {section.slots.map(slot => (
+                    <div key={slot.id} className="flex items-center justify-between p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-primary-apple)]/10 text-[var(--color-primary-apple)] flex items-center justify-center text-[10px] font-black uppercase">
+                          {DAY_NAMES_SHORT[slot.dayOfWeek]}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-[var(--color-text-main)]">{slot.timeStart} — {slot.timeEnd}</p>
+                          <p className="text-[10px] font-medium text-[var(--color-text-muted)]">{slot.teacher}</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
-                        <span className="flex items-center gap-1"><User className="w-3 h-3" /> {slot.teacher}</span>
-                        {slot.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {slot.location}</span>}
-                      </div>
+                      {slot.location && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[9px] font-bold text-[var(--color-text-muted)]">
+                          <MapPin className="w-3 h-3" /> {slot.location}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
                 {!isEnrolled && (
-                  <div className="p-2">
-                    <button onClick={() => onEnroll(section.id)} className="w-full py-2 bg-indigo-500 text-white text-xs font-semibold rounded-lg">
-                      Записаться на {section.name}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => onEnroll(section.id)}
+                    className="w-full py-4 bg-[var(--color-primary-apple)] text-white text-sm font-bold rounded-[18px] hover:shadow-2xl hover:shadow-blue-500/30 transition-all active:scale-95"
+                  >
+                    Записаться в секцию
+                  </button>
                 )}
               </div>
             )}
@@ -1204,13 +1228,12 @@ function ScheduleGrid({ sections, filterDay, enrolledSectionId }: {
                               <button
                                 key={slot.id}
                                 onClick={() => setSelectedSlot(isSelected ? null : { slot, section: slot._section })}
-                                className={`w-full text-left rounded-md px-1.5 py-1 text-[10px] leading-tight transition-all ${
-                                  isMine
-                                    ? 'bg-emerald-100 dark:bg-emerald-500/20 ring-1 ring-emerald-400 dark:ring-emerald-500/50'
-                                    : isSelected
-                                      ? 'bg-indigo-100 dark:bg-indigo-500/20 ring-1 ring-indigo-400'
-                                      : 'bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/15'
-                                } active:scale-95`}
+                                className={`w-full text-left rounded-md px-1.5 py-1 text-[10px] leading-tight transition-all ${isMine
+                                  ? 'bg-emerald-100 dark:bg-emerald-500/20 ring-1 ring-emerald-400 dark:ring-emerald-500/50'
+                                  : isSelected
+                                    ? 'bg-indigo-100 dark:bg-indigo-500/20 ring-1 ring-indigo-400'
+                                    : 'bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/15'
+                                  } active:scale-95`}
                               >
                                 <span className={`font-semibold ${isMine ? 'text-emerald-800 dark:text-emerald-200' : 'text-gray-800 dark:text-gray-200'}`}>
                                   {emoji} {slot.section?.name}
@@ -1254,14 +1277,12 @@ function SlotDetailCard({ slot, section, isMine, onClose }: {
   // Все слоты этой секции (для отображения полного расписания)
   const sectionSlots = section.slots || [];
   const uniqueDays = [...new Set(sectionSlots.map(s => s.dayOfWeek))].sort();
-  const favCount = (section as any)._count?.favorites;
 
   return (
     <div className="mt-3 bg-white dark:bg-gray-900 rounded-xl border-2 border-indigo-200 dark:border-indigo-500/30 overflow-hidden shadow-lg animate-in slide-in-from-bottom-2">
       {/* Header */}
-      <div className={`px-4 py-3 flex items-center justify-between ${
-        isMine ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-indigo-50 dark:bg-indigo-500/10'
-      }`}>
+      <div className={`px-4 py-3 flex items-center justify-between ${isMine ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-indigo-50 dark:bg-indigo-500/10'
+        }`}>
         <div className="flex items-center gap-2">
           <span className="text-2xl">{emoji}</span>
           <div>
@@ -1283,11 +1304,10 @@ function SlotDetailCard({ slot, section, isMine, onClose }: {
       <div className="p-4 border-b border-gray-100 dark:border-gray-800">
         <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-2">Выбранное занятие</p>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
-            isMine
-              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600'
-              : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600'
-          }`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${isMine
+            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600'
+            : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600'
+            }`}>
             {DAY_NAMES_SHORT[slot.dayOfWeek]}
           </div>
           <div className="flex-1">
@@ -1312,20 +1332,18 @@ function SlotDetailCard({ slot, section, isMine, onClose }: {
               const daySlots = sectionSlots.filter(sl => sl.dayOfWeek === day);
               const isCurrentDay = slot.dayOfWeek === day;
               return (
-                <div key={day} className={`text-center p-1.5 rounded-lg ${
-                  isCurrentDay
-                    ? isMine
-                      ? 'bg-emerald-50 dark:bg-emerald-500/10 ring-1 ring-emerald-300 dark:ring-emerald-500/30'
-                      : 'bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-300 dark:ring-indigo-500/30'
-                    : 'bg-gray-50 dark:bg-gray-800'
-                }`}>
+                <div key={day} className={`text-center p-1.5 rounded-lg ${isCurrentDay
+                  ? isMine
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 ring-1 ring-emerald-300 dark:ring-emerald-500/30'
+                    : 'bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-300 dark:ring-indigo-500/30'
+                  : 'bg-gray-50 dark:bg-gray-800'
+                  }`}>
                   <p className={`text-[10px] font-bold ${isCurrentDay ? (isMine ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400') : 'text-gray-500'}`}>
                     {DAY_NAMES_SHORT[day]}
                   </p>
                   {daySlots.length > 0 ? daySlots.map(sl => (
-                    <p key={sl.id} className={`text-[9px] ${
-                      sl.id === slot.id ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-500'
-                    }`}>{sl.timeStart}</p>
+                    <p key={sl.id} className={`text-[9px] ${sl.id === slot.id ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-500'
+                      }`}>{sl.timeStart}</p>
                   )) : (
                     <p className="text-[9px] text-gray-300 dark:text-gray-600">—</p>
                   )}

@@ -9,86 +9,90 @@ const DAY_MAP: Record<string, number> = {
 
 export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-  // Skip header
-  const dataRows = rows.slice(1).filter(row => row.length >= 17 && row[0]);
-
-  let imported = 0;
+  const parsed: any[] = [];
   let skipped = 0;
 
-  // ---- Phase 1: Parse all rows into structured data ----
-  interface ParsedRow {
-    instituteName: string;
-    directionName: string;
-    programName: string;
-    groupName: string;
-    groupNumber: number;
-    course: number;
-    studyForm: string;
-    educationLevel: string;
-    dayOfWeek: number;
-    pairNumber: number;
-    timeStart: string;
-    timeEnd: string;
-    parity: number;
-    subject: string;
-    lessonType: string;
-    teacher: string;
-    room: string;
-    weekStart: number;
-    weekEnd: number;
-  }
+  // Last seen values for forward-filling merged cells
+  let lastStudyForm = 'Очная';
+  let lastEducationLevel = 'Бакалавриат';
+  let lastCourse = 1;
+  let lastInstitute = '';
+  let lastDirection = '';
+  let lastProgram = '';
+  let lastGroup = '';
+  let lastGroupNumber = 1;
 
-  const parsed: ParsedRow[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    // Convert to JSON with header: 1 to get a 2D array
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-  for (const row of dataRows) {
-    try {
-      const studyForm = String(row[0] || '').trim();
-      const educationLevel = String(row[1] || '').trim();
-      const course = parseInt(row[2]) || 1;
-      const institute = String(row[3] || '').trim();
-      const direction = String(row[4] || '').trim();
-      const program = String(row[5] || '').trim();
-      const group = String(row[6] || '').trim();
-      const groupNumber = parseInt(row[7]) || 1;
-      const dayOfWeek = String(row[8] || '').trim().toUpperCase();
-      const pairNumber = parseInt(row[9]) || 1;
-      const time = String(row[10] || '').trim();
-      const parity = String(row[11] || '').trim();
-      const subject = String(row[12] || '').trim();
-      const lessonType = String(row[13] || '').trim();
-      const teacher = String(row[14] || '').trim();
-      const room = String(row[15] || '').trim();
-      const weeks = String(row[16] || '').trim();
+    if (rows.length < 2) continue;
 
-      if (!subject || subject === '-') { skipped++; continue; }
+    // Process rows (skipping the first header row of each sheet)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 10) continue;
 
-      const instituteName = normalizeInstitute(institute);
-      const directionName = normalizeDirection(direction);
-      const programName = program || directionName;
-      const { start, end } = normalizeTime(time);
-      const dayNum = DAY_MAP[dayOfWeek] || 1;
-      const parityNum = parity === '1' ? 1 : parity === '0' ? 0 : 2;
-      const { weekStart, weekEnd } = parseWeeks(weeks);
+      try {
+        const studyForm = String(row[0] || '').trim();
+        const educationLevel = String(row[1] || '').trim();
+        const course = parseInt(row[2]);
+        const institute = String(row[3] || '').trim();
+        const direction = String(row[4] || '').trim();
+        const program = String(row[5] || '').trim();
+        const group = String(row[6] || '').trim();
+        const groupNumber = parseInt(row[7]);
 
-      parsed.push({
-        instituteName, directionName, programName,
-        groupName: group, groupNumber, course, studyForm, educationLevel,
-        dayOfWeek: dayNum, pairNumber, timeStart: start, timeEnd: end,
-        parity: parityNum, subject, lessonType: normalizeLessonType(lessonType),
-        teacher: teacher === '-' ? '' : teacher,
-        room: room === '-' ? '' : room,
-        weekStart, weekEnd,
-      });
-    } catch {
-      skipped++;
+        const dayOfWeek = String(row[8] || '').trim().toUpperCase();
+        const pairNumber = parseInt(row[9]);
+        const time = String(row[10] || '').trim();
+        const parity = String(row[11] || '').trim();
+        const subject = String(row[12] || '').trim();
+        const lessonType = String(row[13] || '').trim();
+        const teacher = String(row[14] || '').trim();
+        const room = String(row[15] || '').trim();
+        const weeks = String(row[16] || '').trim();
+
+        // Update last seen values if present (forward-fill mechanism)
+        if (studyForm) lastStudyForm = studyForm;
+        if (educationLevel) lastEducationLevel = educationLevel;
+        if (!isNaN(course)) lastCourse = course;
+        if (institute) lastInstitute = institute;
+        if (direction) lastDirection = direction;
+        if (program) lastProgram = program;
+        if (group) lastGroup = group;
+        if (!isNaN(groupNumber)) lastGroupNumber = groupNumber;
+
+        // Skip rows without subject (merged group cells for empty lessons)
+        if (!subject || subject === '-' || subject === 'null' || subject === '—') continue;
+
+        const instituteName = normalizeInstitute(lastInstitute);
+        const directionName = normalizeDirection(lastDirection);
+        const programName = lastProgram || directionName;
+        const { start, end } = normalizeTime(time);
+        const dayNum = DAY_MAP[dayOfWeek] || 1;
+        const parityNum = parity === '1' ? 1 : parity === '0' ? 0 : 2;
+        const { weekStart, weekEnd } = parseWeeks(weeks);
+
+        parsed.push({
+          instituteName, directionName, programName,
+          groupName: lastGroup, groupNumber: lastGroupNumber,
+          course: lastCourse, studyForm: lastStudyForm, educationLevel: lastEducationLevel,
+          dayOfWeek: dayNum, pairNumber: pairNumber || 1,
+          timeStart: start, timeEnd: end,
+          parity: parityNum, subject, lessonType: normalizeLessonType(lessonType),
+          teacher: teacher === '-' ? '' : teacher,
+          room: room === '-' ? '' : room,
+          weekStart, weekEnd,
+        });
+      } catch (err) {
+        skipped++;
+      }
     }
   }
 
   // ---- Phase 2: Batch upsert structural data ----
-  // Collect unique values
   const uniqueInstitutes = [...new Set(parsed.map(r => r.instituteName))];
   const instituteMap = new Map<string, number>();
 
@@ -101,7 +105,6 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     instituteMap.set(name, inst.id);
   }
 
-  // Directions
   const uniqueDirections = new Map<string, { name: string; instituteId: number }>();
   for (const r of parsed) {
     const key = `${r.directionName}|${instituteMap.get(r.instituteName)}`;
@@ -119,7 +122,6 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     directionMap.set(key, dir.id);
   }
 
-  // Programs
   const uniquePrograms = new Map<string, { name: string; directionId: number }>();
   for (const r of parsed) {
     const dirKey = `${r.directionName}|${instituteMap.get(r.instituteName)}`;
@@ -138,7 +140,6 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     programMap.set(key, prog.id);
   }
 
-  // Groups
   const uniqueGroups = new Map<string, { name: string; number: number; programId: number; course: number; studyForm: string; educationLevel: string }>();
   for (const r of parsed) {
     const dirKey = `${r.directionName}|${instituteMap.get(r.instituteName)}`;
@@ -163,14 +164,8 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     groupMap.set(key, grp.id);
   }
 
-  // ---- Phase 3: Batch create lessons using createMany ----
-  const lessonData: Array<{
-    groupId: number; dayOfWeek: number; pairNumber: number;
-    timeStart: string; timeEnd: string; parity: number;
-    subject: string; lessonType: string; teacher: string;
-    room: string; weekStart: number; weekEnd: number;
-  }> = [];
-
+  // ---- Phase 3: Batch create lessons ----
+  const lessonData: any[] = [];
   for (const r of parsed) {
     const dirKey = `${r.directionName}|${instituteMap.get(r.instituteName)}`;
     const progKey = `${r.programName}|${directionMap.get(dirKey)}`;
@@ -178,31 +173,31 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     const grpKey = `${r.groupNumber}|${programId}|${r.course}|${r.studyForm}`;
     const groupId = groupMap.get(grpKey);
 
-    if (!groupId) { skipped++; continue; }
-
-    lessonData.push({
-      groupId,
-      dayOfWeek: r.dayOfWeek,
-      pairNumber: r.pairNumber,
-      timeStart: r.timeStart,
-      timeEnd: r.timeEnd,
-      parity: r.parity,
-      subject: r.subject,
-      lessonType: r.lessonType,
-      teacher: r.teacher,
-      room: r.room,
-      weekStart: r.weekStart,
-      weekEnd: r.weekEnd,
-    });
+    if (groupId) {
+      lessonData.push({
+        groupId,
+        dayOfWeek: r.dayOfWeek,
+        pairNumber: r.pairNumber,
+        timeStart: r.timeStart,
+        timeEnd: r.timeEnd,
+        parity: r.parity,
+        subject: r.subject,
+        lessonType: r.lessonType,
+        teacher: r.teacher,
+        room: r.room,
+        weekStart: r.weekStart,
+        weekEnd: r.weekEnd,
+      });
+    }
   }
 
-  // Insert in batches of 500 for performance
   const BATCH_SIZE = 500;
+  let imported = 0;
   for (let i = 0; i < lessonData.length; i += BATCH_SIZE) {
     const batch = lessonData.slice(i, i + BATCH_SIZE);
     await prisma.lesson.createMany({ data: batch });
     imported += batch.length;
   }
 
-  return { imported, skipped, total: dataRows.length };
+  return { imported, skipped, total: parsed.length + skipped };
 }

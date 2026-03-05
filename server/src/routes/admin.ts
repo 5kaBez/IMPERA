@@ -113,23 +113,34 @@ router.delete('/lessons/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// DELETE /api/admin/schedule/all — delete ALL schedule + structure data
+// DELETE /api/admin/schedule/all — delete ALL schedule + structure data (NOT users!)
 router.delete('/schedule/all', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   try {
     // Delete in correct order (bottom-up due to foreign keys)
+    // 1. Delete lessons first
     const lessons = await prisma.lesson.deleteMany({});
-    // Detach users from groups (keep users, just unlink)
+    
+    // 2. Delete sport attendances and sessions that might reference users
+    const sportAttendances = await prisma.sportAttendance.deleteMany({});
+    const sportSessions = await prisma.sportSession.deleteMany({});
+    
+    // 3. Detach users from groups (KEEP users safe!)
     await prisma.user.updateMany({ where: { groupId: { not: null } }, data: { groupId: null } });
+    
+    // 4. Delete structure (groups, programs, directions, institutes)
     const groups = await prisma.group.deleteMany({});
     const programs = await prisma.program.deleteMany({});
     const directions = await prisma.direction.deleteMany({});
     const institutes = await prisma.institute.deleteMany({});
+    
     res.json({
       success: true,
       deleted: lessons.count,
       details: {
         lessons: lessons.count,
+        sportAttendances: sportAttendances.count,
+        sportSessions: sportSessions.count,
         groups: groups.count,
         programs: programs.count,
         directions: directions.count,

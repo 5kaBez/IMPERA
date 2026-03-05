@@ -46,10 +46,10 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   isTelegramWebApp: false,
-  login: async () => {},
-  devLogin: async () => {},
-  logout: () => {},
-  updateUser: () => {},
+  login: async () => { },
+  devLogin: async () => { },
+  logout: () => { },
+  updateUser: () => { },
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -121,13 +121,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const devLogin = async (firstName = 'Dev User', role = 'student', telegramId?: string) => {
-    const data = await api.post<{ token: string; user: User }>('/auth/dev-login', {
-      telegramId: telegramId || Date.now().toString(),
-      firstName,
-      role,
-    });
-    api.setToken(data.token);
-    setUser(data.user);
+    try {
+      const data = await api.post<{ token: string; user: User }>('/auth/dev-login', {
+        telegramId: telegramId || 'mock-id-' + Date.now(),
+        firstName,
+        role,
+      });
+      api.setToken(data.token);
+      setUser(data.user);
+    } catch (err) {
+      console.warn('Backend dev-login failed, using mock user:', err);
+      // Fallback: Mock user for UI testing when DB is down
+      const mockUser: User = {
+        id: 999,
+        telegramId: telegramId || 'mock-123',
+        firstName: firstName,
+        lastName: 'Mock',
+        username: 'mock_user',
+        role: role as any,
+        groupId: 1, // Default group for testing
+        isSportTeacher: false,
+        teachingSections: [],
+        notifyBefore: true,
+        notifyChanges: true
+      };
+      api.setToken('mock-token');
+      setUser(mockUser);
+    }
   };
 
   const logout = () => {

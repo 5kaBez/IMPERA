@@ -25,21 +25,59 @@ router.get('/institutes/:id/directions', async (req: Request, res: Response) => 
 // GET /api/structure/directions/:id/programs
 router.get('/directions/:id/programs', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
-  const programs = await prisma.program.findMany({
-    where: { directionId: parseInt(String(req.params.id)) },
-    orderBy: { name: 'asc' }
+  const { search, page = '1', limit = '100' } = req.query;
+  
+  const where: any = { directionId: parseInt(String(req.params.id)) };
+  if (search) {
+    where.name = { contains: search as string };
+  }
+
+  const [programs, total] = await Promise.all([
+    prisma.program.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+      take: parseInt(limit as string),
+    }),
+    prisma.program.count({ where }),
+  ]);
+
+  res.json({
+    items: programs,
+    total,
+    page: parseInt(page as string),
+    limit: parseInt(limit as string),
+    totalPages: Math.ceil(total / parseInt(limit as string)),
   });
-  res.json(programs);
 });
 
 // GET /api/structure/programs/:id/groups
 router.get('/programs/:id/groups', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
-  const groups = await prisma.group.findMany({
-    where: { programId: parseInt(String(req.params.id)) },
-    orderBy: [{ course: 'asc' }, { number: 'asc' }]
+  const { search, page = '1', limit = '100' } = req.query;
+  
+  const where: any = { programId: parseInt(String(req.params.id)) };
+  if (search) {
+    where.name = { contains: search as string };
+  }
+
+  const [groups, total] = await Promise.all([
+    prisma.group.findMany({
+      where,
+      orderBy: [{ course: 'asc' }, { number: 'asc' }],
+      skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+      take: parseInt(limit as string),
+    }),
+    prisma.group.count({ where }),
+  ]);
+
+  res.json({
+    items: groups,
+    total,
+    page: parseInt(page as string),
+    limit: parseInt(limit as string),
+    totalPages: Math.ceil(total / parseInt(limit as string)),
   });
-  res.json(groups);
 });
 
 // GET /api/structure/groups — all groups with full hierarchy

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -11,16 +11,19 @@ import AdminImport from './pages/admin/AdminImport';
 import AdminUsers from './pages/admin/AdminUsers';
 import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function App() {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">Загрузка...</p>
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6">
+        <div className="text-center animate-in fade-in duration-1000">
+          <div className="w-16 h-16 border-4 border-zinc-100 dark:border-zinc-900 border-t-[var(--color-primary-apple)] rounded-full animate-spin mx-auto mb-6 shadow-2xl" />
+          <p className="text-sm font-black text-[var(--color-text-main)] tracking-widest uppercase">Загрузка IMPERA</p>
+          <p className="text-[10px] font-bold text-[var(--color-text-muted)] mt-1 uppercase tracking-[0.2em]">Crafting your experience</p>
         </div>
       </div>
     );
@@ -36,22 +39,33 @@ function App() {
 
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<SchedulePage />} />
-        <Route path="/schedule" element={<SchedulePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/sports" element={<SportsPage />} />
-        <Route path="/feedback" element={<FeedbackPage />} />
-        {user.role === 'admin' && (
-          <>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/schedule" element={<AdminSchedule />} />
-            <Route path="/admin/import" element={<AdminImport />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-          </>
-        )}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+          transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+          className="w-full"
+        >
+          <Routes location={location}>
+            <Route path="/" element={<SchedulePage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/sports" element={<SportsPage />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
+            {user.role === 'admin' && (
+              <>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/schedule" element={<AdminSchedule />} />
+                <Route path="/admin/import" element={<AdminImport />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+              </>
+            )}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
     </Layout>
   );
 }

@@ -167,6 +167,12 @@ router.get('/:groupId/current', async (req: Request, res: Response) => {
     }
   }
 
+  // Debug logging
+  console.log(`[Schedule] Group ${groupId} at ${currentHours}:${currentMinutes.toString().padStart(2, '0')} (mins: ${currentTotalMinutes}), 
+    day: ${dayOfWeek}, parity: ${parity}, week: ${weekNum}, 
+    lessons found: ${lessons.length}, 
+    current: ${currentLesson ? `${currentLesson.pairNumber}, ${currentLesson.subject}` : 'none'}`);
+
   res.json({
     currentLesson,
     nextLesson,
@@ -182,21 +188,25 @@ router.get('/:groupId/date/:date', async (req: Request, res: Response) => {
   const groupId = parseInt(String(req.params.groupId));
   const date = new Date(String(req.params.date));
   const dayOfWeek = getDayOfWeek(date);
-  const parity = getSemesterWeekParity();
-  const weekNum = getSemesterWeekNumber();
+  
+  // Calculate week number and parity for the specific date (not current date)
+  const diffMs = date.getTime() - SEMESTER_START.getTime();
+  const weekNum = diffMs < 0 ? 1 : Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+  const finalWeekNum = weekNum > 18 ? ((weekNum - 1) % 18) + 1 : weekNum;
+  const parity = finalWeekNum % 2 === 1 ? 1 : 0;
 
   const lessons = await prisma.lesson.findMany({
     where: {
       groupId,
       dayOfWeek,
       OR: [{ parity }, { parity: 2 }],
-      weekStart: { lte: weekNum },
-      weekEnd: { gte: weekNum },
+      weekStart: { lte: finalWeekNum },
+      weekEnd: { gte: finalWeekNum },
     },
     orderBy: { pairNumber: 'asc' }
   });
 
-  res.json({ date: req.params.date, dayOfWeek, parity, weekNumber: weekNum, lessons });
+  res.json({ date: req.params.date, dayOfWeek, parity, weekNumber: finalWeekNum, lessons });
 });
 
 export default router;

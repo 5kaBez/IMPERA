@@ -2,7 +2,7 @@ import { Bot, InlineKeyboard, Context } from 'grammy';
 import { PrismaClient } from '@prisma/client';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEB_APP_URL = process.env.WEB_APP_URL || 'https://impera-4nqp.onrender.com';
+const WEB_APP_URL = process.env.WEB_APP_URL || 'https://xn--80ajiqph.xn--p1acf/';
 
 let bot: Bot | null = null;
 
@@ -37,7 +37,7 @@ export async function startBot(prisma: PrismaClient) {
             },
           });
         }
-      } catch {}
+      } catch { }
     }
 
     const keyboard = new InlineKeyboard()

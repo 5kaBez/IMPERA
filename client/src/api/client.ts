@@ -40,8 +40,8 @@ class ApiClient {
     return res.json();
   }
 
-  get<T>(path: string) {
-    return this.request<T>(path);
+  get<T>(path: string, options?: RequestInit) {
+    return this.request<T>(path, options);
   }
 
   post<T>(path: string, body?: unknown) {

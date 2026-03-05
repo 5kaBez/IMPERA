@@ -79,30 +79,31 @@ export default function FeedbackPage() {
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Обратная связь</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+    <div className="pb-12">
+      <div className="mb-6 md:mb-10 animate-in fade-in slide-in-from-top duration-700">
+        <h1 className="text-2xl md:text-4xl font-black text-[var(--color-text-main)] tracking-[-0.04em]">Обратная связь</h1>
+        <p className="text-sm md:text-lg font-medium text-[var(--color-text-muted)] tracking-tight mt-1">
           Помогите нам стать лучше
         </p>
       </div>
 
       {/* Submit Form / Success */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 mb-6">
+      <div className="apple-glass rounded-[24px] md:rounded-[28px] border border-[var(--apple-border)] p-6 md:p-8 mb-8 md:mb-10 shadow-xl shadow-black/5 dark:shadow-white/5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
         {submitted ? (
-          <div className="text-center py-6">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
-              <CheckCircle className="w-7 h-7 text-green-500" />
+          <div className="text-center py-6 md:py-8">
+            <div className="w-16 md:w-20 h-16 md:h-20 mx-auto mb-4 md:mb-6 rounded-[20px] md:rounded-[24px] bg-emerald-500/10 flex items-center justify-center shadow-inner">
+              <CheckCircle className="w-8 md:w-10 h-8 md:h-10 text-emerald-500" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
+            <h2 className="text-xl md:text-2xl font-black text-[var(--color-text-main)] tracking-tight mb-2">
               Спасибо!
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            <p className="text-sm md:text-base font-medium text-[var(--color-text-muted)] mb-6 md:mb-8 max-w-xs mx-auto">
               Ваше обращение отправлено. Мы рассмотрим его в ближайшее время.
             </p>
             <button
               onClick={handleNewFeedback}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
+              className="inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold text-white bg-[var(--color-primary-apple)] shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
               <MessageSquare className="w-4 h-4" />
               Написать ещё
@@ -111,10 +112,10 @@ export default function FeedbackPage() {
         ) : (
           <form onSubmit={handleSubmit}>
             {/* Type Selector */}
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-[9px] md:text-[11px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 px-1">
               Тип обращения
             </label>
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6 md:mb-8">
               {FEEDBACK_TYPES.map(ft => {
                 const Icon = ft.icon;
                 const selected = type === ft.value;
@@ -123,21 +124,20 @@ export default function FeedbackPage() {
                     key={ft.value}
                     type="button"
                     onClick={() => setType(ft.value)}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                      selected
-                        ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 shadow-sm shadow-indigo-500/10'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}
+                    className={`flex flex-col md:flex-row items-center gap-2 px-3 md:px-5 py-3 md:py-4 rounded-lg md:rounded-2xl text-xs md:text-sm font-bold transition-all border ${selected
+                        ? 'border-[var(--color-primary-apple)] bg-[var(--color-primary-apple)] text-white shadow-lg shadow-blue-500/20'
+                        : 'border-[var(--apple-border)] bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:border-zinc-400'
+                      }`}
                   >
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${selected ? 'text-indigo-500' : ft.color}`} />
-                    {ft.label}
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${selected ? 'text-white' : ft.color}`} />
+                    <span className="text-[7px] md:text-xs">{ft.label}</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Message */}
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-[9px] md:text-[11px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-3 px-1">
               Сообщение
             </label>
             <textarea
@@ -145,25 +145,25 @@ export default function FeedbackPage() {
               onChange={e => setMessage(e.target.value)}
               placeholder="Опишите подробнее..."
               rows={4}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 dark:focus:border-indigo-500 transition-all"
+              className="w-full px-4 md:px-5 py-3 md:py-4 rounded-xl md:rounded-2xl border border-[var(--apple-border)] bg-black/5 dark:bg-white/5 text-[var(--color-text-main)] placeholder-zinc-400 text-sm md:text-base font-medium resize-none focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
             />
 
             {/* Error */}
             {error && (
-              <p className="text-sm text-red-500 mt-2">{error}</p>
+              <p className="text-xs md:text-sm text-red-500 mt-2">{error}</p>
             )}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={submitting || !message.trim()}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full mt-6 md:mt-8 flex items-center justify-center gap-3 py-3 md:py-4 rounded-xl md:rounded-2xl text-sm md:text-base font-bold text-white bg-[var(--color-primary-apple)] shadow-2xl shadow-blue-500/30 transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.98]"
             >
               {submitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 md:w-6 h-5 md:h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 md:w-5 h-4 md:h-5" />
                   Отправить
                 </>
               )}
@@ -174,24 +174,24 @@ export default function FeedbackPage() {
 
       {/* Previous Feedback */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 px-1 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-gray-400" />
+        <h2 className="text-[9px] md:text-[11px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-4 md:mb-5 px-1 flex items-center gap-3">
+          <MessageSquare className="w-4 h-4" />
           Мои обращения
         </h2>
 
         {loadingList ? (
-          <div className="flex justify-center py-10">
-            <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex justify-center py-16 md:py-20">
+            <div className="w-8 md:w-10 h-8 md:h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : feedbackList.length === 0 ? (
-          <div className="text-center py-10">
-            <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
-            <p className="text-sm text-gray-400 dark:text-gray-500">
+          <div className="text-center py-12 md:py-20 bg-black/5 dark:bg-white/5 rounded-[24px] md:rounded-[32px] border border-dashed border-[var(--apple-border)]">
+            <MessageSquare className="w-12 md:w-16 h-12 md:h-16 mx-auto mb-3 md:mb-4 text-zinc-300" />
+            <p className="text-base md:text-lg font-bold text-[var(--color-text-muted)]">
               У вас пока нет обращений
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 md:space-y-4">
             {feedbackList.map(fb => {
               const cfg = getTypeConfig(fb.type);
               const Icon = cfg.icon;
@@ -205,42 +205,42 @@ export default function FeedbackPage() {
               return (
                 <div
                   key={fb.id}
-                  className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 transition-all"
+                  className="apple-card border border-[var(--apple-border)] p-4 md:p-6 transition-all hover:shadow-xl"
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center`}>
-                        <Icon className={`w-3.5 h-3.5 ${cfg.color}`} />
+                  <div className="flex items-start md:items-center justify-between gap-2 mb-3 md:mb-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className={`w-8 md:w-10 h-8 md:h-10 rounded-lg md:rounded-xl ${cfg.bg} flex items-center justify-center shadow-inner flex-shrink-0`}>
+                        <Icon className={`w-4 md:w-5 h-4 md:h-5 ${cfg.color}`} />
                       </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <span className="text-sm md:text-base font-bold text-[var(--color-text-main)]">
                         {cfg.label}
                       </span>
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.className}`}>
+                    <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-3 py-0.5 md:py-1 rounded-full ${status.className} border border-current opacity-70 flex-shrink-0 whitespace-nowrap`}>
                       {status.label}
                     </span>
                   </div>
 
                   {/* Message */}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+                  <p className="text-xs md:text-sm font-medium text-[var(--color-text-main)] leading-relaxed mb-3 md:mb-4 opacity-80">
                     {fb.message}
                   </p>
 
                   {/* Reply */}
                   {fb.reply && (
-                    <div className="mt-2 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
-                      <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                    <div className="mt-3 md:mt-4 p-3 md:p-5 rounded-[16px] md:rounded-[20px] bg-blue-500/5 border border-blue-500/10">
+                      <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-[var(--color-primary-apple)] mb-2">
                         Ответ администрации
                       </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      <p className="text-xs md:text-sm font-bold text-[var(--color-text-main)] leading-relaxed">
                         {fb.reply}
                       </p>
                     </div>
                   )}
 
                   {/* Date */}
-                  <p className="text-[11px] text-gray-400 mt-2">{date}</p>
+                  <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-3 md:mt-4 uppercase tracking-wider">{date}</p>
                 </div>
               );
             })}
