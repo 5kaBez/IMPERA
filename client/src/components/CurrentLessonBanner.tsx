@@ -86,17 +86,23 @@ export default function CurrentLessonBanner() {
   useEffect(() => {
     if (!data?.currentLesson) return;
 
+    let expired = false;
+
     const updateCountdown = () => {
+      if (expired) return; // Уже истекло — не тикаем больше
+
       const now = new Date();
       const endMinutes = data.currentLesson!.endsAtHours * 60 + data.currentLesson!.endsAtMinutes;
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const remainingTotalSeconds = (endMinutes - currentMinutes) * 60 - now.getSeconds();
 
       if (remainingTotalSeconds <= 0) {
-        setCountdown({ minutes: 0, seconds: 0 });
-        // Пара закончилась — обновляем данные и сбрасываем dismissed
+        expired = true;
+        // Пара закончилась — сразу убираем баннер и обновляем данные
+        setData(prev => prev ? { ...prev, currentLesson: null } : null);
         setDismissed(false);
-        fetchCurrent();
+        // Через 3 секунды проверяем, может началась следующая пара
+        setTimeout(() => fetchCurrent(), 3000);
         return;
       }
 
