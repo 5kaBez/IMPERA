@@ -145,9 +145,9 @@ export default function AdminImport() {
       <div className="mt-10 apple-glass rounded-[32px] border border-red-500/10 p-8 shadow-xl">
         <div className="flex items-start justify-between mb-6">
           <div className="max-w-md">
-            <h2 className="text-xl font-black text-[var(--color-text-main)] tracking-tight mb-2">Опасная зона</h2>
+            <h2 className="text-xl font-black text-[var(--color-text-main)] tracking-tight mb-2">Удаление расписания</h2>
             <p className="text-sm font-medium text-[var(--color-text-muted)] tracking-tight">
-              Полная очистка базы расписания. Используйте только перед загрузкой абсолютно новых данных за семестр.
+              Удаляет только уроки (расписание). Структура (институты, направления, программы, группы) и данные пользователей сохраняются.
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center flex-shrink-0 animate-pulse">

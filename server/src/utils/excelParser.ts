@@ -35,23 +35,23 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
       if (!row || row.length < 10) continue;
 
       try {
-        const studyForm = String(row[0] || '').trim();
-        const educationLevel = String(row[1] || '').trim();
+        const studyForm = String(row[0] || '').replace(/\r?\n/g, ' ').trim();
+        const educationLevel = String(row[1] || '').replace(/\r?\n/g, ' ').trim();
         const course = parseInt(row[2]);
-        const institute = String(row[3] || '').trim();
-        const direction = String(row[4] || '').trim();
-        const program = String(row[5] || '').trim();
-        const group = String(row[6] || '').trim();
+        const institute = String(row[3] || '').replace(/\r?\n/g, ' ').trim();
+        const direction = String(row[4] || '').replace(/\r?\n/g, ' ').trim();
+        const program = String(row[5] || '').replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
+        const group = String(row[6] || '').replace(/\r?\n/g, ' ').trim();
         const groupNumber = parseInt(row[7]);
 
         const dayOfWeek = String(row[8] || '').trim().toUpperCase();
         const pairNumber = parseInt(row[9]);
         const time = String(row[10] || '').trim();
         const parity = String(row[11] || '').trim();
-        const subject = String(row[12] || '').trim();
+        const subject = String(row[12] || '').replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
         const lessonType = String(row[13] || '').trim();
-        const teacher = String(row[14] || '').trim();
-        const room = String(row[15] || '').trim();
+        const teacher = String(row[14] || '').replace(/\r?\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
+        const room = String(row[15] || '').replace(/\r?\n/g, ' ').trim();
         const weeks = String(row[16] || '').trim();
 
         // Update last seen values if present (forward-fill mechanism)

@@ -37,15 +37,24 @@ export default function SelectGroupPage() {
   const selectDirection = async (dir: Direction) => {
     setSelected({ ...selected, direction: dir });
     setLoading(true);
-    const res = await api.get<any>(`/structure/institutes/${selected.institute?.id}/directions`);
-    // Get the first page of programs with search
-    const progs = await api.get<any>(`/structure/directions/${dir.id}/programs?page=1&limit=500`);
-    const programsArray = progs.items || progs;
-    setPrograms(programsArray);
-    if (programsArray.length === 1) {
-      await selectProgram(programsArray[0]);
-    } else {
-      setStep('program');
+    try {
+      // Get the first page of programs with search
+      const progs = await api.get<any>(`/structure/directions/${dir.id}/programs?page=1&limit=500`);
+      const programsArray = progs.items || progs;
+      console.log('[SelectGroup] Programs loaded:', { total: progs.total, items: programsArray.length, data: programsArray?.slice(0, 3) });
+      setPrograms(programsArray);
+      if (programsArray.length === 0) {
+        console.warn('[SelectGroup] No programs found for direction:', dir.id);
+        setStep('program');
+        setLoading(false);
+      } else if (programsArray.length === 1) {
+        await selectProgram(programsArray[0]);
+      } else {
+        setStep('program');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[SelectGroup] Error loading programs:', error);
       setLoading(false);
     }
   };
@@ -53,12 +62,18 @@ export default function SelectGroupPage() {
   const selectProgram = async (prog: Program) => {
     setSelected({ ...selected, program: prog });
     setLoading(true);
-    // Get the first page of groups with search
-    const grpsRes = await api.get<any>(`/structure/programs/${prog.id}/groups?page=1&limit=500`);
-    const groupsArray = grpsRes.items || grpsRes;
-    setGroups(groupsArray);
-    setStep('group');
-    setLoading(false);
+    try {
+      // Get the first page of groups with search
+      const grpsRes = await api.get<any>(`/structure/programs/${prog.id}/groups?page=1&limit=500`);
+      const groupsArray = grpsRes.items || grpsRes;
+      console.log('[SelectGroup] Groups loaded:', { total: grpsRes.total, items: groupsArray.length, data: groupsArray?.slice(0, 3) });
+      setGroups(groupsArray);
+      setStep('group');
+      setLoading(false);
+    } catch (error) {
+      console.error('[SelectGroup] Error loading groups:', error);
+      setLoading(false);
+    }
   };
 
   const selectGroup = async (group: Group) => {

@@ -25,11 +25,12 @@ router.get('/institutes/:id/directions', async (req: Request, res: Response) => 
 // GET /api/structure/directions/:id/programs
 router.get('/directions/:id/programs', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
+  const directionId = parseInt(String(req.params.id));
   const { search, page = '1', limit = '100' } = req.query;
   
-  const where: any = { directionId: parseInt(String(req.params.id)) };
+  const where: any = { directionId };
   if (search) {
-    where.name = { contains: search as string };
+    where.name = { contains: search as string, mode: 'insensitive' };
   }
 
   const [programs, total] = await Promise.all([
@@ -41,6 +42,8 @@ router.get('/directions/:id/programs', async (req: Request, res: Response) => {
     }),
     prisma.program.count({ where }),
   ]);
+
+  console.log(`[API] /directions/${directionId}/programs: found ${total} programs, returning ${programs.length} items`);
 
   res.json({
     items: programs,
@@ -54,11 +57,12 @@ router.get('/directions/:id/programs', async (req: Request, res: Response) => {
 // GET /api/structure/programs/:id/groups
 router.get('/programs/:id/groups', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
+  const programId = parseInt(String(req.params.id));
   const { search, page = '1', limit = '100' } = req.query;
   
-  const where: any = { programId: parseInt(String(req.params.id)) };
+  const where: any = { programId };
   if (search) {
-    where.name = { contains: search as string };
+    where.name = { contains: search as string, mode: 'insensitive' };
   }
 
   const [groups, total] = await Promise.all([
@@ -70,6 +74,8 @@ router.get('/programs/:id/groups', async (req: Request, res: Response) => {
     }),
     prisma.group.count({ where }),
   ]);
+
+  console.log(`[API] /programs/${programId}/groups: found ${total} groups, returning ${groups.length} items`);
 
   res.json({
     items: groups,
@@ -91,9 +97,9 @@ router.get('/groups', async (req: Request, res: Response) => {
   if (course) where.course = parseInt(course as string);
   if (search) {
     where.OR = [
-      { name: { contains: search as string } },
-      { program: { name: { contains: search as string } } },
-      { program: { direction: { name: { contains: search as string } } } }
+      { name: { contains: search as string, mode: 'insensitive' } },
+      { program: { name: { contains: search as string, mode: 'insensitive' } } },
+      { program: { direction: { name: { contains: search as string, mode: 'insensitive' } } } }
     ];
   }
 

@@ -16,14 +16,16 @@ export function normalizeInstitute(name: string): string {
 // Normalize direction names (remove extra spaces: "М Е Н Е Д Ж М Е Н Т" → "МЕНЕДЖМЕНТ")
 export function normalizeDirection(name: string): string {
   let result = name.trim();
-  // Check if every other char is a space (spaced out letters)
-  if (/^[А-ЯЁA-Z]\s+[А-ЯЁA-Z]/.test(result) && result.replace(/\s/g, '').length * 2 - 1 >= result.length * 0.7) {
-    result = result.replace(/\s+/g, '');
+  // Normalize newlines first
+  result = result.replace(/\r?\n/g, ' ').trim();
+  // Check if it's spaced-out letters (single or multiple spaces between each letter)
+  // e.g. "М Е Н Е Д Ж М Е Н Т" or "М  Е  Н  Е  Д  Ж  М  Е  Н  Т"
+  const withoutSpaces = result.replace(/\s/g, '');
+  if (/^[А-ЯЁA-Z]\s+[А-ЯЁA-Z]/.test(result) && withoutSpaces.length >= 3 && withoutSpaces.length <= result.length / 2 + 1) {
+    result = withoutSpaces;
   }
   // Remove multiple spaces
   result = result.replace(/\s{2,}/g, ' ').trim();
-  // Normalize newlines
-  result = result.replace(/\n/g, ' ').trim();
   // Title case
   return result.charAt(0).toUpperCase() + result.slice(1).toLowerCase();
 }
