@@ -97,15 +97,17 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
     dragCurrentY.current = 0;
   };
 
-  // Submit review
+  // Submit review — uses new unified endpoint that creates teacher if needed
   const handleSubmitReview = async () => {
-    if (!teacher || reviewRating === 0) return;
+    if (reviewRating === 0) return; // Must select at least 1 star
     setSubmitting(true);
     setSubmitError('');
     setSubmitSuccess(false);
 
     try {
-      const newReview = await api.post<Review>(`/teachers/${teacher.id}/reviews`, {
+      await api.post<Review>('/teachers/reviews', {
+        teacherId: teacher?.id || undefined,       // existing teacher ID (or null)
+        teacherName: lesson.teacher,               // fallback: create by name
         rating: reviewRating,
         text: reviewText.trim() || undefined,
         anonymous: reviewAnonymous,

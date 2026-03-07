@@ -41,41 +41,43 @@ export default function AdminDashboard() {
 
   return (
     <div className="pb-12">
-      <div className="mb-12">
-        <h1 className="text-5xl font-black metallic-text tracking-[-0.06em] mb-3 lowercase">
+      <div className="mb-4 md:mb-12">
+        <h1 className="text-2xl md:text-5xl font-black metallic-text tracking-[-0.06em] mb-1 md:mb-3 lowercase">
           админ-панель.
         </h1>
-        <p className="text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[11px] opacity-70">
-          Управление платформой IMPERA &bull; Core Control
+        <p className="text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[8px] md:text-[11px] opacity-70">
+          Управление IMPERA
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 p-1.5 apple-glass rounded-[24px] mb-12 border border-[var(--apple-border)] max-w-xl relative overflow-hidden backdrop-blur-3xl shadow-xl">
-        {([
-          { key: 'dashboard', label: 'Дашборд' },
-          { key: 'analytics', label: 'Аналитика' },
-          { key: 'feedback', label: 'Фидбек' },
-          { key: 'teachers', label: 'Учителя' },
-        ] as const).map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 py-4 px-6 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-700 relative z-10 ${tab === t.key
-              ? 'text-[var(--color-text-main)]'
-              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
-              }`}
-          >
-            {t.label}
-            {tab === t.key && (
-              <motion.div
-                layoutId="admin-tab-bg"
-                className="absolute inset-0 iron-metal-bg rounded-[20px] -z-10 shadow-gold-glow"
-                transition={{ type: "spring", bounce: 0.1, duration: 0.6 }}
-              />
-            )}
-          </button>
-        ))}
+      {/* Tabs — horizontal scroll on mobile */}
+      <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 mb-4 md:mb-12 no-scrollbar">
+        <div className="flex gap-1 md:gap-2 p-1 md:p-1.5 apple-glass rounded-2xl md:rounded-[24px] border border-[var(--apple-border)] min-w-max md:min-w-0 md:max-w-xl relative overflow-hidden shadow-lg md:shadow-xl">
+          {([
+            { key: 'dashboard', label: 'Дашборд' },
+            { key: 'analytics', label: 'Аналитика' },
+            { key: 'feedback', label: 'Фидбек' },
+            { key: 'teachers', label: 'Учителя' },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`py-2 md:py-4 px-3 md:px-6 rounded-xl md:rounded-[20px] text-[9px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] transition-all duration-500 relative z-10 whitespace-nowrap ${tab === t.key
+                ? 'text-white'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+                }`}
+            >
+              {t.label}
+              {tab === t.key && (
+                <motion.div
+                  layoutId="admin-tab-bg"
+                  className="absolute inset-0 iron-metal-bg rounded-xl md:rounded-[20px] -z-10 shadow-gold-glow"
+                  transition={{ type: "spring", bounce: 0.1, duration: 0.6 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'dashboard' && stats && <DashboardTab stats={stats} />}
@@ -90,88 +92,38 @@ function DashboardTab({ stats }: { stats: Stats }) {
   return (
     <>
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          icon={Calendar}
-          label="Записей расписания"
-          value={stats.lessons}
-          color="blue"
-        />
-        <StatCard
-          icon={Building2}
-          label="Институтов"
-          value={stats.institutes}
-          color="purple"
-        />
-        <StatCard
-          icon={Layers}
-          label="Программ подготовки"
-          value={stats.programs}
-          color="orange"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-6">
+        <StatCard icon={Calendar} label="Расписание" value={stats.lessons} color="blue" />
+        <StatCard icon={Building2} label="Институтов" value={stats.institutes} color="purple" />
+        <StatCard icon={Layers} label="Программ" value={stats.programs} color="orange" />
       </div>
 
       {/* Users & Activity */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          icon={Users}
-          label="Всего пользователей"
-          value={stats.users}
-          color="green"
-        />
-        <GradientStatCard
-          icon={Activity}
-          label="DAU (Сегодня)"
-          value={stats.dau}
-          gradient="from-emerald-500 to-teal-600"
-        />
-        <GradientStatCard
-          icon={TrendingUp}
-          label="MAU (30 дней)"
-          value={stats.mau}
-          gradient="from-blue-500 to-indigo-600"
-        />
-        <StatCard
-          icon={Bell}
-          label="Оповещения вкл."
-          value={stats.notifyEnabled}
-          color="orange"
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
+        <StatCard icon={Users} label="Пользователей" value={stats.users} color="green" />
+        <GradientStatCard icon={Activity} label="DAU" value={stats.dau} gradient="" />
+        <GradientStatCard icon={TrendingUp} label="MAU" value={stats.mau} gradient="" />
+        <StatCard icon={Bell} label="Уведомления" value={stats.notifyEnabled} color="orange" />
       </div>
 
       {/* Feedback summary */}
       {stats.feedbackNew > 0 && (
-        <div className="mb-10 p-6 apple-glass rounded-[28px] border border-amber-500/20 shadow-xl shadow-amber-500/5 flex items-center gap-5 animate-pulse">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-            <MessageSquare className="w-6 h-6 text-amber-500" />
+        <div className="mb-4 md:mb-10 p-3 md:p-6 apple-glass rounded-2xl md:rounded-[28px] border border-amber-500/20 shadow-lg flex items-center gap-3 md:gap-5">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+            <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
           </div>
-          <p className="text-base font-bold text-amber-600 dark:text-amber-400">
-            {stats.feedbackNew} новых обращений ожидает вашего внимания
+          <p className="text-xs md:text-base font-bold text-amber-600 dark:text-amber-400">
+            {stats.feedbackNew} новых обращений
           </p>
         </div>
       )}
 
       {/* Quick Actions */}
-      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)] mb-8 px-2 opacity-70 mt-12">Быстрые действия</h2>
-      <div className="grid sm:grid-cols-3 gap-8 mb-16">
-        <ActionCard
-          to="/admin/import"
-          icon={Upload}
-          title="Import Center"
-          description="Excel & Data Processing"
-        />
-        <ActionCard
-          to="/admin/schedule"
-          icon={Calendar}
-          title="Schedule Lab"
-          description="Manual Overrides & Control"
-        />
-        <ActionCard
-          to="/admin/users"
-          icon={Users}
-          title="Identity Vault"
-          description="User Accounts & Roles"
-        />
+      <h2 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-[var(--color-text-muted)] mb-3 md:mb-8 px-1 md:px-2 opacity-70 mt-4 md:mt-12">Быстрые действия</h2>
+      <div className="grid grid-cols-3 gap-2 md:gap-8 mb-8 md:mb-16">
+        <ActionCard to="/admin/import" icon={Upload} title="Импорт" description="Excel & Data" />
+        <ActionCard to="/admin/schedule" icon={Calendar} title="Расписание" description="Управление" />
+        <ActionCard to="/admin/users" icon={Users} title="Юзеры" description="Аккаунты" />
       </div>
     </>
   );
@@ -391,48 +343,45 @@ function TeachersTab() {
   return (
     <div>
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-6 mb-10">
-        <div className="apple-card border border-[var(--apple-border)] p-6 text-center">
-          <p className="text-4xl font-black text-[var(--color-text-main)] tracking-tighter">{teachers.length}</p>
-          <p className="text-[10px] font-bold text-[var(--color-text-muted)] mt-2 uppercase tracking-widest">Активно</p>
+      <div className="grid grid-cols-3 gap-2 md:gap-6 mb-4 md:mb-10">
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter">{teachers.length}</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Активно</p>
         </div>
-        <div className="apple-card border border-[var(--apple-border)] p-6 text-center">
-          <p className="text-4xl font-black text-[var(--color-text-main)] tracking-tighter">
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter">
             {teachers.reduce((s, t) => s + t.reviewCount, 0)}
           </p>
-          <p className="text-[10px] font-bold text-[var(--color-text-muted)] mt-2 uppercase tracking-widest">Отзывов</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Отзывов</p>
         </div>
-        <div className="apple-card border border-[var(--apple-border)] p-6 text-center">
-          <p className="text-4xl font-black text-amber-500 tracking-tighter">
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-amber-500 tracking-tighter">
             {teachers.length > 0
               ? (teachers.reduce((s, t) => s + t.avgRating, 0) / teachers.filter(t => t.avgRating > 0).length || 0).toFixed(1)
               : '—'}
           </p>
-          <p className="text-[10px] font-bold text-[var(--color-text-muted)] mt-2 uppercase tracking-widest">Рейтинг</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Рейтинг</p>
         </div>
       </div>
 
       {/* Teachers list */}
-      <div className="grid gap-4">
+      <div className="grid gap-2 md:gap-4">
         {teachers.sort((a, b) => b.reviewCount - a.reviewCount).map(teacher => (
-          <div key={teacher.id} className="apple-card border border-[var(--apple-border)] overflow-hidden shadow-sm hover:shadow-xl smooth-transition">
+          <div key={teacher.id} className="apple-card border border-[var(--apple-border)] overflow-hidden shadow-sm">
             <button
               onClick={() => setExpanded(expanded === teacher.id ? null : teacher.id)}
-              className="w-full p-5 flex items-center gap-4 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-500"
+              className="w-full p-3 md:p-5 flex items-center gap-3 md:gap-4 text-left active:bg-black/5 dark:active:bg-white/5 transition-all"
             >
-              <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-base font-black flex-shrink-0 shadow-lg shadow-blue-500/20">
+              <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-[18px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs md:text-base font-black flex-shrink-0 shadow-lg shadow-blue-500/20">
                 {teacher.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-[var(--color-text-main)] truncate tracking-tight">{teacher.name}</p>
-                {teacher.department && (
-                  <p className="text-[10px] font-bold text-[var(--color-text-muted)] truncate uppercase tracking-widest mt-0.5">{teacher.department}</p>
-                )}
+                <p className="text-xs md:text-sm font-black text-[var(--color-text-main)] truncate tracking-tight">{teacher.name}</p>
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0 bg-black/5 dark:bg-white/5 px-4 py-2 rounded-2xl">
+              <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0 bg-black/5 dark:bg-white/5 px-2 md:px-4 py-1.5 md:py-2 rounded-xl md:rounded-2xl">
                 {renderStars(teacher.avgRating)}
-                <span className="text-sm font-black text-[var(--color-text-main)]">{teacher.avgRating.toFixed(1)}</span>
-                <span className="text-[10px] font-bold text-[var(--color-text-muted)]">({teacher.reviewCount})</span>
+                <span className="text-xs md:text-sm font-black text-[var(--color-text-main)]">{teacher.avgRating.toFixed(1)}</span>
+                <span className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)]">({teacher.reviewCount})</span>
               </div>
             </button>
 
@@ -483,26 +432,26 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
   };
 
   return (
-    <div className="apple-card border border-[var(--apple-border)] p-8 shadow-xl hover:shadow-2xl smooth-transition group bg-white/10 dark:bg-white/5 squircle overflow-hidden">
-      <div className={`w-16 h-16 squircle flex items-center justify-center mb-6 group-hover:iron-metal-bg group-hover:text-white group-hover:scale-110 smooth-transition shadow-lg overflow-hidden ${colors[color]}`}>
-        <Icon className="w-8 h-8" />
+    <div className="apple-card border border-[var(--apple-border)] p-4 md:p-8 shadow-lg md:shadow-xl smooth-transition group bg-white/10 dark:bg-white/5 squircle overflow-hidden">
+      <div className={`w-10 h-10 md:w-16 md:h-16 squircle flex items-center justify-center mb-3 md:mb-6 shadow-lg overflow-hidden ${colors[color]}`}>
+        <Icon className="w-5 h-5 md:w-8 md:h-8" />
       </div>
-      <p className="text-5xl font-black metallic-text tracking-tighter mb-2">{value.toLocaleString()}</p>
-      <p className="text-[9px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.2em] opacity-60">{label}</p>
+      <p className="text-2xl md:text-5xl font-black metallic-text tracking-tighter mb-1 md:mb-2">{value.toLocaleString()}</p>
+      <p className="text-[7px] md:text-[9px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.15em] md:tracking-[0.2em] opacity-60">{label}</p>
     </div>
   );
 }
 
 function GradientStatCard({ icon: Icon, label, value }: { icon: any; label: string; value: number; gradient: string }) {
   return (
-    <div className={`relative overflow-hidden rounded-[36px] iron-metal-bg text-white p-8 shadow-2xl transition-all duration-700 hover:scale-[1.02] active:scale-[0.98] group`}>
-      <div className="absolute top-0 right-0 w-48 h-48 bg-white/20 blur-[80px] rounded-full group-hover:bg-white/30 transition-all duration-700" />
+    <div className={`relative overflow-hidden rounded-2xl md:rounded-[36px] iron-metal-bg text-white p-4 md:p-8 shadow-xl md:shadow-2xl transition-all duration-500 active:scale-[0.98] group`}>
+      <div className="hidden md:block absolute top-0 right-0 w-48 h-48 bg-white/20 blur-[80px] rounded-full" />
       <div className="relative z-10">
-        <div className="w-16 h-16 squircle bg-white/20 backdrop-blur-xl flex items-center justify-center mb-6 group-hover:rotate-6 transition-transform shadow-lg overflow-hidden">
-          <Icon className="w-8 h-8" />
+        <div className="w-10 h-10 md:w-16 md:h-16 squircle bg-white/20 flex items-center justify-center mb-3 md:mb-6 shadow-lg overflow-hidden">
+          <Icon className="w-5 h-5 md:w-8 md:h-8" />
         </div>
-        <p className="text-5xl font-black tracking-tighter mb-2">{value.toLocaleString()}</p>
-        <p className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">{label}</p>
+        <p className="text-2xl md:text-5xl font-black tracking-tighter mb-1 md:mb-2">{value.toLocaleString()}</p>
+        <p className="text-[7px] md:text-[9px] font-black text-white/70 uppercase tracking-[0.15em] md:tracking-[0.2em]">{label}</p>
       </div>
     </div>
   );
@@ -527,20 +476,14 @@ function ActionCard({ to, icon: Icon, title, description }: { to: string; icon: 
   return (
     <Link
       to={to}
-      className="flex flex-col items-start gap-6 p-8 apple-card border border-[var(--apple-border)] shadow-xl hover:shadow-2xl hover:-translate-y-2 smooth-transition group bg-white/5 dark:bg-white/5 relative overflow-hidden squircle"
+      className="flex flex-col items-center md:items-start gap-2 md:gap-6 p-3 md:p-8 apple-card border border-[var(--apple-border)] shadow-lg active:scale-95 transition-all group bg-white/5 dark:bg-white/5 relative overflow-hidden squircle"
     >
-      <div className="w-16 h-16 squircle bg-black/5 dark:bg-white/5 text-[var(--color-primary-apple)] flex items-center justify-center flex-shrink-0 group-hover:iron-metal-bg group-hover:text-white group-hover:scale-110 transition-all duration-700 shadow-inner overflow-hidden">
-        <Icon className="w-8 h-8" />
+      <div className="w-10 h-10 md:w-16 md:h-16 squircle bg-black/5 dark:bg-white/5 text-[var(--color-primary-apple)] flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
+        <Icon className="w-5 h-5 md:w-8 md:h-8" />
       </div>
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <h3 className="text-lg font-black text-[var(--color-text-main)] group-hover:text-[var(--color-primary-apple)] transition-colors tracking-tighter lowercase">{title}.</h3>
-          <ArrowRight className="w-5 h-5 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-700 text-[var(--color-primary-apple)]" />
-        </div>
-        <p className="text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest opacity-60 leading-relaxed">{description}</p>
-      </div>
-      <div className="absolute top-0 right-0 p-4 border-l border-b border-[var(--apple-border)] rounded-bl-2xl bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Activity className="w-4 h-4 text-[var(--color-primary-apple)]" />
+      <div className="text-center md:text-left">
+        <h3 className="text-[11px] md:text-lg font-black text-[var(--color-text-main)] tracking-tight md:tracking-tighter lowercase">{title}</h3>
+        <p className="hidden md:block text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest opacity-60">{description}</p>
       </div>
     </Link>
   );
