@@ -4,8 +4,18 @@ import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonT
 
 const DAY_MAP: Record<string, number> = {
   'ПОНЕДЕЛЬНИК': 1, 'ВТОРНИК': 2, 'СРЕДА': 3,
-  'ЧЕТВЕРГ': 4, 'ПЯТНИЦА': 5, 'СУББОТА': 6, 'ВОСКРЕСЕНЬЕ': 7
+  'ЧЕТВЕРГ': 4, 'ПЯТНИЦА': 5, 'СУББОТА': 6, 'ВОСКРЕСЕНЬЕ': 7,
+  // Abbreviated forms
+  'ПН': 1, 'ВТ': 2, 'СР': 3, 'ЧТ': 4, 'ПТ': 5, 'СБ': 6, 'ВС': 7,
+  'ПОН': 1, 'ВТО': 2, 'СРЕ': 3, 'ЧЕТ': 4, 'ПЯТ': 5, 'СУБ': 6, 'ВОС': 7,
 };
+
+function parseParity(value: string): number {
+  const v = value.trim().toUpperCase();
+  if (v === '1' || v === 'НЧ' || v === 'НЕЧЁТ' || v === 'НЕЧЕТ' || v === 'НЕЧЁТНАЯ' || v === 'НЕЧЕТНАЯ') return 1;
+  if (v === '0' || v === 'Ч' || v === 'ЧЁТ' || v === 'ЧЕТ' || v === 'ЧЁТНАЯ' || v === 'ЧЕТНАЯ') return 0;
+  return 2; // both weeks by default
+}
 
 export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -21,6 +31,7 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
   let lastProgram = '';
   let lastGroup = '';
   let lastGroupNumber = 1;
+  let lastDayOfWeek = ''; // Forward-fill for merged day cells!
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
@@ -44,7 +55,7 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
         const group = String(row[6] || '').replace(/\r?\n/g, ' ').trim();
         const groupNumber = parseInt(row[7]);
 
-        const dayOfWeek = String(row[8] || '').trim().toUpperCase();
+        const dayOfWeekRaw = String(row[8] || '').trim().toUpperCase();
         const pairNumber = parseInt(row[9]);
         const time = String(row[10] || '').trim();
         const parity = String(row[11] || '').trim();
@@ -63,6 +74,8 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
         if (program) lastProgram = program;
         if (group) lastGroup = group;
         if (!isNaN(groupNumber)) lastGroupNumber = groupNumber;
+        // Forward-fill day of week (merged cells in Excel!)
+        if (dayOfWeekRaw && DAY_MAP[dayOfWeekRaw]) lastDayOfWeek = dayOfWeekRaw;
 
         // Skip rows without subject (merged group cells for empty lessons)
         if (!subject || subject === '-' || subject === 'null' || subject === '—') continue;
@@ -71,8 +84,8 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
         const directionName = normalizeDirection(lastDirection);
         const programName = lastProgram || directionName;
         const { start, end } = normalizeTime(time);
-        const dayNum = DAY_MAP[dayOfWeek] || 1;
-        const parityNum = parity === '1' ? 1 : parity === '0' ? 0 : 2;
+        const dayNum = DAY_MAP[lastDayOfWeek] || DAY_MAP[dayOfWeekRaw] || 1;
+        const parityNum = parseParity(parity);
         const { weekStart, weekEnd } = parseWeeks(weeks);
 
         parsed.push({
