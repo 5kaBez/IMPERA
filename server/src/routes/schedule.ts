@@ -3,21 +3,31 @@ import { PrismaClient } from '@prisma/client';
 
 const router = Router();
 
-// Начало семестра: 9 февраля 2026 (понедельник)
-const SEMESTER_START = new Date(2026, 1, 9); // months 0-indexed: 1 = February
+// ---- Moscow timezone helpers ----
+// VPS может работать в UTC, а ГУУ в Москве (UTC+3)
+function getMoscowDate(date?: Date): Date {
+  const d = date ? new Date(date) : new Date();
+  // Convert to Moscow time (UTC+3)
+  const utcMs = d.getTime() + d.getTimezoneOffset() * 60 * 1000;
+  return new Date(utcMs + 3 * 60 * 60 * 1000);
+}
 
-function getSemesterWeekNumber(): number {
-  const now = new Date();
-  const diffMs = now.getTime() - SEMESTER_START.getTime();
-  if (diffMs < 0) return 1; // до начала семестра — считаем 1-ю неделю
+// Начало семестра: 9 февраля 2026 (понедельник), Москва
+// Создаём как UTC, но сдвигаем на +3, чтобы всё считалось в московском времени
+const SEMESTER_START_MOSCOW = new Date(Date.UTC(2026, 1, 9, 0, 0, 0) - 3 * 60 * 60 * 1000);
+
+function getSemesterWeekNumber(moscowDate?: Date): number {
+  const now = moscowDate || getMoscowDate();
+  const startMs = getMoscowDate(SEMESTER_START_MOSCOW).getTime();
+  const nowMs = now.getTime();
+  const diffMs = nowMs - startMs;
+  if (diffMs < 0) return 1;
   const weekNum = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-  // Если неделя выходит за рамки семестра (>18), циклически возвращаемся
   return weekNum > 18 ? ((weekNum - 1) % 18) + 1 : weekNum;
 }
 
-function getSemesterWeekParity(): number {
-  // Неделя 1 — нечётная (parity=1), неделя 2 — чётная (parity=0)
-  const weekNum = getSemesterWeekNumber();
+function getSemesterWeekParity(moscowDate?: Date): number {
+  const weekNum = getSemesterWeekNumber(moscowDate);
   return weekNum % 2 === 1 ? 1 : 0;
 }
 
@@ -37,10 +47,10 @@ function parseTime(timeStr: string): { hours: number; minutes: number } | null {
 router.get('/:groupId/today', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const groupId = parseInt(String(req.params.groupId));
-  const now = new Date();
+  const now = getMoscowDate();
   const dayOfWeek = getDayOfWeek(now);
-  const parity = getSemesterWeekParity();
-  const weekNum = getSemesterWeekNumber();
+  const parity = getSemesterWeekParity(now);
+  const weekNum = getSemesterWeekNumber(now);
 
   const lessons = await prisma.lesson.findMany({
     where: {
@@ -60,11 +70,12 @@ router.get('/:groupId/today', async (req: Request, res: Response) => {
 router.get('/:groupId/tomorrow', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const groupId = parseInt(String(req.params.groupId));
-  const tomorrow = new Date();
+  const tomorrow = getMoscowDate();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const dayOfWeek = getDayOfWeek(tomorrow);
-  const parity = getSemesterWeekParity();
-  const weekNum = getSemesterWeekNumber();
+  // Use TOMORROW's parity (handles week transitions: Sun→Mon = new week!)
+  const parity = getSemesterWeekParity(tomorrow);
+  const weekNum = getSemesterWeekNumber(tomorrow);
 
   const lessons = await prisma.lesson.findMany({
     where: {
@@ -84,8 +95,9 @@ router.get('/:groupId/tomorrow', async (req: Request, res: Response) => {
 router.get('/:groupId/week', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const groupId = parseInt(String(req.params.groupId));
-  const parity = getSemesterWeekParity();
-  const weekNum = getSemesterWeekNumber();
+  const now = getMoscowDate();
+  const parity = getSemesterWeekParity(now);
+  const weekNum = getSemesterWeekNumber(now);
 
   const lessons = await prisma.lesson.findMany({
     where: {
@@ -108,14 +120,13 @@ router.get('/:groupId/week', async (req: Request, res: Response) => {
 });
 
 // GET /api/schedule/:groupId/current — текущая пара (если идёт)
-// В dev-режиме можно передать ?_testHour=9&_testMinute=15 для тестирования
 router.get('/:groupId/current', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const groupId = parseInt(String(req.params.groupId));
-  const now = new Date();
+  const now = getMoscowDate();
   const dayOfWeek = getDayOfWeek(now);
-  const parity = getSemesterWeekParity();
-  const weekNum = getSemesterWeekNumber();
+  const parity = getSemesterWeekParity(now);
+  const weekNum = getSemesterWeekNumber(now);
 
   // Dev-mode: override time for testing
   const testHour = req.query._testHour ? parseInt(String(req.query._testHour)) : null;
@@ -125,7 +136,6 @@ router.get('/:groupId/current', async (req: Request, res: Response) => {
   const currentMinutes = testMinute !== null ? testMinute : now.getMinutes();
   const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-  // Получаем все пары на сегодня
   const lessons = await prisma.lesson.findMany({
     where: {
       groupId,
@@ -137,7 +147,6 @@ router.get('/:groupId/current', async (req: Request, res: Response) => {
     orderBy: { pairNumber: 'asc' }
   });
 
-  // Ищем пару, которая сейчас идёт
   let currentLesson = null;
   let nextLesson = null;
 
@@ -181,26 +190,65 @@ router.get('/:groupId/date/:date', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const groupId = parseInt(String(req.params.groupId));
   const date = new Date(String(req.params.date));
-  const dayOfWeek = getDayOfWeek(date);
-  
-  // Calculate week number and parity for the specific date (not current date)
-  const diffMs = date.getTime() - SEMESTER_START.getTime();
-  const weekNum = diffMs < 0 ? 1 : Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-  const finalWeekNum = weekNum > 18 ? ((weekNum - 1) % 18) + 1 : weekNum;
-  const parity = finalWeekNum % 2 === 1 ? 1 : 0;
+  const moscowDate = getMoscowDate(date);
+  const dayOfWeek = getDayOfWeek(moscowDate);
+  const parity = getSemesterWeekParity(moscowDate);
+  const weekNum = getSemesterWeekNumber(moscowDate);
 
   const lessons = await prisma.lesson.findMany({
     where: {
       groupId,
       dayOfWeek,
       OR: [{ parity }, { parity: 2 }],
-      weekStart: { lte: finalWeekNum },
-      weekEnd: { gte: finalWeekNum },
+      weekStart: { lte: weekNum },
+      weekEnd: { gte: weekNum },
     },
     orderBy: { pairNumber: 'asc' }
   });
 
-  res.json({ date: req.params.date, dayOfWeek, parity, weekNumber: finalWeekNum, lessons });
+  res.json({ date: req.params.date, dayOfWeek, parity, weekNumber: weekNum, lessons });
+});
+
+// GET /api/schedule/:groupId/debug — diagnostic endpoint for admin
+router.get('/:groupId/debug', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const groupId = parseInt(String(req.params.groupId));
+  const now = getMoscowDate();
+  const parity = getSemesterWeekParity(now);
+  const weekNum = getSemesterWeekNumber(now);
+
+  // Get ALL lessons for this group (no filtering)
+  const allLessons = await prisma.lesson.findMany({
+    where: { groupId },
+    orderBy: [{ dayOfWeek: 'asc' }, { pairNumber: 'asc' }]
+  });
+
+  // Count by day
+  const byDay: Record<number, number> = {};
+  const byParity: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
+  for (const l of allLessons) {
+    byDay[l.dayOfWeek] = (byDay[l.dayOfWeek] || 0) + 1;
+    byParity[l.parity] = (byParity[l.parity] || 0) + 1;
+  }
+
+  // Get filtered lessons (what would show this week)
+  const filteredLessons = allLessons.filter(l =>
+    (l.parity === parity || l.parity === 2) &&
+    l.weekStart <= weekNum &&
+    l.weekEnd >= weekNum
+  );
+
+  res.json({
+    moscowTime: now.toISOString(),
+    dayOfWeek: getDayOfWeek(now),
+    currentWeek: weekNum,
+    currentParity: parity,
+    totalLessons: allLessons.length,
+    filteredLessons: filteredLessons.length,
+    byDay,
+    byParity,
+    sampleLessons: allLessons.slice(0, 10),
+  });
 });
 
 export default router;
