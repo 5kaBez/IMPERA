@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import type { Lesson, ScheduleDay, ScheduleWeek } from '../types';
@@ -6,8 +6,7 @@ import { DAY_NAMES } from '../types';
 import { Calendar, MapPin, User, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
-
-const LessonDetailModal = lazy(() => import('../components/LessonDetailModal'));
+import LessonDetailModal from '../components/LessonDetailModal';
 
 type Tab = 'today' | 'tomorrow' | 'week';
 
@@ -205,9 +204,7 @@ export default function SchedulePage() {
 
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <Suspense fallback={null}>
-          <LessonDetailModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
-        </Suspense>
+        <LessonDetailModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
       )}
     </div>
   );
@@ -310,33 +307,37 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
       className="cursor-pointer active:scale-[0.98] transition-transform duration-200"
     >
       {/* Mobile card — ultra compact */}
-      <div className="md:hidden flex items-start gap-3 p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:bg-black/[0.06] dark:active:bg-white/[0.08]">
+      <div className="md:hidden flex items-start gap-3 p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:bg-black/[0.08] dark:active:bg-white/[0.08] transition-colors">
         {/* Time column */}
-        <div className="flex flex-col items-center pt-0.5 w-11 flex-shrink-0">
-          <span className="text-xs font-black tracking-tight text-[var(--color-text-main)]">{lesson.timeStart}</span>
-          <div className="w-px h-2.5 bg-[var(--color-text-muted)] opacity-20 my-0.5" />
-          <span className="text-[9px] font-bold text-[var(--color-text-muted)] opacity-50">{lesson.timeEnd}</span>
+        <div className="flex flex-col items-center w-12 flex-shrink-0 pt-0.5">
+          <span className="text-[13px] font-black tracking-tight text-[var(--color-text-main)]">{lesson.timeStart}</span>
+          <div className="w-4 h-px bg-[var(--color-primary-apple)] opacity-30 my-1" />
+          <span className="text-[9px] font-bold text-[var(--color-text-muted)] opacity-40">{lesson.timeEnd}</span>
         </div>
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider border ${lesson.lessonType === 'Лекция'
-              ? 'iron-metal-bg text-white border-transparent'
-              : 'bg-zinc-500/10 text-[var(--color-text-muted)] border-zinc-500/10'
+            <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider ${lesson.lessonType === 'Лекция'
+              ? 'iron-metal-bg text-white'
+              : lesson.lessonType === 'Практика'
+                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
               }`}>
               {lesson.lessonType}
             </span>
-            {lesson.room && <span className="text-[8px] font-bold text-[var(--color-text-muted)] opacity-50">{lesson.room}</span>}
+            {lesson.room && <span className="text-[8px] font-bold text-[var(--color-text-muted)] opacity-40 uppercase">{lesson.room}</span>}
           </div>
-          <h3 className="text-[13px] font-black text-[var(--color-text-main)] leading-snug mb-0.5 tracking-tight lowercase truncate">
+          <h3 className="text-[13px] font-black text-[var(--color-text-main)] leading-snug mb-0.5 tracking-tight lowercase line-clamp-2">
             {lesson.subject}
           </h3>
-          <div className="flex items-center gap-1.5">
-            <User className="w-3 h-3 text-[var(--color-text-muted)] opacity-40 flex-shrink-0" />
-            <span className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-60 truncate">{lesson.teacher}</span>
-          </div>
+          {lesson.teacher && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <User className="w-2.5 h-2.5 text-[var(--color-primary-apple)] opacity-60 flex-shrink-0" />
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-50 truncate">{lesson.teacher}</span>
+            </div>
+          )}
         </div>
-        <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] opacity-20 flex-shrink-0 mt-3" />
+        <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] opacity-15 flex-shrink-0 mt-3" />
       </div>
 
       {/* Desktop card — full design */}
@@ -353,7 +354,9 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
             <div className="flex items-center gap-3 mb-3">
               <span className={`px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border ${lesson.lessonType === 'Лекция'
                 ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/20'
-                : 'bg-zinc-500/10 text-[var(--color-text-muted)] border-zinc-500/10'
+                : lesson.lessonType === 'Практика'
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
                 }`}>
                 {lesson.lessonType}
               </span>
