@@ -57,12 +57,6 @@ export default function CurrentLessonBanner() {
         headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
       });
       setData(res);
-      // Debug log
-      console.log('[CurrentLesson] Fetched:', {
-        currentLesson: res.currentLesson ? `${res.currentLesson.pairNumber}: ${res.currentLesson.subject}` : null,
-        nextLesson: res.nextLesson ? `${res.nextLesson.pairNumber}: ${res.nextLesson.subject}` : null,
-        time: new Date().toLocaleTimeString(),
-      });
       // При новых данных сбрасываем dismiss (новая пара — новый баннер)
       if (res.currentLesson) {
         const prevId = sessionStorage.getItem('impera_dismissed_lesson');

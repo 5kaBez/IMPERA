@@ -1,15 +1,28 @@
 // Normalize institute names from various formats in GUU data
+// Keys are stripped of ALL whitespace AND commas for consistent matching
 const INSTITUTE_MAP: Record<string, string> = {
   'ГОСУДАРСТВЕННОГОУПРАВЛЕНИЯИПРАВА': 'Институт государственного управления и права',
   'ИНФОРМАЦИОННЫХСИСТЕМ': 'Институт информационных систем',
   'МАРКЕТИНГА': 'Институт маркетинга',
   'ОТРАСЛЕВОГОМЕНЕДЖМЕНТА': 'Институт отраслевого менеджмента',
-  'УПРАВЛЕНИЯПЕРСОНАЛОМ, СОЦИАЛЬНЫХИБИЗНЕС-КОММУНИКАЦИЙ': 'Институт управления персоналом, социальных и бизнес-коммуникаций',
+  'УПРАВЛЕНИЯПЕРСОНАЛОМСОЦИАЛЬНЫХИБИЗНЕС-КОММУНИКАЦИЙ': 'Институт управления персоналом, социальных и бизнес-коммуникаций',
   'ЭКОНОМИКИИФИНАНСОВ': 'Институт экономики и финансов',
 };
 
+// Additional partial-match patterns for fuzzy institute detection
+const INSTITUTE_KEYWORDS: Array<{ pattern: string; result: string }> = [
+  { pattern: 'ГОСУДАРСТВЕНН', result: 'Институт государственного управления и права' },
+  { pattern: 'ИНФОРМАЦИОН', result: 'Институт информационных систем' },
+  { pattern: 'МАРКЕТИНГ', result: 'Институт маркетинга' },
+  { pattern: 'ОТРАСЛЕВОГО', result: 'Институт отраслевого менеджмента' },
+  { pattern: 'ПЕРСОНАЛОМ', result: 'Институт управления персоналом, социальных и бизнес-коммуникаций' },
+  { pattern: 'БИЗНЕС-КОММУНИКАЦ', result: 'Институт управления персоналом, социальных и бизнес-коммуникаций' },
+  { pattern: 'ЭКОНОМИКИ', result: 'Институт экономики и финансов' },
+];
+
 export function normalizeInstitute(name: string): string {
   let result = name.trim();
+  if (!result) return result;
   // Clean newlines
   result = result.replace(/\r?\n/g, ' ').trim();
   // Handle spaced-out letters (like "М  А  Р  К  Е  Т  И  Н  Г  А")
@@ -19,9 +32,18 @@ export function normalizeInstitute(name: string): string {
   }
   // Remove multiple spaces
   result = result.replace(/\s{2,}/g, ' ').trim();
-  // Try lookup: remove all spaces and uppercase for matching
-  const lookupKey = result.replace(/\s/g, '').toUpperCase();
-  return INSTITUTE_MAP[lookupKey] || result;
+  // Try lookup: remove all spaces, commas, and dots — then uppercase for matching
+  const lookupKey = result.replace(/[\s,\.]/g, '').toUpperCase();
+  if (INSTITUTE_MAP[lookupKey]) {
+    return INSTITUTE_MAP[lookupKey];
+  }
+  // Fuzzy fallback: check if the input contains a known keyword
+  for (const { pattern, result: mapped } of INSTITUTE_KEYWORDS) {
+    if (lookupKey.includes(pattern)) {
+      return mapped;
+    }
+  }
+  return result;
 }
 
 // Normalize direction names (remove extra spaces: "М Е Н Е Д Ж М Е Н Т" → "МЕНЕДЖМЕНТ")

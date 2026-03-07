@@ -43,8 +43,6 @@ router.get('/directions/:id/programs', async (req: Request, res: Response) => {
     prisma.program.count({ where }),
   ]);
 
-  console.log(`[API] /directions/${directionId}/programs: found ${total} programs, returning ${programs.length} items`);
-
   res.json({
     items: programs,
     total,
@@ -74,8 +72,6 @@ router.get('/programs/:id/groups', async (req: Request, res: Response) => {
     }),
     prisma.group.count({ where }),
   ]);
-
-  console.log(`[API] /programs/${programId}/groups: found ${total} groups, returning ${groups.length} items`);
 
   res.json({
     items: groups,

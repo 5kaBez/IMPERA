@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '../../api/client';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowLeft, Trash2, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import EmojiLoader from '../../components/EmojiLoader';
 
@@ -14,10 +14,13 @@ export default function AdminImport() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
   const [deleteResult, setDeleteResult] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleImport = async () => {
@@ -197,6 +200,69 @@ export default function AdminImport() {
               className="px-8 py-4 rounded-[18px] text-[11px] font-black uppercase tracking-widest text-[var(--color-text-muted)] apple-glass border border-[var(--apple-border)] hover:bg-black/5 transition-all hover:scale-105 active:scale-95"
             >
               ОЙ, ОТМЕНА
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* FULL RESET Section */}
+      <div className="mt-10 apple-glass rounded-[32px] border border-orange-500/20 p-8 shadow-xl">
+        <div className="flex items-start justify-between mb-6">
+          <div className="max-w-md">
+            <h2 className="text-xl font-black text-[var(--color-text-main)] tracking-tight mb-2">Полный сброс данных</h2>
+            <p className="text-sm font-medium text-[var(--color-text-muted)] tracking-tight">
+              Удаляет ВСЁ: уроки, группы, программы, направления, институты. Пользователи отвязываются от групп, но сохраняются. Используй перед повторным импортом, если появились дубли.
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+            <RotateCcw className="w-6 h-6 text-orange-500" />
+          </div>
+        </div>
+
+        {resetResult && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-sm font-bold text-emerald-600 tracking-tight">
+            {resetResult}
+          </div>
+        )}
+
+        {!confirmReset ? (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="px-8 py-4 rounded-[18px] text-[11px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 border border-orange-500/20 hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95"
+          >
+            Полный сброс (удалить все данные)
+          </button>
+        ) : (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={async () => {
+                setResetting(true);
+                setResetResult(null);
+                setError('');
+                try {
+                  const data = await api.delete<{ deleted: number; details: Record<string, number> }>('/admin/schedule/reset');
+                  const d = (data as any).details || {};
+                  setResetResult(`Полный сброс выполнен! Удалено: ${d.lessons || 0} уроков, ${d.groups || 0} групп, ${d.programs || 0} программ, ${d.directions || 0} направлений, ${d.institutes || 0} институтов`);
+                } catch (err: any) {
+                  setError(err.message);
+                }
+                setResetting(false);
+                setConfirmReset(false);
+              }}
+              disabled={resetting}
+              className="px-8 py-4 rounded-[18px] text-[11px] font-black uppercase tracking-widest text-white bg-orange-500 shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              {resetting ? (
+                <div className="w-4 h-4 border-3 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                'ДА, СБРОС!'
+              )}
+            </button>
+            <button
+              onClick={() => setConfirmReset(false)}
+              className="px-8 py-4 rounded-[18px] text-[11px] font-black uppercase tracking-widest text-[var(--color-text-muted)] apple-glass border border-[var(--apple-border)] hover:bg-black/5 transition-all hover:scale-105 active:scale-95"
+            >
+              ОТМЕНА
             </button>
           </div>
         )}

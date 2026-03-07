@@ -167,12 +167,6 @@ router.get('/:groupId/current', async (req: Request, res: Response) => {
     }
   }
 
-  // Debug logging
-  console.log(`[Schedule] Group ${groupId} at ${currentHours}:${currentMinutes.toString().padStart(2, '0')} (mins: ${currentTotalMinutes}), 
-    day: ${dayOfWeek}, parity: ${parity}, week: ${weekNum}, 
-    lessons found: ${lessons.length}, 
-    current: ${currentLesson ? `${currentLesson.pairNumber}, ${currentLesson.subject}` : 'none'}`);
-
   res.json({
     currentLesson,
     nextLesson,

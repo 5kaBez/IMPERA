@@ -41,10 +41,8 @@ export default function SelectGroupPage() {
       // Get the first page of programs with search
       const progs = await api.get<any>(`/structure/directions/${dir.id}/programs?page=1&limit=500`);
       const programsArray = progs.items || progs;
-      console.log('[SelectGroup] Programs loaded:', { total: progs.total, items: programsArray.length, data: programsArray?.slice(0, 3) });
       setPrograms(programsArray);
       if (programsArray.length === 0) {
-        console.warn('[SelectGroup] No programs found for direction:', dir.id);
         setStep('program');
         setLoading(false);
       } else if (programsArray.length === 1) {
@@ -66,7 +64,6 @@ export default function SelectGroupPage() {
       // Get the first page of groups with search
       const grpsRes = await api.get<any>(`/structure/programs/${prog.id}/groups?page=1&limit=500`);
       const groupsArray = grpsRes.items || grpsRes;
-      console.log('[SelectGroup] Groups loaded:', { total: grpsRes.total, items: groupsArray.length, data: groupsArray?.slice(0, 3) });
       setGroups(groupsArray);
       setStep('group');
       setLoading(false);

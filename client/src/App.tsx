@@ -12,6 +12,46 @@ import AdminUsers from './pages/admin/AdminUsers';
 import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Component, type ReactNode } from 'react';
+
+// Error Boundary to catch runtime crashes
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[var(--color-bg-apple)] flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <div className="text-5xl mb-4">😵</div>
+            <h2 className="text-lg font-black text-[var(--color-text-main)] mb-2">Что-то пошло не так</h2>
+            <p className="text-sm text-[var(--color-text-muted)] mb-6">
+              {this.state.error?.message || 'Неизвестная ошибка'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.href = '/';
+              }}
+              className="px-6 py-3 rounded-2xl bg-[var(--color-primary-apple)] text-white text-sm font-bold"
+            >
+              Перезагрузить
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const { user, loading } = useAuth();
@@ -38,35 +78,37 @@ function App() {
   }
 
   return (
-    <Layout>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
-          transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-          className="w-full"
-        >
-          <Routes location={location}>
-            <Route path="/" element={<SchedulePage />} />
-            <Route path="/schedule" element={<SchedulePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/sports" element={<SportsPage />} />
-            <Route path="/feedback" element={<FeedbackPage />} />
-            {user.role === 'admin' && (
-              <>
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/schedule" element={<AdminSchedule />} />
-                <Route path="/admin/import" element={<AdminImport />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-              </>
-            )}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </motion.div>
-      </AnimatePresence>
-    </Layout>
+    <ErrorBoundary>
+      <Layout>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="w-full"
+          >
+            <Routes location={location}>
+              <Route path="/" element={<SchedulePage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/sports" element={<SportsPage />} />
+              <Route path="/feedback" element={<FeedbackPage />} />
+              {user.role === 'admin' && (
+                <>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/schedule" element={<AdminSchedule />} />
+                  <Route path="/admin/import" element={<AdminImport />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                </>
+              )}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
+      </Layout>
+    </ErrorBoundary>
   );
 }
 
