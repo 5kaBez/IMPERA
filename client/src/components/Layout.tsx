@@ -35,21 +35,21 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20">
-      {/* Mobile top bar - for all users */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 apple-glass border-b border-[var(--apple-border)]">
-        <div className="flex items-center justify-between px-4 md:px-6 h-14">
+      {/* Mobile top bar - minimal, only md screens (tablets). Hidden on phones (handled by bottom nav) */}
+      <header className="hidden md:flex lg:hidden fixed top-0 left-0 right-0 z-50 apple-glass border-b border-[var(--apple-border)]">
+        <div className="flex items-center justify-between px-6 h-12 w-full">
           <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-xl tracking-tighter metallic-text lowercase">impera.</span>
+          <span className="font-black text-lg tracking-tighter metallic-text lowercase">impera.</span>
           <button onClick={toggleTheme} className="p-2 -mr-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-            {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-300" /> : <Moon className="w-5 h-5 text-zinc-500" />}
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-zinc-500" />}
           </button>
         </div>
       </header>
 
-      {/* Bottom Navigation (Mobile) - Fixed */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-4 z-40 bg-[var(--color-bg-apple)]">
+      {/* Bottom Navigation (Mobile) - Compact */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-2 z-40 bg-[var(--color-bg-apple)] safe-bottom">
         {navItems.map((item) => {
           const active = location.pathname === item.path;
           const Icon = item.icon;
@@ -57,38 +57,28 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Link
               key={item.path}
               to={item.path}
-              className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-700 ${active ? 'scale-110' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+              className={`relative flex flex-col items-center justify-center py-2 px-3 rounded-2xl transition-colors duration-300 ${active ? '' : 'text-[var(--color-text-muted)]'
                 }`}
             >
-              <div className={`p-2 squircle transition-all duration-700 ${active ? 'iron-metal-bg text-white shadow-xl shadow-gold-glow' : ''
+              <div className={`p-1.5 rounded-xl transition-colors duration-300 ${active ? 'iron-metal-bg text-white' : ''
                 }`}>
                 <Icon className="w-5 h-5" />
               </div>
-              {active && (
-                <motion.span
-                  layoutId="active-dot"
-                  className="absolute -top-1 w-1 h-1 rounded-full metallic-bg shadow-gold-glow"
-                />
-              )}
+              <span className={`text-[9px] font-bold mt-0.5 ${active ? 'text-[var(--color-primary-apple)]' : 'opacity-60'}`}>{item.label}</span>
             </Link>
           );
         })}
         {isAdmin && (
           <Link
             to="/admin"
-            className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all duration-700 ${location.pathname.startsWith('/admin') ? 'scale-110' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+            className={`relative flex flex-col items-center justify-center py-2 px-3 rounded-2xl transition-colors duration-300 ${location.pathname.startsWith('/admin') ? '' : 'text-[var(--color-text-muted)]'
               }`}
           >
-            <div className={`p-2 squircle transition-all duration-700 ${location.pathname.startsWith('/admin') ? 'iron-metal-bg text-white shadow-xl shadow-gold-glow' : ''
+            <div className={`p-1.5 rounded-xl transition-colors duration-300 ${location.pathname.startsWith('/admin') ? 'iron-metal-bg text-white' : ''
               }`}>
               <Shield className="w-5 h-5" />
             </div>
-            {location.pathname.startsWith('/admin') && (
-              <motion.span
-                layoutId="active-dot"
-                className="absolute -top-1 w-1 h-1 rounded-full metallic-bg shadow-gold-glow"
-              />
-            )}
+            <span className={`text-[9px] font-bold mt-0.5 ${location.pathname.startsWith('/admin') ? 'text-[var(--color-primary-apple)]' : 'opacity-60'}`}>Админ</span>
           </Link>
         )}
       </nav>
@@ -187,10 +177,10 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-80 flex-1 flex flex-col pb-20 lg:pb-0 pt-14 md:pt-0 lg:pt-0">
-        <div className="w-full flex flex-col px-4 md:px-6 lg:px-16 animate-in slide-in-from-top duration-700 pt-0 md:pt-0 lg:pt-11">
+      <main className="lg:ml-80 flex-1 flex flex-col pb-18 lg:pb-0 pt-1 md:pt-12 lg:pt-0">
+        <div className="w-full flex flex-col px-3 md:px-6 lg:px-16 pt-0 md:pt-0 lg:pt-11">
           <CurrentLessonBanner />
-          <div className="mt-4 md:mt-6">
+          <div className="mt-2 md:mt-6">
             {children}
           </div>
         </div>

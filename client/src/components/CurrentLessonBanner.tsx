@@ -131,72 +131,62 @@ export default function CurrentLessonBanner() {
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   return (
-    <div className="relative overflow-hidden apple-glass rounded-[32px] border border-[var(--apple-border)] shadow-2xl mb-10 transition-all duration-700 animate-in fade-in zoom-in group">
-      {/* Moving Background Accents */}
-      <div className="absolute top-0 right-0 w-[400px] h-full bg-[var(--color-primary-apple)]/10 blur-[100px] -z-10 animate-pulse" />
-      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-white/5 to-black/5 pointer-events-none" />
-      {/* Animated background dots */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-2 right-20 w-24 h-24 rounded-full bg-white blur-2xl" />
-        <div className="absolute bottom-2 left-10 w-16 h-16 rounded-full bg-white blur-xl" />
-      </div>
+    <div className="relative overflow-hidden apple-glass rounded-2xl md:rounded-[32px] border border-[var(--apple-border)] shadow-lg md:shadow-2xl mb-3 md:mb-10 group">
+      {/* Background accents - only on desktop */}
+      <div className="hidden md:block absolute top-0 right-0 w-[400px] h-full bg-[var(--color-primary-apple)]/10 blur-[100px] -z-10" />
 
       {/* Close button */}
       <button
         onClick={handleDismiss}
-        className="absolute top-4 right-4 p-2.5 rounded-2xl bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 transition-all z-10 group/close"
+        className="absolute top-2 right-2 md:top-4 md:right-4 p-1.5 md:p-2.5 rounded-xl md:rounded-2xl bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 transition-all z-10"
         title="Скрыть"
       >
-        <X className="w-4 h-4 text-[var(--color-text-muted)] group-hover/close:scale-125 smooth-transition" />
+        <X className="w-3.5 h-3.5 md:w-4 md:h-4 text-[var(--color-text-muted)]" />
       </button>
 
-      <div className="relative p-6 sm:p-8">
+      <div className="relative p-3 md:p-8">
         {/* Top row: status + timer */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                Идёт {lesson.pairNumber}-я пара
-              </span>
-            </div>
+        <div className="flex items-center justify-between mb-2 md:mb-6">
+          <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <span className="flex h-1.5 w-1.5 md:h-2 md:w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              {lesson.pairNumber}-я пара
+            </span>
           </div>
 
           {/* Countdown timer badge */}
-          <div className="flex items-center gap-2.5 h-10 px-4 rounded-2xl bg-[var(--color-text-main)] text-white shadow-xl scale-105">
-            <Timer className="w-4 h-4 animate-pulse" />
-            <span className="text-sm font-bold tabular-nums tracking-widest">
+          <div className="flex items-center gap-1.5 h-7 md:h-10 px-2.5 md:px-4 rounded-xl md:rounded-2xl bg-[var(--color-text-main)] text-white shadow-lg mr-6 md:mr-0">
+            <Timer className="w-3 h-3 md:w-4 md:h-4" />
+            <span className="text-[11px] md:text-sm font-bold tabular-nums tracking-wider">
               {pad(countdown.minutes)}:{pad(countdown.seconds)}
             </span>
           </div>
         </div>
 
         {/* Subject */}
-        <h2 className="text-3xl font-black text-[var(--color-text-main)] leading-[1.1] mb-6 pr-12 tracking-[-0.03em]">
+        <h2 className="text-base md:text-3xl font-black text-[var(--color-text-main)] leading-snug md:leading-[1.1] mb-2 md:mb-6 pr-6 md:pr-12 tracking-tight">
           {lesson.subject}
         </h2>
 
-        {/* Details Cards */}
-        <div className="flex flex-wrap gap-3 mb-8">
+        {/* Details — inline on mobile, cards on desktop */}
+        <div className="flex flex-wrap gap-1.5 md:gap-3 mb-2 md:mb-8">
           {[
             { icon: User, text: lesson.teacher },
-            { icon: MapPin, text: `Аудитория ${lesson.room}` },
-            { icon: Clock, text: `${lesson.timeStart} — ${lesson.timeEnd}` },
+            { icon: MapPin, text: lesson.room },
+            { icon: Clock, text: `${lesson.timeStart}–${lesson.timeEnd}` },
           ].map((info, idx) => (
-            <div key={idx} className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] shadow-sm">
-              <info.icon className="w-4 h-4 text-[var(--color-primary-apple)]" />
-              <span className="text-xs font-bold text-[var(--color-text-main)]">{info.text}</span>
+            <div key={idx} className="flex items-center gap-1 md:gap-2.5 px-2 py-1 md:px-4 md:py-2.5 rounded-lg md:rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)]">
+              <info.icon className="w-3 h-3 md:w-4 md:h-4 text-[var(--color-primary-apple)]" />
+              <span className="text-[10px] md:text-xs font-bold text-[var(--color-text-main)]">{info.text}</span>
             </div>
           ))}
         </div>
 
         {/* Progress bar */}
-        <div className="mt-4">
-          <ProgressBar lesson={lesson} />
-        </div>
+        <ProgressBar lesson={lesson} />
       </div>
     </div>
   );

@@ -9,8 +9,19 @@ const INSTITUTE_MAP: Record<string, string> = {
 };
 
 export function normalizeInstitute(name: string): string {
-  const trimmed = name.trim();
-  return INSTITUTE_MAP[trimmed] || trimmed;
+  let result = name.trim();
+  // Clean newlines
+  result = result.replace(/\r?\n/g, ' ').trim();
+  // Handle spaced-out letters (like "М  А  Р  К  Е  Т  И  Н  Г  А")
+  const withoutSpaces = result.replace(/\s/g, '');
+  if (/^[А-ЯЁA-Z]\s+[А-ЯЁA-Z]/.test(result) && withoutSpaces.length >= 3 && withoutSpaces.length <= result.length / 2 + 1) {
+    result = withoutSpaces;
+  }
+  // Remove multiple spaces
+  result = result.replace(/\s{2,}/g, ' ').trim();
+  // Try lookup: remove all spaces and uppercase for matching
+  const lookupKey = result.replace(/\s/g, '').toUpperCase();
+  return INSTITUTE_MAP[lookupKey] || result;
 }
 
 // Normalize direction names (remove extra spaces: "М Е Н Е Д Ж М Е Н Т" → "МЕНЕДЖМЕНТ")

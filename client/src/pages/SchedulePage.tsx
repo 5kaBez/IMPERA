@@ -91,11 +91,11 @@ export default function SchedulePage() {
   return (
     <div>
       {/* Header - Responsive */}
-      <div className="mb-4 md:mb-6 pt-0">
-        <h1 className="text-3xl md:text-5xl lg:text-6xl font-black metallic-text tracking-[-0.08em] mb-2 lowercase">
+      <div className="mb-2 md:mb-6 pt-0">
+        <h1 className="text-2xl md:text-5xl lg:text-6xl font-black metallic-text tracking-[-0.08em] mb-1 lowercase">
           расписание.
         </h1>
-        <div className="flex items-center gap-3 md:gap-4 text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[9px] md:text-[10px]">
+        <div className="flex items-center gap-2 md:gap-4 text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[8px] md:text-[10px]">
           <Calendar className="w-3 md:w-4 h-3 md:h-4 text-[var(--color-primary-apple)]" />
           <p className="opacity-60">
             {formatDate(new Date())}
@@ -103,10 +103,10 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* Tabs - True Liquid Bubble System */}
-      <div className="mb-6 md:mb-8 liquid-glass-tab p-1 rounded-[28px] md:rounded-[32px] flex items-center shadow-2xl relative border border-white/5 overflow-hidden group">
-        {/* Isolated Gooey Layer for Highlights ONLY */}
-        <div className="absolute inset-0 pointer-events-none" style={{ filter: "url(#liquid-goo)" }}>
+      {/* Tabs - Compact on mobile */}
+      <div className="mb-3 md:mb-8 liquid-glass-tab p-1 rounded-[20px] md:rounded-[32px] flex items-center shadow-lg md:shadow-2xl relative overflow-hidden">
+        {/* Bubble indicator */}
+        <div className="absolute inset-0 pointer-events-none hidden md:block" style={{ filter: "url(#liquid-goo)" }}>
           {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
             tab === t && (
               <motion.div
@@ -114,12 +114,7 @@ export default function SchedulePage() {
                 layoutId="liquid-bubble"
                 className="absolute inset-y-2 iron-metal-bg rounded-[24px] shadow-gold-glow"
                 initial={false}
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 30,
-                  mass: 0.8
-                }}
+                transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.8 }}
                 style={{
                   left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 4px)',
                   width: 'calc(33.33% - 8px)'
@@ -131,20 +126,37 @@ export default function SchedulePage() {
           ))}
         </div>
 
-        {/* Text Layer - NOT FILTERED */}
+        {/* Mobile-only simple indicator (no SVG filter) */}
+        <div className="absolute inset-0 pointer-events-none md:hidden">
+          {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
+            tab === t && (
+              <motion.div
+                key={`mbubble-${t}`}
+                layoutId="mobile-bubble"
+                className="absolute inset-y-1 iron-metal-bg rounded-[16px]"
+                initial={false}
+                transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                style={{
+                  left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 2px)',
+                  width: 'calc(33.33% - 6px)'
+                }}
+              />
+            )
+          ))}
+        </div>
+
+        {/* Text Layer */}
         <div className="flex w-full relative z-10">
           {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-3 md:py-4.5 px-4 md:px-6 rounded-[24px] md:rounded-[28px] text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] transition-all duration-500 relative ${tab === t
+              className={`flex-1 py-2 md:py-4.5 px-3 md:px-6 rounded-[16px] md:rounded-[28px] text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] transition-colors duration-300 relative ${tab === t
                 ? 'text-white'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
                 }`}
             >
-              <span className={`relative z-20 inline-block ${tab === t ? 'scale-110' : 'scale-100'} transition-transform duration-500`}>
-                {t === 'today' ? 'Твой день' : t === 'tomorrow' ? 'Завтра' : 'Неделя'}
-              </span>
+              {t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя'}
             </button>
           ))}
         </div>
@@ -173,10 +185,10 @@ export default function SchedulePage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
-            initial={{ opacity: 0, x: 20, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
-            transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
           >
             {tab === 'today' && todayData && (
               <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={setSelectedLesson} />
@@ -218,24 +230,24 @@ function DaySchedule({ data, emptyMessage, onLessonClick }: { data: ScheduleDay;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 md:mb-8 px-2">
+      <div className="flex items-center justify-between mb-2 md:mb-8 px-1 md:px-2">
         <div className="flex items-center gap-2 md:gap-4">
-          <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] metallic-text">
+          <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.3em] metallic-text">
             {DAY_NAMES[data.dayOfWeek]}
           </span>
-          <div className="w-2 h-2 rounded-full iron-metal-bg shadow-gold-glow" />
+          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full iron-metal-bg" />
         </div>
-        <span className="text-[9px] md:text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest opacity-40">
-          {data.parity === 1 ? 'нечётная' : 'чётная'} &bull; №{data.weekNumber}
+        <span className="text-[8px] md:text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest opacity-40">
+          {data.parity === 1 ? 'нечёт' : 'чёт'} &bull; №{data.weekNumber}
         </span>
       </div>
-      <div className="grid gap-3 md:gap-4">
+      <div className="grid gap-2 md:gap-4">
         {data.lessons.map((lesson, idx) => (
           <motion.div
             key={lesson.id}
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: idx * 0.05, duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.03, duration: 0.3 }}
           >
             <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
           </motion.div>
@@ -265,22 +277,22 @@ function WeekSchedule({ data, onLessonClick }: { data: ScheduleWeek; onLessonCli
   }
 
   return (
-    <div className="space-y-8 md:space-y-12">
-      <div className="flex items-center gap-3 md:gap-4 px-2">
-        <span className="text-[10px] md:text-[11px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.15em] md:tracking-[0.2em] opacity-80">
-          {data.parity === 1 ? 'Нечётная' : 'Чётная'} неделя №{data.weekNumber}
+    <div className="space-y-6 md:space-y-12">
+      <div className="flex items-center gap-2 md:gap-4 px-1 md:px-2">
+        <span className="text-[9px] md:text-[11px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.1em] md:tracking-[0.2em] opacity-80">
+          {data.parity === 1 ? 'Нечёт' : 'Чёт'} неделя №{data.weekNumber}
         </span>
         <div className="flex-1 h-px bg-[var(--apple-border)] opacity-50" />
       </div>
       {daysWithLessons.map(({ day, lessons }) => (
         <div key={day}>
-          <div className="flex items-center justify-between mb-3 md:mb-6 px-2">
-            <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em] metallic-text">
+          <div className="flex items-center justify-between mb-2 md:mb-6 px-1 md:px-2">
+            <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] metallic-text">
               {DAY_NAMES[day]}
             </span>
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500/30" />
           </div>
-          <div className="grid gap-3 md:gap-4">
+          <div className="grid gap-2 md:gap-4">
             {lessons.map(lesson => (
               <CompactLessonCard key={lesson.id} lesson={lesson} onClick={() => onLessonClick(lesson)} />
             ))}
@@ -295,44 +307,77 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
   return (
     <div
       onClick={onClick}
-      className="apple-card flex-col md:flex-row items-start md:items-center mb-0 shadow-xl hover:shadow-gold-glow transition-all duration-700 group border-[var(--apple-border)] cursor-pointer flex bg-white/5 dark:bg-white/5 p-3 md:p-1 relative squircle overflow-hidden"
+      className="cursor-pointer active:scale-[0.98] transition-transform duration-200"
     >
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-6 w-full md:p-5">
-        {/* Time Pillar */}
-        <div className="flex flex-row md:flex-col items-center justify-center w-16 h-14 md:w-24 md:h-24 squircle bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] transition-all duration-700 group-hover:iron-metal-bg group-hover:text-white group-hover:scale-110 shadow-inner translate-x-0 group-hover:-rotate-3 group-hover:translate-x-1 overflow-hidden gap-2 md:gap-0">
-          <span className="text-lg md:text-xl font-black tracking-tighter">{lesson.timeStart}</span>
-          <div className="w-4 md:w-8 h-0.5 bg-current opacity-20 md:my-1 rounded-full group-hover:opacity-40"></div>
-          <span className="text-[9px] md:text-[10px] font-black opacity-50 uppercase tracking-widest group-hover:opacity-70">{lesson.timeEnd}</span>
+      {/* Mobile card — ultra compact */}
+      <div className="md:hidden flex items-start gap-3 p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:bg-black/[0.06] dark:active:bg-white/[0.08]">
+        {/* Time column */}
+        <div className="flex flex-col items-center pt-0.5 w-11 flex-shrink-0">
+          <span className="text-xs font-black tracking-tight text-[var(--color-text-main)]">{lesson.timeStart}</span>
+          <div className="w-px h-2.5 bg-[var(--color-text-muted)] opacity-20 my-0.5" />
+          <span className="text-[9px] font-bold text-[var(--color-text-muted)] opacity-50">{lesson.timeEnd}</span>
         </div>
-
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3 mb-2 md:mb-3">
-            <span className={`px-3 md:px-4 py-1 md:py-1.5 rounded-xl md:rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em] border ${lesson.lessonType === 'Лекция'
-              ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/20'
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider border ${lesson.lessonType === 'Лекция'
+              ? 'iron-metal-bg text-white border-transparent'
               : 'bg-zinc-500/10 text-[var(--color-text-muted)] border-zinc-500/10'
               }`}>
               {lesson.lessonType}
             </span>
-            <span className="text-[9px] md:text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.15em] md:tracking-[0.2em] opacity-40">
-              AUD. {lesson.room}
-            </span>
+            {lesson.room && <span className="text-[8px] font-bold text-[var(--color-text-muted)] opacity-50">{lesson.room}</span>}
           </div>
-
-          <h3 className="text-lg md:text-3xl font-black text-[var(--color-text-main)] leading-tight md:leading-none mb-2 md:mb-3 tracking-tight md:tracking-tighter lowercase">
-            {lesson.subject}.
+          <h3 className="text-[13px] font-black text-[var(--color-text-main)] leading-snug mb-0.5 tracking-tight lowercase truncate">
+            {lesson.subject}
           </h3>
-
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-8 text-[9px] md:text-[11px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.15em] md:tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className="w-5 h-5 md:w-6 md:h-6 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center shadow-inner group-hover:iron-metal-bg group-hover:text-white transition-all duration-500 overflow-hidden flex-shrink-0">
-                <User className="w-3 h-3 md:w-3.5 md:h-3.5" />
-              </div>
-              <span className="truncate">{lesson.teacher}</span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <User className="w-3 h-3 text-[var(--color-text-muted)] opacity-40 flex-shrink-0" />
+            <span className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-60 truncate">{lesson.teacher}</span>
           </div>
         </div>
-        <div className="hidden md:flex p-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-8 transition-all duration-700">
-          <ChevronRight className="w-8 h-8 metallic-text" />
+        <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] opacity-20 flex-shrink-0 mt-3" />
+      </div>
+
+      {/* Desktop card — full design */}
+      <div className="hidden md:flex apple-card flex-row items-center shadow-xl hover:shadow-gold-glow transition-all duration-700 group border-[var(--apple-border)] bg-black/[0.03] dark:bg-white/5 p-1 relative squircle overflow-hidden">
+        <div className="flex flex-row items-center gap-6 w-full p-5">
+          {/* Time Pillar */}
+          <div className="flex flex-col items-center justify-center w-24 h-24 squircle bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] transition-all duration-700 group-hover:iron-metal-bg group-hover:text-white group-hover:scale-110 shadow-inner group-hover:-rotate-3 group-hover:translate-x-1 overflow-hidden">
+            <span className="text-xl font-black tracking-tighter">{lesson.timeStart}</span>
+            <div className="w-8 h-0.5 bg-current opacity-20 my-1 rounded-full group-hover:opacity-40"></div>
+            <span className="text-[10px] font-black opacity-50 uppercase tracking-widest group-hover:opacity-70">{lesson.timeEnd}</span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-3">
+              <span className={`px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border ${lesson.lessonType === 'Лекция'
+                ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/20'
+                : 'bg-zinc-500/10 text-[var(--color-text-muted)] border-zinc-500/10'
+                }`}>
+                {lesson.lessonType}
+              </span>
+              <span className="text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.2em] opacity-40">
+                AUD. {lesson.room}
+              </span>
+            </div>
+
+            <h3 className="text-3xl font-black text-[var(--color-text-main)] leading-none mb-3 tracking-tighter lowercase">
+              {lesson.subject}.
+            </h3>
+
+            <div className="flex items-center gap-8 text-[11px] font-black text-[var(--color-text-muted)] uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center shadow-inner group-hover:iron-metal-bg group-hover:text-white transition-all duration-500 overflow-hidden flex-shrink-0">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <span className="truncate">{lesson.teacher}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex p-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-8 transition-all duration-700">
+            <ChevronRight className="w-8 h-8 metallic-text" />
+          </div>
         </div>
       </div>
     </div>

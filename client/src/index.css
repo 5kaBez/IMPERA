@@ -14,13 +14,14 @@
   --apple-spring: cubic-bezier(0.175, 0.885, 0.32, 1.25);
 
   /* Premium "Old Money" Palette - Light (Premium Gray) */
-  --color-bg-apple: #E5E5E7;
-  --color-card-apple: rgba(255, 255, 255, 0.6);
+  --color-bg-apple: #EDEDF0;
+  --color-card-apple: rgba(255, 255, 255, 0.75);
   --color-primary-apple: #D4AF37;
   /* Old Gold */
   --color-secondary-apple: #C5A02E;
   --color-text-main: #1C1C1E;
-  --color-text-muted: #86868B;
+  --color-text-muted: #6E6E73;
+  --apple-border: rgba(0, 0, 0, 0.08);
 
   /* Premium "Old Money" Palette - Dark (Carbon Black) */
   --color-bg-apple-dark: #0D0D0D;
@@ -178,6 +179,10 @@ h6 {
   position: relative;
 }
 
+.dark .apple-glass {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+}
+
 .apple-glass::before {
   content: '';
   position: absolute;
@@ -192,9 +197,17 @@ h6 {
   pointer-events: none;
 }
 
+/* Light mode liquid glass tab */
 .liquid-glass-tab {
-  backdrop-filter: blur(25px) saturate(220%);
-  -webkit-backdrop-filter: blur(25px) saturate(220%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark mode liquid glass tab */
+.dark .liquid-glass-tab {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3), 0 20px 50px rgba(0, 0, 0, 0.2);
@@ -204,10 +217,14 @@ h6 {
   background: var(--color-card-apple);
   border-radius: var(--apple-radius);
   border: 1px solid var(--apple-border);
-  transition: all 0.6s var(--apple-ease);
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.dark .apple-card {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 
 .apple-card::after {
@@ -222,11 +239,12 @@ h6 {
   opacity: 0.5;
 }
 
-.apple-card:hover {
-  transform: scale(1.01) translateY(-2px);
-  /* Subtler for luxury feel */
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.12), var(--gold-glow);
-  border-color: rgba(212, 175, 55, 0.4);
+@media (hover: hover) {
+  .apple-card:hover {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.12), var(--gold-glow);
+    border-color: rgba(212, 175, 55, 0.4);
+  }
 }
 
 .liquid-glow {
@@ -319,4 +337,50 @@ h6 {
 
 .dark ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Safe area for bottom navigation */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Reduce animations on mobile for performance */
+@media (max-width: 768px) {
+  .apple-card,
+  .apple-glass,
+  .iron-metal-bg,
+  .metallic-bg {
+    transition-duration: 0.2s !important;
+  }
+
+  /* Disable shimmer animation on mobile */
+  .metallic-bg::after,
+  .iron-metal-bg::after {
+    animation: none !important;
+  }
+
+  /* Simpler page transitions */
+  .page-transition-enter {
+    filter: none;
+  }
+  .page-transition-exit-active {
+    filter: none;
+  }
+}
+
+/* Light mode: fix iron-metal-bg glow being too strong */
+:root:not(:has(.dark)) .iron-metal-bg {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Light mode: scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Hide scrollbar on mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
 }

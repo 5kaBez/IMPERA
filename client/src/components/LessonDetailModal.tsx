@@ -170,7 +170,7 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`w-full max-w-lg bg-white dark:bg-gray-950 rounded-t-2xl md:rounded-t-3xl max-h-[92vh] flex flex-col transition-transform duration-300 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'
+        className={`w-full max-w-lg bg-[#F5F5F7] dark:bg-gray-950 rounded-t-2xl md:rounded-t-3xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
       >
         {/* Drag handle */}
