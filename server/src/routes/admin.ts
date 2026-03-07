@@ -236,6 +236,32 @@ router.get('/teachers', async (req: Request, res: Response) => {
   res.json(result);
 });
 
+// DELETE /api/admin/teachers/ghost — delete teachers with 0 reviews (ghost records)
+router.delete('/teachers/ghost', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    // Find teachers with no reviews
+    const ghostTeachers = await prisma.teacher.findMany({
+      where: { reviews: { none: {} } },
+      select: { id: true },
+    });
+
+    if (ghostTeachers.length === 0) {
+      res.json({ success: true, deleted: 0 });
+      return;
+    }
+
+    const result = await prisma.teacher.deleteMany({
+      where: { id: { in: ghostTeachers.map(t => t.id) } },
+    });
+
+    res.json({ success: true, deleted: result.count });
+  } catch (err: any) {
+    console.error('Ghost teacher cleanup error:', err);
+    res.status(500).json({ error: 'Ошибка очистки преподавателей' });
+  }
+});
+
 // Users list
 router.get('/users', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
