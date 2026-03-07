@@ -90,10 +90,10 @@ export const DAY_NAMES_SHORT: Record<number, string> = {
 };
 
 export const LESSON_TYPE_COLORS: Record<string, string> = {
-  'Лекция': 'bg-blue-500/20 text-blue-400 dark:bg-blue-500/20 dark:text-blue-300',
-  'Практика': 'bg-green-500/20 text-green-600 dark:bg-green-500/20 dark:text-green-300',
-  'Лабораторная': 'bg-orange-500/20 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300',
-  'Другое': 'bg-gray-500/20 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
+  'Лекция': 'iron-metal-bg text-white',
+  'Практика': 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  'Лабораторная': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  'Другое': 'bg-zinc-500/15 text-zinc-500 dark:text-zinc-400',
 };
 
 export interface Feedback {

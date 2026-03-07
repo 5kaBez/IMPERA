@@ -7,6 +7,7 @@ import { Calendar, MapPin, User, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
+import { useDelayedLoading } from '../hooks/useDelayedLoading';
 
 type Tab = 'today' | 'tomorrow' | 'week';
 
@@ -17,6 +18,7 @@ export default function SchedulePage() {
   const [tomorrowData, setTomorrowData] = useState<ScheduleDay | null>(null);
   const [weekData, setWeekData] = useState<ScheduleWeek | null>(null);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading, 1500);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
 
   const groupId = user?.groupId;
@@ -179,7 +181,7 @@ export default function SchedulePage() {
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Выберите группу в профиле</p>
         </div>
       ) : loading ? (
-        <EmojiLoader />
+        showLoader ? <EmojiLoader /> : null
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
@@ -320,8 +322,10 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
             <span className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-wider ${lesson.lessonType === 'Лекция'
               ? 'iron-metal-bg text-white'
               : lesson.lessonType === 'Практика'
-                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                : lesson.lessonType === 'Лабораторная'
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                  : 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border border-zinc-500/20'
               }`}>
               {lesson.lessonType}
             </span>
@@ -355,8 +359,10 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
               <span className={`px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border ${lesson.lessonType === 'Лекция'
                 ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/20'
                 : lesson.lessonType === 'Практика'
-                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : lesson.lessonType === 'Лабораторная'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                    : 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/20'
                 }`}>
                 {lesson.lessonType}
               </span>

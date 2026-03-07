@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   HelpCircle,
 } from 'lucide-react';
+import { useDelayedLoading } from '../hooks/useDelayedLoading';
 
 const FEEDBACK_TYPES = [
   { value: 'suggestion', label: 'Предложение', icon: Lightbulb, color: 'text-amber-500', bg: 'bg-amber-500/10' },
@@ -39,6 +40,7 @@ export default function FeedbackPage() {
   const [error, setError] = useState('');
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const showListLoader = useDelayedLoading(loadingList, 1500);
 
   const loadFeedback = () => {
     setLoadingList(true);
@@ -180,9 +182,11 @@ export default function FeedbackPage() {
         </h2>
 
         {loadingList ? (
-          <div className="flex justify-center py-16 md:py-20">
-            <div className="w-8 md:w-10 h-8 md:h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+          showListLoader ? (
+            <div className="flex justify-center py-16 md:py-20">
+              <div className="w-8 md:w-10 h-8 md:h-10 border-4 border-[var(--color-primary-apple)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : null
         ) : feedbackList.length === 0 ? (
           <div className="text-center py-12 md:py-20 bg-black/5 dark:bg-white/5 rounded-[24px] md:rounded-[32px] border border-dashed border-[var(--apple-border)]">
             <MessageSquare className="w-12 md:w-16 h-12 md:h-16 mx-auto mb-3 md:mb-4 text-zinc-300" />
