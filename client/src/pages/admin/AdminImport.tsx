@@ -8,6 +8,7 @@ interface ImportResult {
   imported: number;
   skipped: number;
   total: number;
+  stats?: Record<string, Record<string, number>>;
 }
 
 export default function AdminImport() {
@@ -146,6 +147,28 @@ export default function AdminImport() {
                 <p className="text-[8px] md:text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-[0.1em]">ВСЕГО</p>
               </div>
             </div>
+
+            {/* Import stats by education level & day */}
+            {result.stats && Object.keys(result.stats).length > 0 && (
+              <div className="mt-4 space-y-3">
+                <p className="text-[9px] md:text-[10px] font-black text-emerald-500 uppercase tracking-widest">Пары по дням</p>
+                {Object.entries(result.stats).map(([level, days]) => (
+                  <div key={level} className="p-3 rounded-xl bg-white/50 dark:bg-black/20 border border-emerald-500/10">
+                    <p className="text-[10px] md:text-xs font-black text-[var(--color-text-main)] mb-2">{level}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => {
+                        const count = days[day] || 0;
+                        return (
+                          <div key={day} className={`px-2 py-1 rounded-lg text-[9px] md:text-[10px] font-bold ${count > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-zinc-500/5 text-zinc-400'}`}>
+                            {day}: {count}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

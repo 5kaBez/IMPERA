@@ -212,5 +212,15 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
     imported += batch.length;
   }
 
-  return { imported, skipped, total: parsed.length + skipped };
+  // ---- Build import statistics for debugging ----
+  const DAY_NAMES: Record<number, string> = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс' };
+  const stats: Record<string, Record<string, number>> = {};
+  for (const r of parsed) {
+    const level = r.educationLevel || 'Неизвестно';
+    if (!stats[level]) stats[level] = {};
+    const dayName = DAY_NAMES[r.dayOfWeek] || `День ${r.dayOfWeek}`;
+    stats[level][dayName] = (stats[level][dayName] || 0) + 1;
+  }
+
+  return { imported, skipped, total: parsed.length + skipped, stats };
 }
