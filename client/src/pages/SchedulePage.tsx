@@ -40,10 +40,10 @@ export default function SchedulePage() {
   const showLoader = useDelayedLoading(loading, 1500);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
 
-  /** If it's a sport lesson → navigate to /sports, otherwise open detail modal */
+  /** If it's a sport lesson → navigate to /sports with time highlight, otherwise open detail modal */
   const handleLessonClick = (lesson: Lesson) => {
     if (isSportLesson(lesson)) {
-      navigate('/sports');
+      navigate('/sports', { state: { highlightTime: lesson.timeStart } });
     } else {
       setSelectedLesson(lesson);
     }

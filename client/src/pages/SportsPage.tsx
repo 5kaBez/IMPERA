@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Dumbbell, Clock, MapPin, ChevronRight, Sparkles, Wrench, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -57,8 +58,29 @@ function getSportEmoji(name: string): string {
 type ViewTab = 'grid' | 'sections';
 
 export default function SportsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedSport, setSelectedSport] = useState<number | null>(null);
-  const [view, setView] = useState<ViewTab>('grid');
+  const highlightTime = (location.state as { highlightTime?: string } | null)?.highlightTime || null;
+  const highlightTimeIdx = highlightTime ? TIME_SLOTS.findIndex(s => s.time === highlightTime) : -1;
+  const [view, setView] = useState<ViewTab>(highlightTime ? 'grid' : 'grid');
+  const [showHighlight, setShowHighlight] = useState(!!highlightTime);
+  const highlightRowRef = useRef<HTMLDivElement>(null);
+
+  // Clear navigation state so highlight disappears on re-visit
+  useEffect(() => {
+    if (highlightTime) {
+      // Replace state to clear highlightTime (so back+forward won't re-highlight)
+      navigate(location.pathname, { replace: true, state: {} });
+      // Auto-scroll to highlighted row
+      setTimeout(() => {
+        highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+      // Fade out highlight after 4 seconds
+      const timer = setTimeout(() => setShowHighlight(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <div className="pb-12">
@@ -74,6 +96,34 @@ export default function SportsPage() {
           </p>
         </div>
       </div>
+
+      {/* Highlight Banner — shown when navigated from schedule */}
+      {showHighlight && highlightTimeIdx >= 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="mb-3 md:mb-6 p-3 md:p-4 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 flex items-center gap-3"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] md:text-xs font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
+              Твоя пара: {TIME_SLOTS[highlightTimeIdx].time} — {TIME_SLOTS[highlightTimeIdx].end}
+            </p>
+            <p className="text-[9px] md:text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+              Доступные секции на это время подсвечены ↓
+            </p>
+          </div>
+          <button
+            onClick={() => setShowHighlight(false)}
+            className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 hover:bg-emerald-500/20 transition-colors flex-shrink-0"
+          >
+            ✕
+          </button>
+        </motion.div>
+      )}
 
       {/* Development Banner */}
       <motion.div
@@ -167,48 +217,61 @@ export default function SportsPage() {
               </div>
 
               {/* Time rows */}
-              {TIME_SLOTS.map((slot, timeIdx) => (
-                <motion.div
-                  key={slot.time}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: timeIdx * 0.05, duration: 0.3 }}
-                  className="grid grid-cols-[60px_repeat(6,1fr)] md:grid-cols-[80px_repeat(6,1fr)] gap-1 md:gap-1.5 mb-1 md:mb-1.5"
-                >
-                  {/* Time label */}
-                  <div className="flex flex-col items-center justify-center py-2 md:py-3 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)]">
-                    <span className="text-[11px] md:text-xs font-black text-[var(--color-text-main)] tracking-tight">{slot.time}</span>
-                    <span className="text-[7px] md:text-[8px] font-bold text-[var(--color-text-muted)] opacity-40">{slot.end}</span>
-                  </div>
+              {TIME_SLOTS.map((slot, timeIdx) => {
+                const isHighlighted = showHighlight && timeIdx === highlightTimeIdx;
+                return (
+                  <motion.div
+                    key={slot.time}
+                    ref={isHighlighted ? highlightRowRef : undefined}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: timeIdx * 0.05, duration: 0.3 }}
+                    className={`grid grid-cols-[60px_repeat(6,1fr)] md:grid-cols-[80px_repeat(6,1fr)] gap-1 md:gap-1.5 mb-1 md:mb-1.5 rounded-2xl transition-all duration-700 ${isHighlighted ? 'ring-2 ring-emerald-500/60 bg-emerald-500/[0.06] shadow-lg shadow-emerald-500/10 p-0.5 -mx-0.5' : ''}`}
+                  >
+                    {/* Time label */}
+                    <div className={`flex flex-col items-center justify-center py-2 md:py-3 rounded-xl border transition-all duration-700 ${isHighlighted
+                      ? 'bg-emerald-500/15 border-emerald-500/30 scale-105'
+                      : 'bg-black/[0.03] dark:bg-white/[0.04] border-[var(--apple-border)]'
+                    }`}>
+                      <span className={`text-[11px] md:text-xs font-black tracking-tight transition-colors duration-700 ${isHighlighted ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--color-text-main)]'}`}>{slot.time}</span>
+                      <span className={`text-[7px] md:text-[8px] font-bold transition-colors duration-700 ${isHighlighted ? 'text-emerald-500 opacity-70' : 'text-[var(--color-text-muted)] opacity-40'}`}>{slot.end}</span>
+                    </div>
 
-                  {/* Sport cells */}
-                  {DAYS.map((_, dayIdx) => {
-                    const sportName = SCHEDULE[timeIdx]?.[dayIdx];
-                    if (!sportName) {
+                    {/* Sport cells */}
+                    {DAYS.map((_, dayIdx) => {
+                      const sportName = SCHEDULE[timeIdx]?.[dayIdx];
+                      if (!sportName) {
+                        return (
+                          <div
+                            key={dayIdx}
+                            className={`flex items-center justify-center py-2 md:py-3 rounded-xl border border-dashed transition-all duration-700 ${isHighlighted
+                              ? 'bg-emerald-500/[0.03] border-emerald-500/15 opacity-50'
+                              : 'bg-black/[0.01] dark:bg-white/[0.02] border-[var(--apple-border)] opacity-30'
+                            }`}
+                          >
+                            <span className="text-[8px] text-[var(--color-text-muted)]">—</span>
+                          </div>
+                        );
+                      }
+                      const emoji = getSportEmoji(sportName);
                       return (
                         <div
                           key={dayIdx}
-                          className="flex items-center justify-center py-2 md:py-3 rounded-xl bg-black/[0.01] dark:bg-white/[0.02] border border-dashed border-[var(--apple-border)] opacity-30"
+                          className={`flex flex-col items-center justify-center py-2 md:py-3 px-1 rounded-xl border transition-all duration-700 group cursor-default ${isHighlighted
+                            ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30 shadow-sm shadow-emerald-500/10 scale-[1.02]'
+                            : 'bg-black/[0.03] dark:bg-white/[0.04] border-[var(--apple-border)] hover:border-[var(--color-primary-apple)]/30 hover:bg-[var(--color-primary-apple)]/5'
+                          }`}
                         >
-                          <span className="text-[8px] text-[var(--color-text-muted)]">—</span>
+                          <span className={`text-base md:text-lg leading-none mb-0.5 transition-transform ${isHighlighted ? 'scale-110 animate-bounce' : 'group-hover:scale-110'}`} style={isHighlighted ? { animationDuration: '1.5s', animationIterationCount: '2' } : {}}>{emoji}</span>
+                          <span className={`text-[7px] md:text-[8px] font-black text-center leading-tight tracking-tight line-clamp-2 transition-colors duration-700 ${isHighlighted ? 'text-emerald-700 dark:text-emerald-300' : 'text-[var(--color-text-main)]'}`}>
+                            {sportName}
+                          </span>
                         </div>
                       );
-                    }
-                    const emoji = getSportEmoji(sportName);
-                    return (
-                      <div
-                        key={dayIdx}
-                        className="flex flex-col items-center justify-center py-2 md:py-3 px-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] hover:border-[var(--color-primary-apple)]/30 hover:bg-[var(--color-primary-apple)]/5 transition-all duration-200 group cursor-default"
-                      >
-                        <span className="text-base md:text-lg leading-none mb-0.5 group-hover:scale-110 transition-transform">{emoji}</span>
-                        <span className="text-[7px] md:text-[8px] font-black text-[var(--color-text-main)] text-center leading-tight tracking-tight line-clamp-2">
-                          {sportName}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </motion.div>
-              ))}
+                    })}
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
 
