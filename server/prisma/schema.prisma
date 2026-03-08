@@ -86,6 +86,10 @@ model User {
   role           String     @default("student") // student, admin
   notifyBefore   Boolean    @default(true)
   notifyChanges  Boolean    @default(true)
+  referralCode   String?    @unique  // персональный реферальный код (8-char hex)
+  referredBy     String?              // код того, кто пригласил
+  referralCount  Int        @default(0) // сколько людей пригласил
+  activated      Boolean    @default(true) // false = нужен инвайт-код для доступа
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   feedbacks       Feedback[]
@@ -241,4 +245,14 @@ model SportAttendance {
 
   @@unique([sessionId, studentId]) // Один студент — одна отметка за сессию
   @@index([studentId, checkedInAt])
+}
+
+// ===== Инвайт-коды для закрытого бета-теста =====
+model InviteCode {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique   // 6-значный код
+  used       Boolean   @default(false)
+  usedByTgId String?             // telegramId того, кто использовал
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
 }

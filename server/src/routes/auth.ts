@@ -57,6 +57,7 @@ router.post('/telegram', async (req: Request, res: Response) => {
           lastName: telegramData.last_name || null,
           username: telegramData.username || null,
           photoUrl: telegramData.photo_url || null,
+          activated: false, // Новые юзеры не активированы — нужен инвайт-код
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -78,6 +79,7 @@ router.post('/telegram', async (req: Request, res: Response) => {
         group: enriched.group,
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
+        activated: enriched.activated,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -143,6 +145,7 @@ router.post('/webapp', async (req: Request, res: Response) => {
           lastName: telegramUser.last_name || null,
           username: telegramUser.username || null,
           photoUrl: telegramUser.photo_url || null,
+          activated: false, // Новые юзеры не активированы — нужен инвайт-код
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -177,6 +180,7 @@ router.post('/webapp', async (req: Request, res: Response) => {
         group: enriched.group,
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
+        activated: enriched.activated,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -216,6 +220,7 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
           lastName: tgUser.last_name || null,
           username: tgUser.username || null,
           photoUrl: tgUser.photo_url || null,
+          activated: false, // Новые юзеры не активированы — нужен инвайт-код
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -238,6 +243,7 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
         group: enriched.group,
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
+        activated: enriched.activated,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -313,6 +319,7 @@ router.post('/dev-login', async (req: Request, res: Response) => {
         telegramId: String(telegramId || '123456'),
         firstName: firstName || 'Dev User',
         role: role || 'student',
+        activated: role === 'admin' ? true : false, // Админ сразу активирован, остальные нет
       },
       include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
     });
@@ -338,10 +345,67 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const enriched = await enrichUserWithSportInfo(prisma, user);
-    res.json({ user: enriched });
+    res.json({ user: { ...enriched, activated: enriched.activated } });
   } catch (err) {
     console.error('Me error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// POST /api/auth/activate — активация по инвайт-коду (закрытый бета-тест)
+router.post('/activate', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string' || code.length !== 6) {
+      res.status(400).json({ error: 'Введите 6-значный код' });
+      return;
+    }
+
+    // Найти юзера
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
+
+    // Уже активирован?
+    if (user.activated) {
+      res.json({ success: true, message: 'Аккаунт уже активирован' });
+      return;
+    }
+
+    // Найти инвайт-код
+    const inviteCode = await prisma.inviteCode.findUnique({ where: { code } });
+    if (!inviteCode) {
+      res.status(400).json({ error: 'Неверный код' });
+      return;
+    }
+
+    if (inviteCode.used) {
+      res.status(400).json({ error: 'Этот код уже использован' });
+      return;
+    }
+
+    // Активируем юзера и помечаем код как использованный
+    await Promise.all([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { activated: true },
+      }),
+      prisma.inviteCode.update({
+        where: { id: inviteCode.id },
+        data: { used: true, usedByTgId: user.telegramId, usedAt: new Date() },
+      }),
+    ]);
+
+    console.log(`🎟️ Invite code ${code} used by ${user.firstName} (tgId: ${user.telegramId})`);
+
+    res.json({ success: true, message: 'Добро пожаловать в IMPERA!' });
+  } catch (err) {
+    console.error('Activate error:', err);
+    res.status(500).json({ error: 'Ошибка активации' });
   }
 });
 

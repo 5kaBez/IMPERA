@@ -101,17 +101,40 @@ app.listen(Number(PORT), HOST, async () => {
   try {
     await prisma.user.upsert({
       where: { telegramId: '1038062816' },
-      update: { role: 'admin' },
+      update: { role: 'admin', activated: true },
       create: {
         telegramId: '1038062816',
         firstName: 'Admin',
         username: 'bogtradinga',
         role: 'admin',
+        activated: true,
       },
     });
     console.log('👤 Admin user ensured');
   } catch (e) {
     console.error('Failed to seed admin:', e);
+  }
+
+  // Seed invite codes for closed beta (15 одноразовых 6-значных кодов)
+  try {
+    const BETA_CODES = [
+      '847291', '163058', '529473', '731649', '285016',
+      '694382', '418597', '956234', '372861', '640715',
+      '198453', '503927', '862140', '275689', '431076',
+    ];
+    let seeded = 0;
+    for (const code of BETA_CODES) {
+      const exists = await prisma.inviteCode.findUnique({ where: { code } });
+      if (!exists) {
+        await prisma.inviteCode.create({ data: { code } });
+        seeded++;
+      }
+    }
+    const totalCodes = await prisma.inviteCode.count();
+    const usedCodes = await prisma.inviteCode.count({ where: { used: true } });
+    console.log(`🎟️ Invite codes: ${totalCodes} total, ${usedCodes} used (${seeded} new seeded)`);
+  } catch (e) {
+    console.error('Failed to seed invite codes:', e);
   }
 
   // Start Telegram bot

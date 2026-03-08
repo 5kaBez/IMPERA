@@ -57,6 +57,9 @@ export interface User {
   group?: Group;
   notifyBefore: boolean;
   notifyChanges: boolean;
+  activated?: boolean;
+  referralCode?: string;
+  referralCount?: number;
   isSportTeacher?: boolean;
   teachingSections?: Array<{ id: number; name: string; emoji?: string }>;
 }

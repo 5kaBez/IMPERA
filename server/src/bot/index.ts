@@ -34,6 +34,7 @@ export async function startBot(prisma: PrismaClient) {
               firstName: ctx.from?.first_name || 'User',
               lastName: ctx.from?.last_name || null,
               username: ctx.from?.username || null,
+              activated: false, // Новые юзеры не активированы — нужен инвайт-код
             },
           });
         }
