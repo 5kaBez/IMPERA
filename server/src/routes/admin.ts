@@ -262,6 +262,68 @@ router.delete('/teachers/ghost', async (req: Request, res: Response) => {
   }
 });
 
+// ===== Invite Codes Management =====
+
+// GET /api/admin/invite-codes — list all codes with status
+router.get('/invite-codes', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const codes = await prisma.inviteCode.findMany({
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(codes);
+});
+
+// POST /api/admin/invite-codes — create new invite code(s)
+router.post('/invite-codes', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const { count = 1 } = req.body;
+  const qty = Math.min(Math.max(1, Number(count) || 1), 50);
+
+  const created: string[] = [];
+  for (let i = 0; i < qty; i++) {
+    // Generate unique 6-digit code
+    let code: string;
+    let exists = true;
+    do {
+      code = String(Math.floor(100000 + Math.random() * 900000));
+      const found = await prisma.inviteCode.findUnique({ where: { code } });
+      exists = !!found;
+    } while (exists);
+
+    await prisma.inviteCode.create({ data: { code } });
+    created.push(code);
+  }
+
+  res.json({ success: true, created, count: created.length });
+});
+
+// DELETE /api/admin/invite-codes/:id — delete unused invite code
+router.delete('/invite-codes/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const id = parseInt(String(req.params.id));
+  const code = await prisma.inviteCode.findUnique({ where: { id } });
+  if (!code) {
+    res.status(404).json({ error: 'Код не найден' });
+    return;
+  }
+  if (code.used) {
+    res.status(400).json({ error: 'Нельзя удалить использованный код' });
+    return;
+  }
+  await prisma.inviteCode.delete({ where: { id } });
+  res.json({ success: true });
+});
+
+// POST /api/admin/invite-codes/reset-users — set all non-admin users to activated=false
+router.post('/invite-codes/reset-users', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const result = await prisma.user.updateMany({
+    where: { role: { not: 'admin' }, activated: true },
+    data: { activated: false },
+  });
+  res.json({ success: true, updated: result.count });
+});
+
 // Users list
 router.get('/users', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;

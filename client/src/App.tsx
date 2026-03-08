@@ -79,7 +79,7 @@ function App() {
     return <BetaGatePage />;
   }
 
-  if (!user.groupId && user.role !== 'admin' && !user.isSportTeacher && !localStorage.getItem('impera_skip_group')) {
+  if (!user.groupId && !user.isSportTeacher && !localStorage.getItem('impera_skip_group')) {
     return <SelectGroupPage />;
   }
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
 import type { Feedback, Teacher } from '../../types';
-import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star } from 'lucide-react';
+import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Ticket, Plus, Trash2, Copy, RotateCcw } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
 
 interface Stats {
@@ -20,7 +20,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers';
+type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -58,6 +58,7 @@ export default function AdminDashboard() {
             { key: 'analytics', label: 'Аналитика' },
             { key: 'feedback', label: 'Фидбек' },
             { key: 'teachers', label: 'Учителя' },
+            { key: 'codes', label: 'Коды' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -84,6 +85,7 @@ export default function AdminDashboard() {
       {tab === 'analytics' && stats && <AnalyticsTab stats={stats} />}
       {tab === 'feedback' && <FeedbackTab />}
       {tab === 'teachers' && <TeachersTab />}
+      {tab === 'codes' && <CodesTab />}
     </div>
   );
 }
@@ -416,6 +418,184 @@ function TeachersTab() {
                 </div>
               </div>
             )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface InviteCode {
+  id: number;
+  code: string;
+  used: boolean;
+  usedByTgId: string | null;
+  usedAt: string | null;
+  createdAt: string;
+}
+
+function CodesTab() {
+  const [codes, setCodes] = useState<InviteCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createCount, setCreateCount] = useState(1);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  const fetchCodes = () => {
+    setLoading(true);
+    api.get<InviteCode[]>('/admin/invite-codes').then(setCodes).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchCodes(); }, []);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      await api.post('/admin/invite-codes', { count: createCount });
+      fetchCodes();
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    await api.delete(`/admin/invite-codes/${id}`);
+    setCodes(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleCopy = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 1500);
+  };
+
+  const handleResetUsers = async () => {
+    if (!confirm('Сбросить activated у всех не-админов? Они снова увидят экран ввода кода.')) return;
+    setResetting(true);
+    try {
+      const res = await api.post<{ updated: number }>('/admin/invite-codes/reset-users', {});
+      alert(`Сброшено: ${res.updated} пользователей`);
+      fetchCodes();
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const usedCount = codes.filter(c => c.used).length;
+  const activeCount = codes.filter(c => !c.used).length;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-2 md:gap-6 mb-4 md:mb-8">
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter">{codes.length}</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Всего</p>
+        </div>
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-emerald-500 tracking-tighter">{activeCount}</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Активных</p>
+        </div>
+        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+          <p className="text-2xl md:text-4xl font-black text-red-500 tracking-tighter">{usedCount}</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Использовано</p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2 md:gap-3 mb-4 md:mb-8">
+        <div className="flex items-center gap-2 apple-glass border border-[var(--apple-border)] rounded-2xl p-1.5 md:p-2">
+          <select
+            value={createCount}
+            onChange={e => setCreateCount(Number(e.target.value))}
+            className="bg-transparent text-xs md:text-sm font-bold text-[var(--color-text-main)] px-2 py-1 rounded-xl outline-none"
+          >
+            {[1, 3, 5, 10, 15, 20].map(n => (
+              <option key={n} value={n}>{n} шт</option>
+            ))}
+          </select>
+          <button
+            onClick={handleCreate}
+            disabled={creating}
+            className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl iron-metal-bg text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-gold-glow active:scale-95 transition-all disabled:opacity-50"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {creating ? 'Создаю...' : 'Создать'}
+          </button>
+        </div>
+
+        <button
+          onClick={handleResetUsers}
+          disabled={resetting}
+          className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {resetting ? 'Сброс...' : 'Сбросить юзеров'}
+        </button>
+      </div>
+
+      {/* Codes list */}
+      <div className="grid gap-2 md:gap-3">
+        {codes.map(code => (
+          <div
+            key={code.id}
+            className={`apple-card border p-3 md:p-4 flex items-center gap-3 md:gap-4 ${
+              code.used
+                ? 'border-red-500/20 opacity-60'
+                : 'border-emerald-500/20'
+            }`}
+          >
+            {/* Code */}
+            <button
+              onClick={() => handleCopy(code.code)}
+              className="flex items-center gap-2 min-w-0"
+              title="Скопировать"
+            >
+              <span className="text-lg md:text-2xl font-black tracking-[0.15em] text-[var(--color-text-main)] font-mono">
+                {code.code}
+              </span>
+              <Copy className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
+                copied === code.code ? 'text-emerald-500' : 'text-[var(--color-text-muted)] opacity-40'
+              }`} />
+            </button>
+
+            {/* Status */}
+            <div className="ml-auto flex items-center gap-2 md:gap-3 flex-shrink-0">
+              {code.used ? (
+                <div className="text-right">
+                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-2 py-1 rounded-lg">
+                    Использован
+                  </span>
+                  {code.usedByTgId && (
+                    <p className="text-[8px] font-bold text-[var(--color-text-muted)] mt-1">
+                      TG: {code.usedByTgId}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                    Активен
+                  </span>
+                  <button
+                    onClick={() => handleDelete(code.id)}
+                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-all"
+                    title="Удалить"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
