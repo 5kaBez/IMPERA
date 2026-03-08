@@ -11,6 +11,7 @@ import AdminImport from './pages/admin/AdminImport';
 import AdminUsers from './pages/admin/AdminUsers';
 import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
+import BetaGatePage from './pages/BetaGatePage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Component, type ReactNode } from 'react';
 
@@ -71,6 +72,11 @@ function App() {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  // Beta gate: require invite code activation
+  if (!user.activated && user.role !== 'admin') {
+    return <BetaGatePage />;
   }
 
   if (!user.groupId && user.role !== 'admin' && !user.isSportTeacher && !localStorage.getItem('impera_skip_group')) {
