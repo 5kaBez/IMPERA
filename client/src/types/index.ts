@@ -91,7 +91,7 @@ export const DAY_NAMES_SHORT: Record<number, string> = {
 
 export const LESSON_TYPE_COLORS: Record<string, string> = {
   'Лекция': 'iron-metal-bg text-white',
-  'Практика': 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  'Практика': 'bg-stone-500/12 text-stone-600 dark:text-stone-400',
   'Лабораторная': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   'Другое': 'bg-zinc-500/15 text-zinc-500 dark:text-zinc-400',
 };

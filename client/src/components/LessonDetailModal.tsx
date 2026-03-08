@@ -172,12 +172,12 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`w-full max-w-lg bg-[#F5F5F7] dark:bg-gray-950 rounded-t-2xl md:rounded-t-3xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'
+        className={`w-full max-w-lg bg-[var(--color-bg-apple)] rounded-t-2xl md:rounded-t-3xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out border-t border-x border-[var(--apple-border)] ${isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-2 md:pt-4 md:pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing group/handle">
-          <div className="w-10 h-1 md:w-12 md:h-1.5 rounded-full bg-gray-300 dark:bg-zinc-800 group-hover/handle:bg-gray-400 transition-colors" />
+          <div className="w-10 h-1 md:w-12 md:h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover/handle:bg-zinc-400 dark:group-hover/handle:bg-zinc-600 transition-colors" />
         </div>
 
         {/* Scrollable content */}
@@ -205,12 +205,12 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
             <div className="relative z-10 animate-in fade-in slide-in-from-left duration-700">
               <span className="inline-flex items-center gap-1.5 md:gap-2 text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] md:tracking-[0.2em] px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-[var(--color-primary-apple)] text-black mb-4 md:mb-6 shadow-gold-glow">
                 <BookOpen className="w-3 md:w-4 h-3 md:h-4" />
-                {lesson.lessonType}.
+                {lesson.lessonType}
               </span>
 
               {/* Subject */}
               <h2 className="text-2xl md:text-4xl font-black text-white leading-tight md:leading-none pr-10 md:pr-12 mb-4 md:mb-6 tracking-tight md:tracking-tighter lowercase">
-                {lesson.subject}.
+                {lesson.subject}
               </h2>
 
               {/* Info chips */}
@@ -234,17 +234,17 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
 
           {/* Teacher info */}
           {lesson.teacher && (
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+            <div className="px-4 md:px-5 py-4 border-b border-[var(--apple-border)]">
               <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-11 h-11 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
-                  <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="flex-shrink-0 w-10 h-10 md:w-11 md:h-11 rounded-xl iron-metal-bg flex items-center justify-center shadow-lg border border-white/10">
+                  <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <p className="text-sm font-black text-[var(--color-text-main)] truncate tracking-tight">
                     {lesson.teacher}
                   </p>
                   {teacherLoading ? (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Загрузка...</p>
+                    <p className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-50 uppercase tracking-wider">Загрузка...</p>
                   ) : teacher ? (
                     <div className="flex items-center gap-2 mt-0.5">
                       <div className="flex items-center gap-0.5">
@@ -252,16 +252,16 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                           <Star
                             key={s}
                             className={`w-3.5 h-3.5 ${s <= Math.round(teacher.avgRating)
-                                ? 'text-amber-400 fill-amber-400'
-                                : 'text-gray-300 dark:text-gray-600'
+                                ? 'text-[var(--color-primary-apple)] fill-[var(--color-primary-apple)]'
+                                : 'text-zinc-300 dark:text-zinc-700'
                               }`}
                           />
                         ))}
                       </div>
-                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      <span className="text-xs font-bold text-[var(--color-text-main)]">
                         {teacher.avgRating > 0 ? teacher.avgRating.toFixed(1) : '—'}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-50">
                         ({teacher.reviewCount}{' '}
                         {teacher.reviewCount === 1
                           ? 'отзыв'
@@ -272,7 +272,7 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                       </span>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Преподаватель</p>
+                    <p className="text-[10px] font-bold text-[var(--color-text-muted)] opacity-50 uppercase tracking-wider">Преподаватель</p>
                   )}
                 </div>
               </div>
@@ -281,39 +281,40 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
 
           {/* Reviews section */}
           {teacher && (
-            <div className="px-5 py-4">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">
+            <div className="px-4 md:px-5 py-4">
+              <h3 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-3 px-1 flex items-center gap-2">
+                <Star className="w-3.5 h-3.5 text-[var(--color-primary-apple)]" />
                 Отзывы
               </h3>
 
               {teacher.reviews.length === 0 ? (
-                <div className="text-center py-6">
-                  <Star className="w-10 h-10 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                <div className="text-center py-6 md:py-8 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-dashed border-[var(--apple-border)]">
+                  <Star className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-muted)] opacity-20" />
+                  <p className="text-xs font-bold text-[var(--color-text-muted)] opacity-60">
                     Пока нет отзывов. Будьте первым!
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3 mb-4">
+                <div className="space-y-2 mb-4">
                   {teacher.reviews.map((review) => (
                     <div
                       key={review.id}
-                      className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800"
+                      className="p-3 rounded-xl md:rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)]"
                     >
                       <div className="flex items-start gap-2.5">
                         {/* Avatar */}
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
-                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg iron-metal-bg flex items-center justify-center border border-white/10 shadow">
+                          <span className="text-[10px] font-black text-white">
                             {getInitials(review)}
                           </span>
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            <span className="text-xs font-black text-[var(--color-text-main)] truncate tracking-tight">
                               {getReviewAuthorName(review)}
                             </span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                            <span className="text-[9px] font-bold text-[var(--color-text-muted)] opacity-40 flex-shrink-0 uppercase tracking-wider">
                               {formatDate(review.createdAt)}
                             </span>
                           </div>
@@ -324,15 +325,15 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                               <Star
                                 key={s}
                                 className={`w-3 h-3 ${s <= review.rating
-                                    ? 'text-amber-400 fill-amber-400'
-                                    : 'text-gray-300 dark:text-gray-600'
+                                    ? 'text-[var(--color-primary-apple)] fill-[var(--color-primary-apple)]'
+                                    : 'text-zinc-300 dark:text-zinc-700'
                                   }`}
                               />
                             ))}
                           </div>
 
                           {review.text && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                            <p className="text-xs font-medium text-[var(--color-text-main)] opacity-70 leading-relaxed">
                               {review.text}
                             </p>
                           )}
@@ -345,8 +346,8 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
 
               {/* Leave a review form */}
               {user && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">
+                <div className="mt-4 pt-4 border-t border-[var(--apple-border)]">
+                  <h4 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-3 px-1">
                     {teacher.reviews.some((r) => r.userId === user.id)
                       ? 'Изменить отзыв'
                       : 'Оставить отзыв'}
@@ -365,14 +366,14 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                       >
                         <Star
                           className={`w-7 h-7 transition-colors ${s <= (reviewHover || reviewRating)
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-gray-300 dark:text-gray-600'
+                              ? 'text-[var(--color-primary-apple)] fill-[var(--color-primary-apple)]'
+                              : 'text-zinc-300 dark:text-zinc-700'
                             }`}
                         />
                       </button>
                     ))}
                     {reviewRating > 0 && (
-                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="ml-2 text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">
                         {reviewRating === 1
                           ? 'Ужасно'
                           : reviewRating === 2
@@ -392,7 +393,7 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                     onChange={(e) => setReviewText(e.target.value)}
                     placeholder="Комментарий (необязательно)"
                     rows={3}
-                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors"
+                    className="w-full px-4 py-3 text-sm font-medium rounded-xl md:rounded-2xl border border-[var(--apple-border)] bg-black/[0.03] dark:bg-white/[0.04] text-[var(--color-text-main)] placeholder-zinc-400 dark:placeholder-zinc-600 resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-apple)]/20 focus:border-[var(--color-primary-apple)]/40 transition-all"
                     maxLength={500}
                   />
 
@@ -403,9 +404,9 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                         type="checkbox"
                         checked={reviewAnonymous}
                         onChange={(e) => setReviewAnonymous(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-gray-50 dark:bg-gray-900"
+                        className="w-4 h-4 rounded border-[var(--apple-border)] text-[var(--color-primary-apple)] focus:ring-[var(--color-primary-apple)]/30 bg-black/5 dark:bg-white/5"
                       />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
                         Анонимно
                       </span>
                     </label>
@@ -413,12 +414,12 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
                     <button
                       onClick={handleSubmitReview}
                       disabled={reviewRating === 0 || submitting}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white disabled:text-gray-500 dark:disabled:text-gray-500 transition-colors"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl iron-metal-bg text-white shadow-lg shadow-black/20 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] transition-all"
                     >
                       {submitting ? (
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
-                        <Send className="w-4 h-4" />
+                        <Send className="w-3.5 h-3.5" />
                       )}
                       {submitting ? 'Отправка...' : 'Отправить'}
                     </button>
@@ -426,12 +427,12 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
 
                   {/* Error message */}
                   {submitError && (
-                    <p className="mt-2 text-xs text-red-500 dark:text-red-400">{submitError}</p>
+                    <p className="mt-2 text-xs font-bold text-red-500">{submitError}</p>
                   )}
 
                   {/* Success message */}
                   {submitSuccess && (
-                    <p className="mt-2 text-xs text-green-600 dark:text-green-400">
+                    <p className="mt-2 text-xs font-bold text-emerald-500">
                       Отзыв успешно сохранён!
                     </p>
                   )}
@@ -442,11 +443,11 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
 
           {/* Teacher loading skeleton */}
           {lesson.teacher && teacherLoading && (
-            <div className="px-5 py-6">
+            <div className="px-4 md:px-5 py-6">
               <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3" />
-                <div className="h-20 bg-gray-200 dark:bg-gray-800 rounded-xl" />
-                <div className="h-20 bg-gray-200 dark:bg-gray-800 rounded-xl" />
+                <div className="h-4 bg-black/5 dark:bg-white/5 rounded-lg w-1/3" />
+                <div className="h-20 bg-black/5 dark:bg-white/5 rounded-xl" />
+                <div className="h-20 bg-black/5 dark:bg-white/5 rounded-xl" />
               </div>
             </div>
           )}

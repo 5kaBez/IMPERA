@@ -41,7 +41,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-lg tracking-tighter metallic-text lowercase">impera.</span>
+          <span className="font-black text-lg tracking-tighter metallic-text lowercase">impera</span>
           <button onClick={toggleTheme} className="p-2 -mr-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-zinc-500" />}
           </button>
@@ -107,7 +107,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
           <nav className="relative w-72 h-full bg-[var(--color-bg-apple)] border-r border-[var(--apple-border)] flex flex-col apple-glass overflow-hidden">
             <div className="flex items-center justify-between px-5 h-14 border-b border-[var(--apple-border)] flex-shrink-0">
-              <span className="font-black text-lg tracking-tight metallic-text lowercase">меню.</span>
+              <span className="font-black text-lg tracking-tight metallic-text lowercase">меню</span>
               <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5">
                 <X className="w-5 h-5" />
               </button>
@@ -123,9 +123,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="p-12">
           <h1 className="text-3xl font-black tracking-tighter text-[var(--color-text-main)] flex items-center gap-4 lowercase">
             <div className="w-14 h-14 squircle iron-metal-bg flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
-              <span className="metallic-text scale-125">i.</span>
+              <span className="metallic-text scale-125">i</span>
             </div>
-            <span className="metallic-text">impera.</span>
+            <span className="metallic-text">impera</span>
           </h1>
         </div>
 
@@ -288,7 +288,7 @@ function SidebarFooter({ user, theme, toggleTheme, logout }: {
           {user?.firstName?.[0] || 'U'}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs md:text-sm font-black text-[var(--color-text-main)] truncate tracking-tight lowercase">{user?.firstName}.</p>
+          <p className="text-xs md:text-sm font-black text-[var(--color-text-main)] truncate tracking-tight lowercase">{user?.firstName}</p>
           <p className="text-[9px] md:text-[10px] font-black text-[var(--color-text-muted)] truncate uppercase tracking-widest opacity-60">{user?.username || 'STUDENT'}</p>
         </div>
         <button

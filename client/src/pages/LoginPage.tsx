@@ -50,10 +50,10 @@ export default function LoginPage() {
               <GraduationCap className="w-16 h-16 text-white group-hover:scale-110 transition-transform duration-700" />
             </div>
             <h1 className="text-8xl font-black tracking-[-0.08em] metallic-text mb-4 lowercase">
-              impera.
+              impera
             </h1>
             <p className="text-[var(--color-text-muted)] text-[10px] font-black tracking-[0.4em] uppercase opacity-70">
-              Your digital <span className="metallic-text">Masterpiece.</span>
+              Your digital <span className="metallic-text">Masterpiece</span>
             </p>
           </div>
 
@@ -118,14 +118,14 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full py-7 px-10 rounded-[36px] iron-metal-bg text-white font-black text-sm uppercase tracking-[0.25em] hover:shadow-2xl active:scale-[0.98] transition-all duration-700 shadow-2xl flex items-center justify-center gap-5 group overflow-hidden"
                 >
-                  {loading ? 'Processing...' : <><GraduationCap className="w-7 h-7 group-hover:rotate-12 transition-transform" /> sign in as student.</>}
+                  {loading ? 'Processing...' : <><GraduationCap className="w-7 h-7 group-hover:rotate-12 transition-transform" /> sign in as student</>}
                 </button>
                 <button
                   onClick={() => handleDevLogin('admin', '1038062816', 'Admin')}
                   disabled={loading}
                   className="w-full py-5 px-8 rounded-[28px] bg-white/5 metallic-text font-black text-[10px] uppercase tracking-[0.3em] border border-[var(--apple-border)] hover:iron-metal-bg hover:text-white transition-all duration-700 active:scale-95 shadow-xl overflow-hidden"
                 >
-                  {loading ? 'Accessing...' : 'administrator access.'}
+                  {loading ? 'Accessing...' : 'administrator access'}
                 </button>
               </div>
             )}

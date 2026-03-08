@@ -43,7 +43,7 @@ export default function AdminDashboard() {
     <div className="pb-12">
       <div className="mb-4 md:mb-12">
         <h1 className="text-2xl md:text-5xl font-black metallic-text tracking-[-0.06em] mb-1 md:mb-3 lowercase">
-          админ-панель.
+          админ-панель
         </h1>
         <p className="text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[8px] md:text-[11px] opacity-70">
           Управление IMPERA

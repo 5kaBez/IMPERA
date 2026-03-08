@@ -33,7 +33,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="mb-3 md:mb-8">
         <h1 className="text-2xl md:text-5xl font-black metallic-text tracking-[-0.06em] mb-1 lowercase">
-          профиль.
+          профиль
         </h1>
         <p className="text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[8px] md:text-[11px] opacity-70">Личные данные &bull; Настройки</p>
       </div>
@@ -46,7 +46,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter lowercase leading-tight">
-              {user.firstName} {user.lastName || ''}.
+              {user.firstName} {user.lastName || ''}
             </h2>
             {user.username && (
               <p className="text-[var(--color-text-muted)] font-bold text-[9px] md:text-xs uppercase tracking-wider opacity-50 mt-0.5">@{user.username}</p>
