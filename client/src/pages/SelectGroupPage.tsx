@@ -27,49 +27,35 @@ export default function SelectGroupPage() {
 
   const selectInstitute = async (inst: Institute) => {
     setSelected({ institute: inst });
-    setLoading(true);
+    setStep('direction');
     const dirs = await api.get<Direction[]>(`/structure/institutes/${inst.id}/directions`);
     setDirections(dirs);
-    setStep('direction');
-    setLoading(false);
   };
 
   const selectDirection = async (dir: Direction) => {
     setSelected({ ...selected, direction: dir });
-    setLoading(true);
+    setStep('program');
     try {
-      // Get the first page of programs with search
       const progs = await api.get<any>(`/structure/directions/${dir.id}/programs?page=1&limit=500`);
       const programsArray = progs.items || progs;
       setPrograms(programsArray);
-      if (programsArray.length === 0) {
-        setStep('program');
-        setLoading(false);
-      } else if (programsArray.length === 1) {
+      if (programsArray.length === 1) {
         await selectProgram(programsArray[0]);
-      } else {
-        setStep('program');
-        setLoading(false);
       }
     } catch (error) {
       console.error('[SelectGroup] Error loading programs:', error);
-      setLoading(false);
     }
   };
 
   const selectProgram = async (prog: Program) => {
     setSelected({ ...selected, program: prog });
-    setLoading(true);
+    setStep('group');
     try {
-      // Get the first page of groups with search
       const grpsRes = await api.get<any>(`/structure/programs/${prog.id}/groups?page=1&limit=500`);
       const groupsArray = grpsRes.items || grpsRes;
       setGroups(groupsArray);
-      setStep('group');
-      setLoading(false);
     } catch (error) {
       console.error('[SelectGroup] Error loading groups:', error);
-      setLoading(false);
     }
   };
 
@@ -105,25 +91,21 @@ export default function SelectGroupPage() {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
       
       searchTimeoutRef.current = window.setTimeout(async () => {
-        setLoading(true);
         const query = search ? `?search=${encodeURIComponent(search)}&page=1&limit=500` : '?page=1&limit=500';
         const progs = await api.get<any>(`/structure/directions/${selected.direction!.id}/programs${query}`);
         const programsArray = progs.items || progs;
         setPrograms(programsArray);
-        setLoading(false);
       }, 300);
     }
-    
+
     if (step === 'group' && selected.program) {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-      
+
       searchTimeoutRef.current = window.setTimeout(async () => {
-        setLoading(true);
         const query = search ? `?search=${encodeURIComponent(search)}&page=1&limit=500` : '?page=1&limit=500';
         const grpsRes = await api.get<any>(`/structure/programs/${selected.program!.id}/groups${query}`);
         const groupsArray = grpsRes.items || grpsRes;
         setGroups(groupsArray);
-        setLoading(false);
       }, 300);
     }
 
@@ -198,7 +180,7 @@ export default function SelectGroupPage() {
           </div>
 
           {/* Items */}
-          {loading ? (
+          {loading && step === 'institute' ? (
             <div className="apple-card p-12 flex justify-center items-center h-[400px]">
               <EmojiLoader />
             </div>
@@ -221,7 +203,7 @@ export default function SelectGroupPage() {
                   onClick={() => selectGroup(grp)}
                 />
               ))}
-              {!loading && ((step === 'program' && programs.length === 0) || (step === 'group' && groups.length === 0)) && (
+              {((step === 'program' && programs.length === 0) || (step === 'group' && groups.length === 0)) && (
                 <div className="text-center py-12 text-[var(--color-text-muted)]">
                   <p className="text-sm font-medium">Ничего не найдено</p>
                 </div>
