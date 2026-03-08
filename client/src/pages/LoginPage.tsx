@@ -27,11 +27,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-apple)] flex flex-col smooth-transition relative overflow-hidden">
-      {/* Dynamic Background or Accents */}
-      {/* Dynamic Background or Accents */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[var(--color-primary-apple)]/5 blur-[150px] rounded-full animate-pulse" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] bg-zinc-400/5 blur-[180px] rounded-full" />
-
       {/* Theme toggle */}
       <div className="absolute top-6 right-6 z-50">
         <button
@@ -75,7 +70,7 @@ export default function LoginPage() {
           </div>
 
           {/* Login Card */}
-          <div className="apple-glass p-12 rounded-[40px] shadow-gold-glow border border-[var(--apple-border)] backdrop-blur-3xl bg-white/5 dark:bg-white/5">
+          <div className="apple-glass p-12 rounded-[40px] shadow-gold-glow border border-[var(--apple-border)] backdrop-blur-xl bg-white/5 dark:bg-white/5">
             <h2 className="text-lg font-black text-center mb-10 text-[var(--color-text-main)] tracking-widest uppercase opacity-70">
               Secure Access
             </h2>

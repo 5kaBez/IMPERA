@@ -103,10 +103,6 @@ export default function BetaGatePage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-apple)] flex flex-col relative overflow-hidden">
-      {/* Background orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[var(--color-primary-apple)]/5 blur-[150px] rounded-full animate-pulse" />
-      <div className="absolute bottom-[-15%] right-[-10%] w-[50%] h-[50%] bg-emerald-500/3 blur-[120px] rounded-full" />
-
       <div className="flex-1 flex items-center justify-center px-5">
         <div className="w-full max-w-sm">
           {/* Logo */}
@@ -136,7 +132,7 @@ export default function BetaGatePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="apple-glass p-8 rounded-[32px] shadow-gold-glow border border-[var(--apple-border)] backdrop-blur-3xl bg-white/5 dark:bg-white/5"
+            className="apple-glass p-8 rounded-[32px] shadow-gold-glow border border-[var(--apple-border)] bg-white/5 dark:bg-white/5"
           >
             <div className="text-center mb-6">
               <Lock className="w-5 h-5 mx-auto mb-2 text-[var(--color-text-muted)] opacity-40" />

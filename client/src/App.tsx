@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -12,7 +12,6 @@ import AdminUsers from './pages/admin/AdminUsers';
 import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
 import BetaGatePage from './pages/BetaGatePage';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Component, type ReactNode } from 'react';
 
 // Error Boundary to catch runtime crashes
@@ -56,7 +55,6 @@ class ErrorBoundary extends Component<
 
 function App() {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -86,33 +84,22 @@ function App() {
   return (
     <ErrorBoundary>
       <Layout>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full"
-          >
-            <Routes location={location}>
-              <Route path="/" element={<SchedulePage />} />
-              <Route path="/schedule" element={<SchedulePage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/sports" element={<SportsPage />} />
-              <Route path="/feedback" element={<FeedbackPage />} />
-              {user.role === 'admin' && (
-                <>
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/schedule" element={<AdminSchedule />} />
-                  <Route path="/admin/import" element={<AdminImport />} />
-                  <Route path="/admin/users" element={<AdminUsers />} />
-                </>
-              )}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
+        <Routes>
+          <Route path="/" element={<SchedulePage />} />
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/sports" element={<SportsPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
+          {user.role === 'admin' && (
+            <>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/schedule" element={<AdminSchedule />} />
+              <Route path="/admin/import" element={<AdminImport />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+            </>
+          )}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Layout>
     </ErrorBoundary>
   );

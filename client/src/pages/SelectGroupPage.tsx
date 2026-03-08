@@ -116,10 +116,6 @@ export default function SelectGroupPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-apple)] flex flex-col smooth-transition relative overflow-hidden">
-      {/* Dynamic Background Accents */}
-      <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-blue-500/5 blur-[100px] rounded-full" />
-      <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/5 blur-[120px] rounded-full" />
-
       <div className="absolute top-6 right-6 z-50">
         <button onClick={toggleTheme} className="p-3 rounded-2xl apple-glass shadow-xl hover:scale-110 active:scale-95 smooth-transition">
           {theme === 'dark' ? <Sun className="w-6 h-6 text-amber-400" /> : <Moon className="w-6 h-6 text-slate-700" />}

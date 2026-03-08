@@ -186,7 +186,7 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
           <div className="relative px-4 md:px-6 pt-3 md:pt-4 pb-6 md:pb-8 iron-metal-bg">
             {/* Decorative blobs */}
             <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
-              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[var(--color-primary-apple)] blur-[80px] animate-pulse" />
+              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[var(--color-primary-apple)] blur-[40px]" />
               <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/5 blur-[60px]" />
             </div>
 
