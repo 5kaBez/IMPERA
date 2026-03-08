@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import type { User } from '../types';
-import { Shield, Lock, Sparkles } from 'lucide-react';
+import { Shield, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function BetaGatePage() {
@@ -128,21 +128,6 @@ export default function BetaGatePage() {
                 closed beta
               </span>
               <div className="h-px w-8 bg-[var(--color-primary-apple)] opacity-30" />
-            </div>
-          </motion.div>
-
-          {/* Exclusive badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="text-center mb-8"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-primary-apple)]/10 border border-[var(--color-primary-apple)]/20">
-              <Sparkles className="w-3.5 h-3.5 text-[var(--color-primary-apple)]" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--color-primary-apple)]">
-                15 мест &bull; только по приглашениям
-              </span>
             </div>
           </motion.div>
 
