@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'impera-secret-change-in-production';
 
@@ -22,6 +23,22 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     next();
   } catch {
     res.status(401).json({ error: 'Недействительный токен' });
+  }
+}
+
+// Middleware to check if user is banned (use after authMiddleware)
+export async function banCheckMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.userId) { next(); return; }
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { banned: true } });
+    if (user?.banned) {
+      res.status(403).json({ error: 'Ваш аккаунт заблокирован', banned: true });
+      return;
+    }
+    next();
+  } catch {
+    next();
   }
 }
 

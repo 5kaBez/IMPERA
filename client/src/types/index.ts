@@ -58,6 +58,7 @@ export interface User {
   notifyBefore: boolean;
   notifyChanges: boolean;
   activated?: boolean;
+  banned?: boolean;
   referralCode?: string;
   referralCount?: number;
   isSportTeacher?: boolean;

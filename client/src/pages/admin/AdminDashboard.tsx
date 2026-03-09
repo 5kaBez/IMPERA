@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
 import type { Feedback, Teacher } from '../../types';
-import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Ticket, Plus, Trash2, Copy, RotateCcw } from 'lucide-react';
+import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Ticket, Plus, Trash2, Copy, RotateCcw, Download, RefreshCw, Clock, AlertCircle } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
 
 interface Stats {
@@ -20,7 +20,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes';
+type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes' | 'autoimport';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -59,6 +59,7 @@ export default function AdminDashboard() {
             { key: 'feedback', label: 'Фидбек' },
             { key: 'teachers', label: 'Учителя' },
             { key: 'codes', label: 'Коды' },
+            { key: 'autoimport', label: 'Авто-импорт' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
       {tab === 'feedback' && <FeedbackTab />}
       {tab === 'teachers' && <TeachersTab />}
       {tab === 'codes' && <CodesTab />}
+      {tab === 'autoimport' && <AutoImportTab />}
     </div>
   );
 }
@@ -599,6 +601,207 @@ function CodesTab() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ===== Auto-Import Tab =====
+interface ImportRecord {
+  id: number;
+  status: string;
+  importedRows: number;
+  skippedRows: number;
+  institutes: number;
+  directions: number;
+  programs: number;
+  groups: number;
+  source: string;
+  error?: string;
+  filePath?: string;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+function AutoImportTab() {
+  const [history, setHistory] = useState<ImportRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const loadHistory = () => {
+    api.get<ImportRecord[]>('/admin/import-history?limit=20')
+      .then(setHistory)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadHistory(); }, []);
+
+  const handleAutoImport = async () => {
+    if (importing) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await api.post<{ success: boolean; error?: string; stats?: any }>('/admin/auto-import', {});
+      setImportResult({
+        success: result.success,
+        message: result.success
+          ? `Импортировано ${result.stats?.imported || 0} строк`
+          : `Ошибка: ${result.error}`,
+      });
+      loadHistory();
+    } catch (err: any) {
+      setImportResult({ success: false, message: err.message || 'Ошибка импорта' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDownload = (id: number) => {
+    window.open(`/api/admin/import-history/${id}/download`, '_blank');
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDuration = (start: string, end?: string) => {
+    if (!end) return '...';
+    const ms = new Date(end).getTime() - new Date(start).getTime();
+    const sec = Math.round(ms / 1000);
+    return sec < 60 ? `${sec}с` : `${Math.floor(sec / 60)}м ${sec % 60}с`;
+  };
+
+  return (
+    <div>
+      {/* Trigger button */}
+      <div className="mb-8">
+        <div className="apple-card border border-[var(--apple-border)] p-6 md:p-8 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-[var(--color-text-main)] tracking-tight mb-1">Авто-импорт с guu.ru</h3>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Автоматически скачивает расписание с сайта ГУУ, парсит и загружает в базу.
+                Ежедневно в 7:00 МСК.
+              </p>
+            </div>
+            <button
+              onClick={handleAutoImport}
+              disabled={importing}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl iron-metal-bg text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-black/20 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] transition-all whitespace-nowrap"
+            >
+              {importing ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              {importing ? 'Импорт...' : 'Запустить сейчас'}
+            </button>
+          </div>
+
+          {importResult && (
+            <div className={`mt-4 p-4 rounded-2xl border ${
+              importResult.success
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+            }`}>
+              <p className="text-xs font-bold flex items-center gap-2">
+                {importResult.success ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                {importResult.message}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* History */}
+      <h3 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-[var(--color-text-muted)] mb-4 px-1 opacity-70">
+        История импортов
+      </h3>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : history.length === 0 ? (
+        <div className="apple-card border border-[var(--apple-border)] p-8 text-center">
+          <Upload className="w-12 h-12 mx-auto mb-3 text-zinc-300 dark:text-zinc-700" />
+          <p className="text-sm font-bold text-[var(--color-text-muted)]">Импортов пока нет</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {history.map(rec => (
+            <div key={rec.id} className={`apple-card border p-4 md:p-6 ${
+              rec.status === 'error' ? 'border-red-500/20' :
+              rec.status === 'running' ? 'border-amber-500/20' :
+              'border-[var(--apple-border)]'
+            }`}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Status badge */}
+                  <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
+                    rec.status === 'success' ? 'bg-emerald-500/10 text-emerald-500' :
+                    rec.status === 'error' ? 'bg-red-500/10 text-red-500' :
+                    'bg-amber-500/10 text-amber-500'
+                  }`}>
+                    {rec.status === 'success' ? 'Успешно' : rec.status === 'error' ? 'Ошибка' : 'В процессе'}
+                  </span>
+                  {/* Source badge */}
+                  <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${
+                    rec.source === 'auto' ? 'bg-blue-500/10 text-blue-500' : 'bg-zinc-500/10 text-zinc-500'
+                  }`}>
+                    {rec.source === 'auto' ? 'Авто' : 'Ручной'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] font-bold text-[var(--color-text-muted)] flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatDateTime(rec.startedAt)}
+                  </span>
+                </div>
+              </div>
+
+              {rec.status === 'success' && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 text-center">
+                    <p className="text-lg font-black text-[var(--color-text-main)]">{rec.importedRows.toLocaleString()}</p>
+                    <p className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">Строк</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 text-center">
+                    <p className="text-lg font-black text-[var(--color-text-main)]">{rec.institutes}</p>
+                    <p className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">Институтов</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 text-center">
+                    <p className="text-lg font-black text-[var(--color-text-main)]">{rec.groups}</p>
+                    <p className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">Групп</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 text-center">
+                    <p className="text-lg font-black text-[var(--color-text-main)]">{formatDuration(rec.startedAt, rec.finishedAt)}</p>
+                    <p className="text-[8px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">Время</p>
+                  </div>
+                </div>
+              )}
+
+              {rec.error && (
+                <p className="text-xs text-red-500 font-medium mb-3 bg-red-500/5 p-3 rounded-xl">
+                  {rec.error}
+                </p>
+              )}
+
+              {rec.filePath && rec.status === 'success' && (
+                <button
+                  onClick={() => handleDownload(rec.id)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Скачать Excel
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

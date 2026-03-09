@@ -17,6 +17,8 @@ import sportsAttendanceRoutes from './routes/sports-attendance';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
+import cron from 'node-cron';
+import { runAutoImport } from './utils/guuScheduleImporter';
 
 // Ensure database tables exist on startup
 try {
@@ -142,6 +144,18 @@ app.listen(Number(PORT), HOST, async () => {
     // Start notifications after bot is ready
     startNotifications(prisma);
   });
+
+  // Schedule auto-import from GUU every day at 7:00 MSK
+  cron.schedule('0 7 * * *', async () => {
+    console.log('📅 [CRON] Starting scheduled auto-import from GUU...');
+    try {
+      const result = await runAutoImport(prisma, 'auto');
+      console.log(`📅 [CRON] Auto-import ${result.success ? 'completed' : 'failed'}: ${result.success ? `${result.stats?.imported} rows` : result.error}`);
+    } catch (err) {
+      console.error('📅 [CRON] Auto-import error:', err);
+    }
+  }, { timezone: 'Europe/Moscow' });
+  console.log('📅 Auto-import cron scheduled: daily at 7:00 MSK');
 });
 
 // Graceful shutdown

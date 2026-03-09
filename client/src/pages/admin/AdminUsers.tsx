@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { User } from '../../types';
-import { ArrowLeft, Users, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, Users, ChevronLeft, ChevronRight, Search, Ban, ShieldCheck } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
 
 interface FullUser extends Omit<User, 'group'> {
   createdAt: string;
   updatedAt: string;
+  banned?: boolean;
   group?: {
     id: number;
     name: string;
@@ -37,7 +38,23 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [banLoading, setBanLoading] = useState<number | null>(null);
   const limit = 30;
+
+  const handleBan = async (userId: number, ban: boolean) => {
+    setBanLoading(userId);
+    try {
+      await api.put(`/admin/users/${userId}/ban`, { banned: ban });
+      setData(prev => prev ? {
+        ...prev,
+        items: prev.items.map(u => u.id === userId ? { ...u, banned: ban } : u),
+      } : prev);
+    } catch (err) {
+      console.error('Ban error:', err);
+    } finally {
+      setBanLoading(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -125,7 +142,7 @@ export default function AdminUsers() {
                 </thead>
                 <tbody>
                   {filteredItems.map(user => (
-                    <tr key={user.id} className="border-b border-[var(--apple-border)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <tr key={user.id} className={`border-b border-[var(--apple-border)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${user.banned ? 'opacity-50 bg-red-500/5' : ''}`}>
                       <td className="px-4 py-4 text-[var(--color-text-muted)] font-mono text-[10px]">
                         {user.telegramId}
                       </td>
@@ -184,12 +201,37 @@ export default function AdminUsers() {
                         {user.updatedAt ? formatDateTime(user.updatedAt) : '—'}
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${user.role === 'admin'
-                          ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                          : 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20'
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            user.banned
+                              ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                              : user.role === 'admin'
+                                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                : 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20'
                           }`}>
-                          {user.role === 'admin' ? 'Админ' : 'Студент'}
-                        </span>
+                            {user.banned ? 'Бан' : user.role === 'admin' ? 'Админ' : 'Студент'}
+                          </span>
+                          {user.role !== 'admin' && (
+                            <button
+                              onClick={() => handleBan(user.id, !user.banned)}
+                              disabled={banLoading === user.id}
+                              className={`p-1.5 rounded-lg transition-all hover:scale-110 active:scale-90 ${
+                                user.banned
+                                  ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                                  : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                              } disabled:opacity-30`}
+                              title={user.banned ? 'Разбанить' : 'Забанить'}
+                            >
+                              {banLoading === user.id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : user.banned ? (
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                              ) : (
+                                <Ban className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

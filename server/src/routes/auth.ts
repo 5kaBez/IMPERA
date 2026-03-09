@@ -80,6 +80,7 @@ router.post('/telegram', async (req: Request, res: Response) => {
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
         activated: enriched.activated,
+        banned: enriched.banned,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -181,6 +182,7 @@ router.post('/webapp', async (req: Request, res: Response) => {
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
         activated: enriched.activated,
+        banned: enriched.banned,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -244,6 +246,7 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
         notifyBefore: enriched.notifyBefore,
         notifyChanges: enriched.notifyChanges,
         activated: enriched.activated,
+        banned: enriched.banned,
         isSportTeacher: enriched.isSportTeacher,
         teachingSections: enriched.teachingSections,
       }
@@ -345,7 +348,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const enriched = await enrichUserWithSportInfo(prisma, user);
-    res.json({ user: { ...enriched, activated: enriched.activated } });
+    res.json({ user: { ...enriched, activated: enriched.activated, banned: enriched.banned } });
   } catch (err) {
     console.error('Me error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

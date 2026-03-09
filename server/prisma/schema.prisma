@@ -90,6 +90,7 @@ model User {
   referredBy     String?              // код того, кто пригласил
   referralCount  Int        @default(0) // сколько людей пригласил
   activated      Boolean    @default(true) // false = нужен инвайт-код для доступа
+  banned         Boolean    @default(false) // заблокированный пользователь
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   feedbacks       Feedback[]
@@ -245,6 +246,23 @@ model SportAttendance {
 
   @@unique([sessionId, studentId]) // Один студент — одна отметка за сессию
   @@index([studentId, checkedInAt])
+}
+
+// ===== История импорта расписания =====
+model ScheduleImport {
+  id            Int      @id @default(autoincrement())
+  status        String   @default("running") // running, success, error
+  importedRows  Int      @default(0)
+  skippedRows   Int      @default(0)
+  institutes    Int      @default(0)
+  directions    Int      @default(0)
+  programs      Int      @default(0)
+  groups        Int      @default(0)
+  source        String   @default("manual") // manual, auto
+  error         String?
+  filePath      String?  // путь к сохранённому xlsx
+  startedAt     DateTime @default(now())
+  finishedAt    DateTime?
 }
 
 // ===== Инвайт-коды для закрытого бета-теста =====

@@ -1,13 +1,36 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'impera-secret-change-in-production';
+
+// Helper: check if request is from admin (optional auth)
+function isAdminRequest(req: Request): boolean {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return false;
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+    return decoded.role === 'admin';
+  } catch { return false; }
+}
+
+// Helper: strip user info from reviews for non-admin (all reviews appear anonymous)
+function anonymizeReviews(reviews: any[], isAdmin: boolean) {
+  if (isAdmin) return reviews;
+  return reviews.map(r => ({
+    ...r,
+    anonymous: true,
+    user: undefined,
+  }));
+}
 
 // GET /api/teachers/by-name?name=... — lookup teacher by name (NO auto-create!)
 router.get('/by-name', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const name = String(req.query.name || '').trim();
+  const admin = isAdminRequest(req);
 
   if (!name) {
     res.status(400).json({ error: 'Имя преподавателя не указано' });
@@ -27,8 +50,6 @@ router.get('/by-name', async (req: Request, res: Response) => {
   });
 
   if (!teacher) {
-    // Return virtual teacher — NOT persisted to DB
-    // Teacher will be created only when first review is submitted
     res.json({
       id: null,
       name,
@@ -44,6 +65,7 @@ router.get('/by-name', async (req: Request, res: Response) => {
 
   res.json({
     ...teacher,
+    reviews: anonymizeReviews(teacher.reviews, admin),
     avgRating: Math.round(avgRating * 10) / 10,
     reviewCount: ratings.length,
   });
@@ -134,6 +156,7 @@ router.post('/:teacherId/reviews', authMiddleware, async (req: AuthRequest, res:
 router.get('/:teacherId', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const teacherId = parseInt(String(req.params.teacherId));
+  const admin = isAdminRequest(req);
 
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
@@ -157,6 +180,7 @@ router.get('/:teacherId', async (req: Request, res: Response) => {
 
   res.json({
     ...teacher,
+    reviews: anonymizeReviews(teacher.reviews, admin),
     avgRating: Math.round(avgRating * 10) / 10,
     reviewCount: ratings.length,
   });

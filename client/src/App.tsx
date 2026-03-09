@@ -72,6 +72,21 @@ function App() {
     return <LoginPage />;
   }
 
+  // Banned user screen
+  if (user.banned) {
+    return (
+      <div className="min-h-screen bg-[var(--color-bg-apple)] flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <div className="text-5xl mb-4">🚫</div>
+          <h2 className="text-lg font-black text-[var(--color-text-main)] mb-2">Аккаунт заблокирован</h2>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Ваш аккаунт был заблокирован администратором. Если вы считаете, что это ошибка, обратитесь к администратору.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Beta gate: require invite code activation
   if (!user.activated && user.role !== 'admin') {
     return <BetaGatePage />;

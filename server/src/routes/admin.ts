@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth';
 import { parseExcelSchedule } from '../utils/excelParser';
+import { runAutoImport } from '../utils/guuScheduleImporter';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -338,6 +341,75 @@ router.get('/users', async (req: Request, res: Response) => {
     prisma.user.count()
   ]);
   res.json({ items, total });
+});
+
+// ===== Auto-Import from GUU =====
+
+// POST /api/admin/auto-import — trigger auto-import from guu.ru
+router.post('/auto-import', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    // Don't await — return immediately, import runs in background
+    const result = await runAutoImport(prisma, 'manual');
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/import-history — list past imports
+router.get('/import-history', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const { limit = '20' } = req.query;
+  const items = await prisma.scheduleImport.findMany({
+    orderBy: { startedAt: 'desc' },
+    take: parseInt(limit as string),
+  });
+  res.json(items);
+});
+
+// GET /api/admin/import-history/:id/download — download saved xlsx
+router.get('/import-history/:id/download', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const id = parseInt(String(req.params.id));
+  const record = await prisma.scheduleImport.findUnique({ where: { id } });
+
+  if (!record?.filePath) {
+    res.status(404).json({ error: 'Файл не найден' });
+    return;
+  }
+
+  const filePath = path.join(process.cwd(), 'imports', record.filePath);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: 'Файл не найден на диске' });
+    return;
+  }
+
+  res.download(filePath, record.filePath);
+});
+
+// PUT /api/admin/users/:id/ban — ban or unban user
+router.put('/users/:id/ban', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const id = parseInt(String(req.params.id));
+  const { banned } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) {
+    res.status(404).json({ error: 'Пользователь не найден' });
+    return;
+  }
+  if (user.role === 'admin') {
+    res.status(400).json({ error: 'Нельзя заблокировать админа' });
+    return;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { banned: !!banned },
+  });
+
+  res.json({ success: true, banned: updated.banned });
 });
 
 export default router;
