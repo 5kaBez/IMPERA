@@ -6,6 +6,12 @@ const WEB_APP_URL = process.env.WEB_APP_URL || 'https://xn--80ajiqph.xn--p1acf/'
 
 let bot: Bot | null = null;
 
+// Store pending broadcasts waiting for confirmation
+const pendingBroadcasts = new Map<string, { messageId: number; chatId: number }>();
+
+// Global prisma instance for bot
+let globalPrisma: PrismaClient | null = null;
+
 export function getBotInstance(): Bot | null {
   return bot;
 }
@@ -16,6 +22,7 @@ export async function startBot(prisma: PrismaClient) {
     return null;
   }
 
+  globalPrisma = prisma;
   bot = new Bot(BOT_TOKEN);
 
   // /start command — welcome message
@@ -190,7 +197,7 @@ export async function startBot(prisma: PrismaClient) {
     // Админ отправляет рассылку
     if (telegramId === ADMIN_ID) {
       try {
-        // Get all users (except admin)
+        // Get count of recipients
         const users = await prisma.user.findMany({
           select: { telegramId: true },
           where: { banned: false, telegramId: { not: ADMIN_ID } },
@@ -201,53 +208,30 @@ export async function startBot(prisma: PrismaClient) {
           return;
         }
 
-        let sent = 0;
-        let failed = 0;
-        const errors: { telegramId: string; reason: string }[] = [];
+        // Show confirmation buttons
+        const keyboard = new InlineKeyboard()
+          .text('✅ Подтвердить', `broadcast_confirm`)
+          .text('❌ Отмена', `broadcast_cancel`);
 
-        // Copy message to each user (with rate limiting)
-        for (const user of users) {
-          try {
-            // Copy message with all media (photos, gifs, videos, etc.)
-            await ctx.api.copyMessage(parseInt(user.telegramId), ctx.chat!.id, ctx.message!.message_id);
-            sent++;
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } catch (err: any) {
-            failed++;
-            const reason = err.message || 'Unknown error';
-            
-            // Log specific error
-            if (reason.includes('blocked') || reason.includes('403')) {
-              errors.push({ telegramId: user.telegramId, reason: 'Заблокировал бота' });
-            } else if (reason.includes('user not found') || reason.includes('400')) {
-              errors.push({ telegramId: user.telegramId, reason: 'Чат не найден' });
-            } else {
-              errors.push({ telegramId: user.telegramId, reason });
-            }
-            
-            console.error(`[Broadcast] Failed to ${user.telegramId}:`, reason);
-          }
-        }
+        const confirmMsg = await ctx.reply(
+          `📢 Отправить это сообщение ${users.length} пользователям?`,
+          { reply_markup: keyboard }
+        );
 
-        // Send confirmation to admin
-        const emoji = failed === 0 ? '✅' : failed < sent ? '⚠️' : '❌';
-        let message = `${emoji} *Рассылка отправлена*\n` +
-          `Успешно: ${sent}\n` +
-          `Ошибок: ${failed}`;
+        // Store pending broadcast
+        const key = `${ctx.chat!.id}_${ctx.message!.message_id}`;
+        pendingBroadcasts.set(key, {
+          messageId: ctx.message!.message_id,
+          chatId: ctx.chat!.id,
+        });
 
-        // Add error details if any
-        if (errors.length > 0) {
-          message += '\n\n*Ошибки:*\n';
-          errors.forEach(e => {
-            message += `• ${e.telegramId}: ${e.reason}\n`;
-          });
-        }
-
-        await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+        // Auto-cleanup after 5 minutes
+        setTimeout(() => {
+          pendingBroadcasts.delete(key);
+        }, 5 * 60 * 1000);
       } catch (err: any) {
         console.error('Broadcast error:', err);
-        await ctx.reply(`❌ Ошибка рассылки: ${err.message}`);
+        await ctx.reply(`❌ Ошибка: ${err.message}`);
       }
       return;
     }
@@ -260,6 +244,90 @@ export async function startBot(prisma: PrismaClient) {
       'Я понимаю только команды 😊\n\nИспользуй /help для списка команд или открой Mini App!',
       { reply_markup: keyboard }
     );
+  });
+
+  // Handle broadcast confirmation
+  bot.on('callback_query:data', async (ctx: Context) => {
+    const data = ctx.callbackQuery?.data;
+    const ADMIN_ID = '1038062816';
+    const adminId = ctx.from?.id?.toString();
+
+    if (!data?.startsWith('broadcast_')) return;
+    if (adminId !== ADMIN_ID) {
+      await ctx.answerCallbackQuery('❌ Только админ может использовать эту кнопку', {
+        show_alert: true,
+      });
+      return;
+    }
+
+    if (data === 'broadcast_cancel') {
+      await ctx.editMessageText('❌ Рассылка отменена');
+      return;
+    }
+
+    if (data === 'broadcast_confirm') {
+      try {
+        await ctx.editMessageText('⏳ Отправляю сообщение...');
+
+        if (!globalPrisma) {
+          throw new Error('Database not available');
+        }
+
+        // Get all users
+        const users = await globalPrisma.user.findMany({
+          select: { telegramId: true },
+          where: { banned: false, telegramId: { not: ADMIN_ID } },
+        });
+
+        let sent = 0;
+        let failed = 0;
+        const errors: { telegramId: string; reason: string }[] = [];
+
+        // Get the original message ID (it's the one before confirmation message)
+        const chatId = ctx.chat!.id;
+        const sourceMessageId = ctx.callbackQuery!.message!.message_id - 1;
+
+        // Copy message to each user (with rate limiting)
+        for (const user of users) {
+          try {
+            await ctx.api.copyMessage(parseInt(user.telegramId), chatId, sourceMessageId);
+            sent++;
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } catch (err: any) {
+            failed++;
+            const reason = err.message || 'Unknown error';
+
+            if (reason.includes('blocked') || reason.includes('403')) {
+              errors.push({ telegramId: user.telegramId, reason: 'Заблокировал бота' });
+            } else if (reason.includes('user not found') || reason.includes('400')) {
+              errors.push({ telegramId: user.telegramId, reason: 'Чат не найден' });
+            } else {
+              errors.push({ telegramId: user.telegramId, reason });
+            }
+
+            console.error(`[Broadcast] Failed to ${user.telegramId}:`, reason);
+          }
+        }
+
+        // Send confirmation to admin
+        const emoji = failed === 0 ? '✅' : failed < sent ? '⚠️' : '❌';
+        let message = `${emoji} *Рассылка отправлена*\n` +
+          `Успешно: ${sent}\n` +
+          `Ошибок: ${failed}`;
+
+        if (errors.length > 0) {
+          message += '\n\n*Ошибки:*\n';
+          errors.forEach(e => {
+            message += `• ${e.telegramId}: ${e.reason}\n`;
+          });
+        }
+
+        await ctx.editMessageText(message, { parse_mode: 'MarkdownV2' });
+      } catch (err: any) {
+        console.error('Broadcast execution error:', err);
+        await ctx.editMessageText(`❌ Ошибка при отправке: ${err.message}`);
+      }
+    }
   });
 
   // Error handler
