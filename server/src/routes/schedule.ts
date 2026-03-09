@@ -4,21 +4,21 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 
 // ---- Moscow timezone helpers ----
-// VPS может работать в UTC, а ГУУ в Москве (UTC+3)
+// VPS работает в UTC, ГУУ в Москве (UTC+3)
 function getMoscowDate(date?: Date): Date {
   const d = date ? new Date(date) : new Date();
-  // Convert to Moscow time (UTC+3)
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60 * 1000;
-  return new Date(utcMs + 3 * 60 * 60 * 1000);
+  // Convert UTC to Moscow time (UTC+3)
+  // JavaScript Date stores time in UTC internally, so we just add 3 hours
+  return new Date(d.getTime() + 3 * 60 * 60 * 1000);
 }
 
-// Начало семестра: 9 февраля 2026 (понедельник), Москва
-// Создаём как UTC, но сдвигаем на +3, чтобы всё считалось в московском времени
-const SEMESTER_START_MOSCOW = new Date(Date.UTC(2026, 1, 9, 0, 0, 0) - 3 * 60 * 60 * 1000);
+// Начало семестра: 9 февраля 2026 (понедельник)
+// Это 00:00:00 московского времени
+const SEMESTER_START_MOSCOW = new Date(Date.UTC(2026, 1, 8, 21, 0, 0)); // 9 фев 00:00 МСК = 8 фев 21:00 UTC
 
 function getSemesterWeekNumber(moscowDate?: Date): number {
   const now = moscowDate || getMoscowDate();
-  const startMs = getMoscowDate(SEMESTER_START_MOSCOW).getTime();
+  const startMs = SEMESTER_START_MOSCOW.getTime();
   const nowMs = now.getTime();
   const diffMs = nowMs - startMs;
   if (diffMs < 0) return 1;
