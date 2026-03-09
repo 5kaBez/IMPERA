@@ -20,7 +20,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes' | 'autoimport';
+type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes' | 'autoimport' | 'broadcast';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -60,6 +60,7 @@ export default function AdminDashboard() {
             { key: 'teachers', label: 'Учителя' },
             { key: 'codes', label: 'Коды' },
             { key: 'autoimport', label: 'Авто-импорт' },
+            { key: 'broadcast', label: 'Рассылка' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -88,6 +89,7 @@ export default function AdminDashboard() {
       {tab === 'teachers' && <TeachersTab />}
       {tab === 'codes' && <CodesTab />}
       {tab === 'autoimport' && <AutoImportTab />}
+      {tab === 'broadcast' && <BroadcastTab />}
     </div>
   );
 }
@@ -801,6 +803,96 @@ function AutoImportTab() {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function BroadcastTab() {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; sent?: number; failed?: number; total?: number; error?: string } | null>(null);
+
+  const handleSend = async () => {
+    if (!message.trim()) {
+      setResult({ success: false, error: 'Сообщение не может быть пустым' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.post('/admin/broadcast', { message });
+      setResult({ success: true, ...res });
+      if (res.success) setMessage('');
+    } catch (err: any) {
+      setResult({ success: false, error: err.message || 'Ошибка отправки' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="apple-card border border-[var(--apple-border)] p-6 md:p-8 shadow-xl mb-6">
+        <h3 className="text-lg font-black text-[var(--color-text-main)] tracking-tight mb-1">Рассылка в Telegram</h3>
+        <p className="text-xs text-[var(--color-text-muted)] mb-6">
+          Отправить сообщение всем пользователям, которые запустили бота
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-xs font-black uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+            Сообщение (MarkdownV2)
+          </label>
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="Введите текст сообщения..."
+            disabled={loading}
+            className="w-full h-[180px] p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] text-[var(--color-text-main)] placeholder-[var(--color-text-muted)]/50 font-medium resize-none focus:border-[var(--color-primary-apple)] outline-none transition-all disabled:opacity-50"
+          />
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-2 opacity-60">
+            Поддерживает MarkdownV2: *жирный* _курсив_ ~зачёркнутый~ `код` [ссылка](url)
+          </p>
+        </div>
+
+        <button
+          onClick={handleSend}
+          disabled={loading || !message.trim()}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl iron-metal-bg text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-black/20 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] transition-all"
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Отправляю...
+            </>
+          ) : (
+            <>
+              <MessageSquare className="w-4 h-4" />
+              Отправить всем
+            </>
+          )}
+        </button>
+      </div>
+
+      {result && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`apple-card border ${
+            result.success
+              ? 'border-emerald-500/20 bg-emerald-500/10 dark:bg-emerald-500/5'
+              : 'border-red-500/20 bg-red-500/10 dark:bg-red-500/5'
+          } p-4 md:p-6 shadow-lg`}
+        >
+          <p className={`text-sm font-black ${result.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {result.success ? '✅ Рассылка отправлена!' : '❌ ' + (result.error || 'Ошибка')}
+          </p>
+          {result.sent !== undefined && (
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+              Отправлено: {result.sent} / {result.total} {result.failed ? `(ошибок: ${result.failed})` : ''}
+            </p>
+          )}
+        </motion.div>
       )}
     </div>
   );

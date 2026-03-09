@@ -412,4 +412,65 @@ router.put('/users/:id/ban', async (req: Request, res: Response) => {
   res.json({ success: true, banned: updated.banned });
 });
 
+// POST /api/admin/broadcast — send message to all users via Telegram bot
+router.post('/broadcast', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const { message } = req.body;
+
+  if (!message || message.trim().length === 0) {
+    res.status(400).json({ error: 'Сообщение не может быть пустым' });
+    return;
+  }
+
+  // Get bot instance from app locals
+  const bot = req.app.locals.bot;
+  if (!bot) {
+    res.status(500).json({ error: 'Бот не инициализирован' });
+    return;
+  }
+
+  try {
+    // Get all users who have started the bot
+    const users = await prisma.user.findMany({
+      select: { telegramId: true, firstName: true },
+      where: { banned: false }, // Don't send to banned users
+    });
+
+    if (users.length === 0) {
+      res.json({ success: true, sent: 0, failed: 0 });
+      return;
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    // Send message to each user (with rate limiting to avoid bot flood limits)
+    for (const user of users) {
+      try {
+        await bot.api.sendMessage(
+          parseInt(user.telegramId),
+          message,
+          { parse_mode: 'MarkdownV2' }
+        );
+        sent++;
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err: any) {
+        console.error(`Failed to send message to ${user.telegramId}:`, err.message);
+        failed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      sent,
+      failed,
+      total: users.length,
+    });
+  } catch (err: any) {
+    console.error('Broadcast error:', err);
+    res.status(500).json({ error: `Ошибка рассылки: ${err.message}` });
+  }
+});
+
 export default router;

@@ -140,7 +140,9 @@ app.listen(Number(PORT), HOST, async () => {
   }
 
   // Start Telegram bot
-  startBot(prisma).then(() => {
+  startBot(prisma).then((botInstance) => {
+    // Store bot instance in app locals so routes can access it
+    app.locals.bot = botInstance;
     // Start notifications after bot is ready
     startNotifications(prisma);
   });
