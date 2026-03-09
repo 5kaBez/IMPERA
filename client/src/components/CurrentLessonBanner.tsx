@@ -141,18 +141,18 @@ export default function CurrentLessonBanner() {
       <div className="relative p-3 md:p-8">
         {/* Top row: status + timer */}
         <div className="flex items-center justify-between mb-2 md:mb-6">
-          <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+          <div className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-[var(--apple-border)]">
             <span className="flex h-1.5 w-1.5 md:h-2 md:w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-emerald-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 dark:bg-gray-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-gray-500 dark:bg-gray-400"></span>
             </span>
-            <span className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
               {lesson.pairNumber}-я пара
             </span>
           </div>
 
           {/* Countdown timer badge */}
-          <div className="flex items-center gap-1.5 h-7 md:h-10 px-2.5 md:px-4 rounded-xl md:rounded-2xl bg-[var(--color-text-main)] text-white shadow-lg mr-6 md:mr-0">
+          <div className="flex items-center gap-1.5 h-7 md:h-10 px-2.5 md:px-4 rounded-xl md:rounded-2xl bg-black/10 dark:bg-white/10 text-[var(--color-text-main)] shadow-lg mr-6 md:mr-0 border border-[var(--apple-border)]">
             <Timer className="w-3 h-3 md:w-4 md:h-4" />
             <span className="text-[11px] md:text-sm font-bold tabular-nums tracking-wider">
               {pad(countdown.minutes)}:{pad(countdown.seconds)}

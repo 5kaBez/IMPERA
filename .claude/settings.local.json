@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:guu.ru)",
+      "WebFetch(domain:t.me)"
+    ]
+  }
+}
