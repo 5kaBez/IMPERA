@@ -203,6 +203,7 @@ export async function startBot(prisma: PrismaClient) {
 
         let sent = 0;
         let failed = 0;
+        const errors: { telegramId: string; reason: string }[] = [];
 
         // Copy message to each user (with rate limiting)
         for (const user of users) {
@@ -213,19 +214,37 @@ export async function startBot(prisma: PrismaClient) {
             // Small delay to avoid rate limiting
             await new Promise(resolve => setTimeout(resolve, 50));
           } catch (err: any) {
-            console.error(`Failed to send to ${user.telegramId}:`, err.message);
             failed++;
+            const reason = err.message || 'Unknown error';
+            
+            // Log specific error
+            if (reason.includes('blocked') || reason.includes('403')) {
+              errors.push({ telegramId: user.telegramId, reason: 'Заблокировал бота' });
+            } else if (reason.includes('user not found') || reason.includes('400')) {
+              errors.push({ telegramId: user.telegramId, reason: 'Чат не найден' });
+            } else {
+              errors.push({ telegramId: user.telegramId, reason });
+            }
+            
+            console.error(`[Broadcast] Failed to ${user.telegramId}:`, reason);
           }
         }
 
         // Send confirmation to admin
         const emoji = failed === 0 ? '✅' : failed < sent ? '⚠️' : '❌';
-        await ctx.reply(
-          `${emoji} *Рассылка отправлена*\n` +
+        let message = `${emoji} *Рассылка отправлена*\n` +
           `Успешно: ${sent}\n` +
-          `Ошибок: ${failed}`,
-          { parse_mode: 'MarkdownV2' }
-        );
+          `Ошибок: ${failed}`;
+
+        // Add error details if any
+        if (errors.length > 0) {
+          message += '\n\n*Ошибки:*\n';
+          errors.forEach(e => {
+            message += `• ${e.telegramId}: ${e.reason}\n`;
+          });
+        }
+
+        await ctx.reply(message, { parse_mode: 'MarkdownV2' });
       } catch (err: any) {
         console.error('Broadcast error:', err);
         await ctx.reply(`❌ Ошибка рассылки: ${err.message}`);
