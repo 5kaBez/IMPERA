@@ -254,7 +254,8 @@ export async function startBot(prisma: PrismaClient) {
 
     if (!data?.startsWith('broadcast_')) return;
     if (adminId !== ADMIN_ID) {
-      await ctx.answerCallbackQuery('❌ Только админ может использовать эту кнопку', {
+      await ctx.answerCallbackQuery({
+        text: '❌ Только админ может использовать эту кнопку',
         show_alert: true,
       });
       return;
