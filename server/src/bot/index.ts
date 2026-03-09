@@ -201,9 +201,6 @@ export async function startBot(prisma: PrismaClient) {
           return;
         }
 
-        // Show typing indicator
-        await ctx.sendChatAction('typing');
-
         let sent = 0;
         let failed = 0;
 
