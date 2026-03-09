@@ -40,204 +40,309 @@ const SECTIONS: SectionData[] = [
     name: 'Атлетизм',
     emoji: '🏋️',
     slots: [
-      { day: 1, pair: 1, teacher: 'Дзигуа Д.В.' },
-      { day: 1, pair: 2, teacher: 'Дзигуа Д.В.' },
-      { day: 1, pair: 3, teacher: 'Дзигуа Д.В.' },
-      { day: 2, pair: 1, teacher: 'Дзигуа Д.В.' },
-      { day: 2, pair: 2, teacher: 'Дзигуа Д.В.' },
-      { day: 3, pair: 1, teacher: 'Дзигуа Д.В.' },
-      { day: 3, pair: 2, teacher: 'Дзигуа Д.В.' },
-      { day: 5, pair: 1, teacher: 'Дзигуа Д.В.' },
-      { day: 5, pair: 2, teacher: 'Дзигуа Д.В.' },
-      { day: 6, pair: 1, teacher: 'Дзигуа Д.В.' },
-      { day: 6, pair: 2, teacher: 'Дзигуа Д.В.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Мамышев' },
+      { day: 1, pair: 2, teacher: 'Мамышев' },
+      { day: 1, pair: 3, teacher: 'Мамышев' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Кокорев' },
+      { day: 2, pair: 2, teacher: 'Мамышев' },
+      { day: 2, pair: 3, teacher: 'Мамышев' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Мамышев' },
+      { day: 3, pair: 2, teacher: 'Мамышев' },
+      { day: 3, pair: 3, teacher: 'Домашенко' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Мамышев' },
+      { day: 4, pair: 2, teacher: 'Мамышев' },
+      { day: 4, pair: 3, teacher: 'Домашенко' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Кокорев' },
+      { day: 5, pair: 2, teacher: 'Мамышев' },
+      { day: 5, pair: 3, teacher: 'Мамышев' },
+      // Сб
+      { day: 6, pair: 1, teacher: 'Кокорев' },
+      { day: 6, pair: 2, teacher: 'Кокорев' },
+      { day: 6, pair: 3, teacher: 'Мамышев' },
     ],
   },
   {
     name: 'Аэробика',
     emoji: '💃',
     slots: [
-      { day: 1, pair: 3, teacher: 'Цыганкова В.О.' },
-      { day: 1, pair: 4, teacher: 'Цыганкова В.О.' },
-      { day: 2, pair: 3, teacher: 'Цыганкова В.О.' },
-      { day: 2, pair: 4, teacher: 'Цыганкова В.О.' },
-      { day: 3, pair: 3, teacher: 'Цыганкова В.О.' },
-      { day: 3, pair: 4, teacher: 'Цыганкова В.О.' },
-      { day: 5, pair: 1, teacher: 'Цыганкова В.О.' },
-      { day: 5, pair: 2, teacher: 'Цыганкова В.О.' },
-      { day: 6, pair: 1, teacher: 'Цыганкова В.О.' },
-      { day: 6, pair: 2, teacher: 'Цыганкова В.О.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Суверкина' },
+      { day: 1, pair: 2, teacher: 'Суверкина' },
+      { day: 1, pair: 3, teacher: 'Суверкина' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Суверкина' },
+      { day: 2, pair: 2, teacher: 'Суверкина' },
+      { day: 2, pair: 3, teacher: 'Суверкина' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Суверкина' },
+      { day: 3, pair: 2, teacher: 'Суверкина' },
+      { day: 3, pair: 3, teacher: 'Суверкина' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Суверкина' },
+      { day: 4, pair: 2, teacher: 'Суверкина' },
+      { day: 4, pair: 3, teacher: 'Суверкина' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Суверкина' },
+      { day: 5, pair: 2, teacher: 'Суверкина' },
+      { day: 5, pair: 3, teacher: 'Суверкина' },
+      // Сб
+      { day: 6, pair: 1, teacher: 'Суверкина' },
+      { day: 6, pair: 3, teacher: 'Махотина' },
     ],
   },
   {
     name: 'Баскетбол',
     emoji: '🏀',
     slots: [
-      { day: 1, pair: 1, teacher: 'Кириллов В.Н.' },
-      { day: 1, pair: 2, teacher: 'Кириллов В.Н.' },
-      { day: 1, pair: 5, teacher: 'Кириллов В.Н.' },
-      { day: 1, pair: 6, teacher: 'Кириллов В.Н.' },
-      { day: 2, pair: 3, teacher: 'Кириллов В.Н.' },
-      { day: 2, pair: 4, teacher: 'Кириллов В.Н.' },
-      { day: 3, pair: 3, teacher: 'Кириллов В.Н.' },
-      { day: 3, pair: 4, teacher: 'Кириллов В.Н.' },
-      { day: 5, pair: 3, teacher: 'Кириллов В.Н.' },
-      { day: 5, pair: 4, teacher: 'Кириллов В.Н.' },
-      { day: 6, pair: 3, teacher: 'Кириллов В.Н.' },
+      // Пн
+      { day: 1, pair: 2, teacher: 'Меркулова' },
+      { day: 1, pair: 3, teacher: 'Меркулова' },
+      // Вт
+      { day: 2, pair: 2, teacher: 'Меркулова' },
+      { day: 2, pair: 3, teacher: 'Меркулова' },
+      // Ср
+      { day: 3, pair: 2, teacher: 'Меркулова' },
+      { day: 3, pair: 3, teacher: 'Меркулова' },
+      // Чт
+      { day: 4, pair: 2, teacher: 'Меркулова' },
+      { day: 4, pair: 3, teacher: 'Меркулова' },
+      // Пт
+      { day: 5, pair: 2, teacher: 'Меркулова' },
+      { day: 5, pair: 3, teacher: 'Меркулова' },
+      // Сб
+      { day: 6, pair: 2, teacher: 'Носач' },
+      { day: 6, pair: 3, teacher: 'Носач' },
     ],
   },
   {
     name: 'Бокс',
     emoji: '🥊',
     slots: [
-      { day: 1, pair: 1, teacher: 'Козлов Р.С.' },
-      { day: 1, pair: 2, teacher: 'Козлов Р.С.' },
-      { day: 2, pair: 1, teacher: 'Козлов Р.С.' },
-      { day: 2, pair: 2, teacher: 'Козлов Р.С.' },
-      { day: 3, pair: 1, teacher: 'Козлов Р.С.' },
-      { day: 3, pair: 2, teacher: 'Козлов Р.С.' },
-      { day: 5, pair: 3, teacher: 'Козлов Р.С.' },
-      { day: 5, pair: 4, teacher: 'Козлов Р.С.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Домашенко' },
+      { day: 1, pair: 2, teacher: 'Домашенко' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Домашенко' },
+      { day: 2, pair: 2, teacher: 'Домашенко' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Домашенко' },
+      { day: 3, pair: 2, teacher: 'Домашенко' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Домашенко' },
+      { day: 4, pair: 2, teacher: 'Домашенко' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Домашенко' },
+      { day: 5, pair: 2, teacher: 'Домашенко' },
+      // Сб
+      { day: 6, pair: 1, teacher: 'Домашенко' },
+      { day: 6, pair: 2, teacher: 'Домашенко' },
     ],
   },
   {
     name: 'Бадминтон',
     emoji: '🏸',
     slots: [
-      { day: 1, pair: 3, teacher: 'Пасечник Ж.В.' },
-      { day: 1, pair: 4, teacher: 'Пасечник Ж.В.' },
-      { day: 2, pair: 5, teacher: 'Пасечник Ж.В.' },
-      { day: 2, pair: 6, teacher: 'Пасечник Ж.В.' },
-      { day: 3, pair: 1, teacher: 'Пасечник Ж.В.' },
-      { day: 3, pair: 2, teacher: 'Пасечник Ж.В.' },
-      { day: 5, pair: 1, teacher: 'Пасечник Ж.В.' },
-      { day: 5, pair: 2, teacher: 'Пасечник Ж.В.' },
-      { day: 6, pair: 1, teacher: 'Пасечник Ж.В.' },
-      { day: 6, pair: 2, teacher: 'Пасечник Ж.В.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Кабанова' },
+      { day: 1, pair: 2, teacher: 'Кабанова' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Кабанова' },
+      { day: 2, pair: 2, teacher: 'Кабанова' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Кабанова' },
+      { day: 3, pair: 2, teacher: 'Кабанова' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Туржанидзе' },
+      { day: 4, pair: 2, teacher: 'Туржанидзе' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Кокорев' },
+      { day: 5, pair: 2, teacher: 'Кокорев' },
+      // Сб
+      { day: 6, pair: 1, teacher: 'Кокорев' },
     ],
   },
   {
     name: 'Волейбол',
     emoji: '🏐',
     slots: [
-      { day: 1, pair: 3, teacher: 'Гераськин А.А.' },
-      { day: 1, pair: 4, teacher: 'Гераськин А.А.' },
-      { day: 1, pair: 5, teacher: 'Гераськин А.А.' },
-      { day: 2, pair: 1, teacher: 'Гераськин А.А.' },
-      { day: 2, pair: 2, teacher: 'Гераськин А.А.' },
-      { day: 3, pair: 3, teacher: 'Гераськин А.А.' },
-      { day: 3, pair: 4, teacher: 'Гераськин А.А.' },
-      { day: 5, pair: 3, teacher: 'Гераськин А.А.' },
-      { day: 5, pair: 4, teacher: 'Гераськин А.А.' },
-      { day: 6, pair: 1, teacher: 'Гераськин А.А.' },
-      { day: 6, pair: 2, teacher: 'Гераськин А.А.' },
+      // Пн
+      { day: 1, pair: 3, teacher: 'Баранцев' },
+      { day: 1, pair: 4, teacher: 'Баранцев' },
+      // Вт
+      { day: 2, pair: 3, teacher: 'Баранцев' },
+      { day: 2, pair: 4, teacher: 'Баранцев' },
+      // Ср
+      { day: 3, pair: 3, teacher: 'Баранцев' },
+      { day: 3, pair: 4, teacher: 'Баранцев' },
+      // Чт
+      { day: 4, pair: 3, teacher: 'Баранцев' },
+      { day: 4, pair: 4, teacher: 'Баранцев' },
+      // Пт
+      { day: 5, pair: 3, teacher: 'Баранцев' },
+      { day: 5, pair: 4, teacher: 'Баранцев' },
+      // Сб
+      { day: 6, pair: 3, teacher: 'Геракова' },
+      { day: 6, pair: 4, teacher: 'Геракова' },
     ],
   },
   {
     name: 'Н. теннис',
     emoji: '🏓',
     slots: [
-      { day: 1, pair: 1, teacher: 'Афонина И.П.' },
-      { day: 1, pair: 2, teacher: 'Афонина И.П.' },
-      { day: 2, pair: 3, teacher: 'Афонина И.П.' },
-      { day: 2, pair: 4, teacher: 'Афонина И.П.' },
-      { day: 3, pair: 5, teacher: 'Афонина И.П.' },
-      { day: 3, pair: 6, teacher: 'Афонина И.П.' },
-      { day: 5, pair: 1, teacher: 'Афонина И.П.' },
-      { day: 5, pair: 2, teacher: 'Афонина И.П.' },
-      { day: 6, pair: 3, teacher: 'Афонина И.П.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Логачёв' },
+      { day: 1, pair: 2, teacher: 'Логачёв' },
+      // Вт
+      { day: 2, pair: 3, teacher: 'Логачёв' },
+      { day: 2, pair: 4, teacher: 'Логачёв' },
+      // Ср
+      { day: 3, pair: 5, teacher: 'Кривой' },
+      { day: 3, pair: 6, teacher: 'Логачёв' },
+      // Чт
+      { day: 4, pair: 3, teacher: 'Кривой' },
+      { day: 4, pair: 4, teacher: 'Логачёв' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Логачёв' },
+      { day: 5, pair: 2, teacher: 'Логачёв' },
+      // Сб
+      { day: 6, pair: 3, teacher: 'Логачёв' },
     ],
   },
   {
     name: 'Плавание',
     emoji: '🏊',
     slots: [
-      { day: 1, pair: 1, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 1, pair: 2, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 1, pair: 3, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 2, pair: 1, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 2, pair: 2, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 3, pair: 1, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 3, pair: 2, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 5, pair: 1, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 5, pair: 2, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 6, pair: 1, teacher: 'Головко Н.Г.', location: 'Бассейн' },
-      { day: 6, pair: 2, teacher: 'Головко Н.Г.', location: 'Бассейн' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Раевский' },
+      { day: 1, pair: 2, teacher: 'Раевский' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Теренкова' },
+      { day: 2, pair: 2, teacher: 'Теренкова' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Раевский' },
+      { day: 3, pair: 2, teacher: 'Раевский' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Теренкова' },
+      { day: 4, pair: 2, teacher: 'Теренкова' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Раевский' },
+      { day: 5, pair: 2, teacher: 'Раевский' },
+      // Сб
+      { day: 6, pair: 1, teacher: 'Раевский' },
+      { day: 6, pair: 2, teacher: 'Раевский' },
     ],
   },
   {
     name: 'Самооборона',
-    emoji: '🥋',
+    emoji: '🥸',
     slots: [
-      { day: 1, pair: 5, teacher: 'Мамаев А.В.' },
-      { day: 1, pair: 6, teacher: 'Мамаев А.В.' },
-      { day: 2, pair: 5, teacher: 'Мамаев А.В.' },
-      { day: 2, pair: 6, teacher: 'Мамаев А.В.' },
-      { day: 3, pair: 5, teacher: 'Мамаев А.В.' },
-      { day: 3, pair: 6, teacher: 'Мамаев А.В.' },
-      { day: 5, pair: 5, teacher: 'Мамаев А.В.' },
-      { day: 5, pair: 6, teacher: 'Мамаев А.В.' },
+      // Пн
+      { day: 1, pair: 4, teacher: 'Пронцус' },
+      // Вт
+      { day: 2, pair: 4, teacher: 'Пронцус' },
+      // Ср
+      { day: 3, pair: 4, teacher: 'Пронцус' },
+      // Чт
+      { day: 4, pair: 4, teacher: 'Земелин' },
+      // Пт
+      { day: 5, pair: 4, teacher: 'Земелин' },
     ],
   },
   {
     name: 'СМГ',
-    emoji: '❤️‍🩹',
+    emoji: '✅',
     slots: [
-      { day: 1, pair: 3, teacher: 'Пасечник Ж.В.' },
-      { day: 1, pair: 4, teacher: 'Пасечник Ж.В.' },
-      { day: 2, pair: 1, teacher: 'Пасечник Ж.В.' },
-      { day: 2, pair: 2, teacher: 'Пасечник Ж.В.' },
-      { day: 3, pair: 3, teacher: 'Пасечник Ж.В.' },
-      { day: 3, pair: 4, teacher: 'Пасечник Ж.В.' },
-      { day: 5, pair: 3, teacher: 'Пасечник Ж.В.' },
-      { day: 5, pair: 4, teacher: 'Пасечник Ж.В.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Серегина' },
+      { day: 1, pair: 2, teacher: 'Серегина' },
+      { day: 1, pair: 3, teacher: 'Серегина' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Серегина' },
+      { day: 2, pair: 2, teacher: 'Серегина' },
+      { day: 2, pair: 3, teacher: 'Серегина' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Серегина' },
+      { day: 3, pair: 2, teacher: 'Серегина' },
+      { day: 3, pair: 3, teacher: 'Серегина' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Серегина' },
+      { day: 4, pair: 2, teacher: 'Серегина' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Серегина' },
+      { day: 5, pair: 2, teacher: 'Серегина' },
+      { day: 5, pair: 3, teacher: 'Серегина' },
+      // Сб
+      { day: 6, pair: 2, teacher: 'Кабанова' },
+      { day: 6, pair: 3, teacher: 'Кабанова' },
     ],
   },
   {
     name: 'Фитнес',
     emoji: '💪',
     slots: [
-      { day: 1, pair: 1, teacher: 'Козина Г.Ю.' },
-      { day: 1, pair: 2, teacher: 'Козина Г.Ю.' },
-      { day: 2, pair: 3, teacher: 'Козина Г.Ю.' },
-      { day: 2, pair: 4, teacher: 'Козина Г.Ю.' },
-      { day: 3, pair: 1, teacher: 'Козина Г.Ю.' },
-      { day: 3, pair: 2, teacher: 'Козина Г.Ю.' },
-      { day: 5, pair: 5, teacher: 'Козина Г.Ю.' },
-      { day: 5, pair: 6, teacher: 'Козина Г.Ю.' },
-      { day: 6, pair: 3, teacher: 'Козина Г.Ю.' },
+      // Пн
+      { day: 1, pair: 1, teacher: 'Вещшева' },
+      { day: 1, pair: 2, teacher: 'Вещшева' },
+      // Вт
+      { day: 2, pair: 1, teacher: 'Вещшева' },
+      { day: 2, pair: 2, teacher: 'Вещшева' },
+      // Ср
+      { day: 3, pair: 1, teacher: 'Вещшева' },
+      { day: 3, pair: 2, teacher: 'Вещшева' },
+      // Чт
+      { day: 4, pair: 1, teacher: 'Чернова' },
+      { day: 4, pair: 2, teacher: 'Чернова' },
+      // Пт
+      { day: 5, pair: 1, teacher: 'Чернова' },
+      { day: 5, pair: 2, teacher: 'Чернова' },
+      // Сб
+      { day: 6, pair: 3, teacher: 'Кокорев' },
+      { day: 6, pair: 4, teacher: 'Кокорев' },
     ],
   },
   {
     name: 'Футбол',
     emoji: '⚽',
     slots: [
-      { day: 1, pair: 5, teacher: 'Петухов А.В.' },
-      { day: 1, pair: 6, teacher: 'Петухов А.В.' },
-      { day: 2, pair: 5, teacher: 'Петухов А.В.' },
-      { day: 2, pair: 6, teacher: 'Петухов А.В.' },
-      { day: 3, pair: 5, teacher: 'Петухов А.В.' },
-      { day: 3, pair: 6, teacher: 'Петухов А.В.' },
-      { day: 5, pair: 5, teacher: 'Петухов А.В.' },
-      { day: 5, pair: 6, teacher: 'Петухов А.В.' },
-      { day: 6, pair: 3, teacher: 'Петухов А.В.' },
-      { day: 6, pair: 4, teacher: 'Петухов А.В.' },
+      // Пн
+      { day: 1, pair: 5, teacher: 'Чичерин' },
+      { day: 1, pair: 6, teacher: 'Чичерин' },
+      // Вт
+      { day: 2, pair: 5, teacher: 'Хромов' },
+      { day: 2, pair: 6, teacher: 'Хромов' },
+      // Ср
+      { day: 3, pair: 5, teacher: 'Хромов' },
+      { day: 3, pair: 6, teacher: 'Хромов' },
+      // Чт
+      { day: 4, pair: 5, teacher: 'Чичерин' },
+      { day: 4, pair: 6, teacher: 'Чичерин' },
+      // Пт - нет
+      // Сб
+      { day: 6, pair: 5, teacher: 'Чичерин' },
+      { day: 6, pair: 6, teacher: 'Чичерин' },
     ],
   },
   {
     name: 'Шахматы',
     emoji: '♟️',
     slots: [
-      { day: 1, pair: 3, teacher: 'Рощин А.Б.' },
-      { day: 1, pair: 4, teacher: 'Рощин А.Б.' },
-      { day: 2, pair: 1, teacher: 'Рощин А.Б.' },
-      { day: 2, pair: 2, teacher: 'Рощин А.Б.' },
-      { day: 3, pair: 1, teacher: 'Рощин А.Б.' },
-      { day: 3, pair: 2, teacher: 'Рощин А.Б.' },
-      { day: 5, pair: 1, teacher: 'Рощин А.Б.' },
-      { day: 5, pair: 2, teacher: 'Рощин А.Б.' },
-      { day: 6, pair: 1, teacher: 'Рощин А.Б.' },
-      { day: 6, pair: 2, teacher: 'Рощин А.Б.' },
+      // Пн - нет
+      // Вт - нет
+      // Ср
+      { day: 3, pair: 5, teacher: 'Баранцев' },
+      { day: 3, pair: 6, teacher: 'Баранцев' },
+      // Чт
+      { day: 4, pair: 5, teacher: 'Чернова' },
+      { day: 4, pair: 6, teacher: 'Чернова' },
+      // Пт
+      { day: 5, pair: 5, teacher: 'Логачёв' },
+      { day: 5, pair: 6, teacher: 'Логачёв' },
+      // Сб - нет
     ],
   },
 ];
