@@ -214,8 +214,12 @@ function ProgressBar({ lesson }: { lesson: CurrentLessonData }) {
   return (
     <div className="w-full h-3 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden relative border border-[var(--apple-border)]">
       <div
-        className="h-full bg-gradient-to-r from-[var(--color-primary-apple)] to-indigo-500 rounded-full transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(0,122,255,0.4)] relative"
-        style={{ width: `${progress}%` }}
+        className="h-full rounded-full transition-all duration-1000 ease-linear relative"
+        style={{ 
+          width: `${progress}%`,
+          background: 'linear-gradient(135deg, #D4AF37 0%, #F3DA8F 50%, #C5A02E 100%)',
+          boxShadow: '0 0 25px rgba(212, 175, 55, 0.3)'
+        }}
       >
         <div className="absolute inset-0 bg-white/20 animate-pulse" />
       </div>
