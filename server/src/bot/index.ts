@@ -184,6 +184,59 @@ export async function startBot(prisma: PrismaClient) {
 
   // Handle any other message
   bot.on('message', async (ctx: Context) => {
+    const telegramId = ctx.from?.id?.toString();
+    const ADMIN_ID = '1038062816';
+
+    // Админ отправляет рассылку
+    if (telegramId === ADMIN_ID) {
+      try {
+        // Get all users (except admin)
+        const users = await prisma.user.findMany({
+          select: { telegramId: true },
+          where: { banned: false, telegramId: { not: ADMIN_ID } },
+        });
+
+        if (users.length === 0) {
+          await ctx.reply('Нет пользователей для рассылки');
+          return;
+        }
+
+        // Show typing indicator
+        await ctx.sendChatAction('typing');
+
+        let sent = 0;
+        let failed = 0;
+
+        // Copy message to each user (with rate limiting)
+        for (const user of users) {
+          try {
+            // Copy message with all media (photos, gifs, videos, etc.)
+            await ctx.api.copyMessage(parseInt(user.telegramId), ctx.chat!.id, ctx.message!.message_id);
+            sent++;
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 50));
+          } catch (err: any) {
+            console.error(`Failed to send to ${user.telegramId}:`, err.message);
+            failed++;
+          }
+        }
+
+        // Send confirmation to admin
+        const emoji = failed === 0 ? '✅' : failed < sent ? '⚠️' : '❌';
+        await ctx.reply(
+          `${emoji} *Рассылка отправлена*\n` +
+          `Успешно: ${sent}\n` +
+          `Ошибок: ${failed}`,
+          { parse_mode: 'MarkdownV2' }
+        );
+      } catch (err: any) {
+        console.error('Broadcast error:', err);
+        await ctx.reply(`❌ Ошибка рассылки: ${err.message}`);
+      }
+      return;
+    }
+
+    // Обычные пользователи получают сообщение о помощи
     const keyboard = new InlineKeyboard()
       .webApp('📱 Открыть IMPERA', WEB_APP_URL);
 
