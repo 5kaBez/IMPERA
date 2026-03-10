@@ -18,7 +18,7 @@ interface InviteStats {
 }
 
 export function InviteCodes() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [codes, setCodes] = useState<InviteCode[]>([]);
   const [stats, setStats] = useState<InviteStats>({ totalCreated: 0, activeUnused: 0, alreadyUsed: 0 });
   const [remainingSeconds, setRemainingSeconds] = useState(0);
@@ -58,8 +58,15 @@ export function InviteCodes() {
 
   // Initial load
   useEffect(() => {
+    // Wait for auth to complete
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     if (!user) {
       setLoading(false);
+      setError('Требуется авторизация');
       return;
     }
     
@@ -75,7 +82,7 @@ export function InviteCodes() {
     };
     
     loadData();
-  }, [user?.id]); // Only user.id as dependency
+  }, [user?.id, authLoading]); // Added authLoading dependency
 
   // Countdown timer
   useEffect(() => {
@@ -135,6 +142,10 @@ export function InviteCodes() {
     }
     return `${minutes}м`;
   };
+
+  if (authLoading) {
+    return <div className="text-center text-[var(--color-text-muted)] py-8">⏳ Загрузка...</div>;
+  }
 
   if (!user) {
     return <div className="text-center text-[var(--color-text-muted)]">Требуется авторизация</div>;
