@@ -97,7 +97,7 @@ export function InviteCodes() {
       setSuccess('');
       setNewCode('');
 
-      const data = await api.post<{ code: string }>('/api/invites/generate', {});
+      const data = await api.post<{ code: string }>('/api/invites/generate');
       setNewCode(data.code);
       setSuccess('Код успешно создан!');
       setCanGenerateNow(false);
@@ -109,7 +109,7 @@ export function InviteCodes() {
       } else if (err.status === 409) {
         setError('Вы достигли максимального количества активных кодов');
       } else {
-        setError('Ошибка при создании кода');
+        setError(err.message || 'Ошибка при создании кода');
       }
       console.error('Generate code error:', err);
     } finally {

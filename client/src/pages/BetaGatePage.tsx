@@ -72,7 +72,7 @@ export default function BetaGatePage() {
     setError('');
 
     try {
-      await api.post('/auth/activate', { code });
+      await api.post('/auth/register-with-code', { code });
       setSuccess(true);
 
       // Refresh user

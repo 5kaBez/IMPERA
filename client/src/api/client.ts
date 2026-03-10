@@ -1,5 +1,12 @@
 const API_BASE = '/api';
 
+class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 class ApiClient {
   private token: string | null = null;
 
@@ -34,7 +41,7 @@ class ApiClient {
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: 'Ошибка сервера' }));
-      throw new Error(error.error || `HTTP ${res.status}`);
+      throw new ApiError(res.status, error.error || `HTTP ${res.status}`);
     }
 
     return res.json();
