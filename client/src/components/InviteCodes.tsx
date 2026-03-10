@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
+import { Copy, CheckCircle } from 'lucide-react';
 
 interface InviteCode {
   id: number;
@@ -26,18 +28,14 @@ export function InviteCodes() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [newCode, setNewCode] = useState('');
+  const [copied, setCopied] = useState<string | null>(null);
 
   // Fetch user's codes
   const fetchCodes = async () => {
     try {
-      const response = await fetch('/api/invites/my-codes', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setCodes(data.codes);
-        setStats(data.stats);
-      }
+      const data = await api.get<{ codes: InviteCode[], stats: InviteStats }>('/invites/my-codes');
+      setCodes(data.codes);
+      setStats(data.stats);
     } catch (err) {
       console.error('Failed to fetch codes:', err);
     }
@@ -46,14 +44,9 @@ export function InviteCodes() {
   // Check remaining time
   const checkRemainingTime = async () => {
     try {
-      const response = await fetch('/api/invites/remaining-time', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setCanGenerateNow(data.canGenerateNow);
-        setRemainingSeconds(data.secondsRemaining || 0);
-      }
+      const data = await api.get<{ canGenerateNow: boolean, secondsRemaining: number }>('/invites/remaining-time');
+      setCanGenerateNow(data.canGenerateNow);
+      setRemainingSeconds(data.secondsRemaining || 0);
     } catch (err) {
       console.error('Failed to check remaining time:', err);
     }
@@ -91,28 +84,20 @@ export function InviteCodes() {
       setSuccess('');
       setNewCode('');
 
-      const response = await fetch('/api/invites/generate', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.message || data.error || 'Failed to generate code');
-        return;
-      }
-
-      const data = await response.json();
+      const data = await api.post<{ code: string }>('/invites/generate', {});
       setNewCode(data.code);
       setSuccess('Код успешно создан!');
       setCanGenerateNow(false);
       checkRemainingTime();
       fetchCodes();
-    } catch (err) {
-      setError('Ошибка при создании кода');
+    } catch (err: any) {
+      if (err.status === 429) {
+        setError('Вы можете создавать коды только один раз в 24 часа');
+      } else if (err.status === 409) {
+        setError('Вы достигли максимального количества активных кодов');
+      } else {
+        setError('Ошибка при создании кода');
+      }
       console.error('Generate code error:', err);
     } finally {
       setGenerating(false);
@@ -121,8 +106,8 @@ export function InviteCodes() {
 
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);
-    setSuccess('Код скопирован в буфер обмена!');
-    setTimeout(() => setSuccess(''), 2000);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const formatTime = (seconds: number): string => {
@@ -135,104 +120,123 @@ export function InviteCodes() {
   };
 
   if (!user) {
-    return <div className="text-center text-gray-500">Требуется авторизация</div>;
+    return <div className="text-center text-[var(--color-text-muted)]">Требуется авторизация</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-blue-50 p-3 rounded-lg text-center">
-          <div className="text-2xl font-bold text-blue-600">{stats.totalCreated}</div>
-          <div className="text-xs text-gray-600">Создано кодов</div>
+    <div className="pb-4 space-y-3 md:space-y-8">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
+        {/* Total Created */}
+        <div className="rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-3 md:p-5 text-center">
+          <div className="text-2xl md:text-3xl font-black metallic-text">{stats.totalCreated}</div>
+          <p className="text-[9px] md:text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider opacity-50 mt-1">Создано кодов</p>
         </div>
-        <div className="bg-green-50 p-3 rounded-lg text-center">
-          <div className="text-2xl font-bold text-green-600">{stats.alreadyUsed}</div>
-          <div className="text-xs text-gray-600">Друзей приглашено</div>
+
+        {/* Friends Invited */}
+        <div className="rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-3 md:p-5 text-center">
+          <div className="text-2xl md:text-3xl font-black" style={{ color: 'var(--color-primary-apple)' }}>{stats.alreadyUsed}</div>
+          <p className="text-[9px] md:text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider opacity-50 mt-1">Друзей при.</p>
         </div>
-        <div className="bg-amber-50 p-3 rounded-lg text-center">
-          <div className="text-2xl font-bold text-amber-600">{stats.activeUnused}</div>
-          <div className="text-xs text-gray-600">Активных кодов</div>
+
+        {/* Active Codes */}
+        <div className="rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-3 md:p-5 text-center">
+          <div className="text-2xl md:text-3xl font-black" style={{ color: 'var(--color-primary-apple)' }}>{stats.activeUnused}</div>
+          <p className="text-[9px] md:text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider opacity-50 mt-1">Активных</p>
         </div>
       </div>
 
       {/* Generate Code Section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold text-gray-800">Создать новый инвайт-код</h3>
+      <div className="rounded-2xl md:rounded-[40px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-4 md:p-10">
+        <h3 className="text-lg md:text-xl font-black text-[var(--color-text-main)] mb-4 md:mb-6 tracking-tight">Создать код</h3>
 
+        {/* New Code Display */}
         {newCode && (
-          <div className="bg-green-100 border border-green-400 rounded p-3 flex items-center justify-between">
-            <div>
-              <div className="font-mono font-bold text-green-800">{newCode}</div>
-              <div className="text-xs text-green-700">Скопируйте и поделитесь!</div>
+          <div className="mb-4 md:mb-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/30 p-4 md:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] md:text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2">Ваш код</p>
+                <div className="text-3xl md:text-4xl font-black font-mono text-emerald-600 dark:text-emerald-400 tracking-widest break-all">{newCode}</div>
+                <p className="text-xs md:text-sm text-[var(--color-text-muted)] mt-2">Скопируйте и поделитесь с друзьями!</p>
+              </div>
+              <button
+                onClick={() => copyToClipboard(newCode)}
+                className={`flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-all ${
+                  copied === newCode
+                    ? 'iron-metal-bg text-white'
+                    : 'bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:iron-metal-bg hover:text-white'
+                }`}
+              >
+                {copied === newCode ? <CheckCircle className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
+              </button>
             </div>
-            <button
-              onClick={() => copyToClipboard(newCode)}
-              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-            >
-              Копировать
-            </button>
           </div>
         )}
 
+        {/* Error Message */}
         {error && (
-          <div className="bg-red-100 border border-red-400 rounded p-3 text-red-800 text-sm">
-            {error}
+          <div className="mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 p-4 md:p-5">
+            <p className="text-sm md:text-base font-bold text-rose-600 dark:text-rose-400">{error}</p>
           </div>
         )}
 
-        {success && !newCode && (
-          <div className="bg-blue-100 border border-blue-400 rounded p-3 text-blue-800 text-sm">
-            {success}
-          </div>
-        )}
-
+        {/* Generate Button or Timer */}
         {canGenerateNow ? (
           <button
             onClick={generateCode}
             disabled={generating}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+            className={`w-full py-3 md:py-4 px-6 rounded-2xl md:rounded-[28px] font-black text-sm md:text-base tracking-tight transition-all active:scale-[0.98] ${
+              generating
+                ? 'iron-metal-bg text-white opacity-70'
+                : 'iron-metal-bg text-white hover:shadow-lg'
+            }`}
           >
-            {generating ? 'Создание...' : '✨ Создать код'}
+            {generating ? '⏳ Создание кода...' : '✨ Создать инвайт-код'}
           </button>
         ) : (
-          <div>
-            <div className="text-sm text-gray-600 mb-3">
-              Следующий код можно будет создать через:
-            </div>
-            <div className="text-center p-3 bg-gray-100 rounded">
-              <div className="text-3xl font-bold text-gray-800">{formatTime(remainingSeconds)}</div>
+          <div className="space-y-3">
+            <p className="text-sm md:text-base text-[var(--color-text-muted)] font-bold">Следующий код через:</p>
+            <div className="flex items-center justify-center p-6 md:p-8 rounded-2xl bg-black/5 dark:bg-white/5 border border-[var(--apple-border)]">
+              <div className="text-center">
+                <div className="text-4xl md:text-5xl font-black metallic-text">{formatTime(remainingSeconds)}</div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Active Codes */}
+      {/* Codes List */}
       {codes.length > 0 && (
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h3 className="font-semibold text-gray-800 mb-3">Ваши коды</h3>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div className="rounded-2xl md:rounded-[40px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-4 md:p-10">
+          <h3 className="text-lg md:text-xl font-black text-[var(--color-text-main)] mb-4 md:mb-6 tracking-tight">Ваши коды</h3>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
             {codes.map((code) => (
               <div
                 key={code.id}
-                className={`flex items-center justify-between p-3 rounded border ${
-                  code.usedAt ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                className={`flex items-center gap-3 md:gap-5 p-3 md:p-4 rounded-2xl border transition-all ${
+                  code.usedAt
+                    ? 'bg-black/5 dark:bg-white/5 border-[var(--apple-border)] opacity-60'
+                    : 'bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)]'
                 }`}
               >
-                <div className="flex-1">
-                  <div className="font-mono font-semibold text-gray-800">{code.code}</div>
-                  <div className="text-xs text-gray-600">
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono font-black text-lg md:text-xl text-[var(--color-text-main)]">{code.code}</div>
+                  <p className="text-xs md:text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-wider opacity-50 mt-1">
                     {code.usedAt
                       ? `Использован ${new Date(code.usedAt).toLocaleDateString('ru-RU')}`
-                      : 'Активный код'}
-                  </div>
+                      : '✓ Активный'}
+                  </p>
                 </div>
                 {!code.usedAt && (
                   <button
                     onClick={() => copyToClipboard(code.code)}
-                    className="ml-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
+                      copied === code.code
+                        ? 'iron-metal-bg text-white'
+                        : 'bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:iron-metal-bg hover:text-white'
+                    }`}
                   >
-                    Копировать
+                    {copied === code.code ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                   </button>
                 )}
               </div>
@@ -241,7 +245,7 @@ export function InviteCodes() {
         </div>
       )}
 
-      {loading && <div className="text-center text-gray-500">Загрузка...</div>}
+      {loading && <div className="text-center py-8 text-[var(--color-text-muted)]">Загрузка кодов...</div>}
     </div>
   );
 }
