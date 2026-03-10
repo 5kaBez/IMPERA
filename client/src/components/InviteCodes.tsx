@@ -22,8 +22,8 @@ export function InviteCodes() {
   const [codes, setCodes] = useState<InviteCode[]>([]);
   const [stats, setStats] = useState<InviteStats>({ totalCreated: 0, activeUnused: 0, alreadyUsed: 0 });
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [canGenerateNow, setCanGenerateNow] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [canGenerateNow, setCanGenerateNow] = useState(true); // Start as true, will update after load
+  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -54,11 +54,24 @@ export function InviteCodes() {
 
   // Initial load
   useEffect(() => {
-    if (user) {
-      setLoading(true);
-      Promise.all([fetchCodes(), checkRemainingTime()]).finally(() => setLoading(false));
+    if (!user) {
+      setLoading(false);
+      return;
     }
-  }, [user]);
+    
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchCodes(), checkRemainingTime()]);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [user?.id]); // Only user.id as dependency
 
   // Countdown timer
   useEffect(() => {
