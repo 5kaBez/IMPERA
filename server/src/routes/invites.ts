@@ -5,9 +5,9 @@ import crypto from 'crypto';
 
 const router = Router();
 
-// Utility function to generate unique invite code
+// Utility function to generate unique invite code (6-digit numeric)
 function generateInviteCode(): string {
-  return crypto.randomBytes(4).toString('hex').toUpperCase();
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 // GET /api/invites/my-codes - Get current user's codes
