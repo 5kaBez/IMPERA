@@ -355,25 +355,18 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/auth/register-with-code — регистрация с инвайт-кодом
-router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res: Response) => {
+// POST /api/auth/register-with-code — регистрация с инвайт-кодом (публичный, без авторизации)
+router.post('/register-with-code', async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
-    const { code } = req.body;
+    const { code, telegramData } = req.body;
 
     if (!code || typeof code !== 'string') {
       res.status(400).json({ error: 'Код не предоставлен' });
       return;
     }
 
-    // Найти юзера
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!user) {
-      res.status(404).json({ error: 'Пользователь не найден' });
-      return;
-    }
-
-    // Найти инвайт-код
+    // Найти инвайт-код первым
     const inviteCode = await prisma.inviteCode.findUnique({
       where: { code }
     });
@@ -389,11 +382,43 @@ router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res:
       return;
     }
 
+    // Проверить telegramData или userId если уже залогинен
+    let userId = req.userId;
+    
+    if (!userId) {
+      // Регистрируем нового пользователя с кодом
+      if (!telegramData) {
+        res.status(400).json({ error: 'Требуется Telegram данные или авторизация' });
+        return;
+      }
+
+      const { id: telegramId, first_name: firstName, last_name: lastName } = telegramData;
+      
+      // Проверяем, существует ли уже пользователь с этим telegramId
+      let user = await prisma.user.findUnique({
+        where: { telegramId: String(telegramId) }
+      });
+
+      if (!user) {
+        // Создаем нового пользователя
+        user = await prisma.user.create({
+          data: {
+            telegramId: String(telegramId),
+            firstName: firstName || 'User',
+            lastName: lastName || '',
+            role: 'student',
+            activated: true,
+          }
+        });
+      }
+      userId = user.id;
+    }
+
     // Отметить код как использованный
     await prisma.inviteCode.update({
       where: { id: inviteCode.id },
       data: {
-        usedById: user.id,
+        usedById: userId,
         usedAt: new Date(),
       }
     });
@@ -412,7 +437,7 @@ router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res:
       }
     });
 
-    console.log(`🎟️ Invite code ${code} used by ${user.firstName} (userId: ${user.id}), invited by ${codeCreator?.firstName}`);
+    console.log(`🎟️ Invite code ${code} used, invited by ${codeCreator?.firstName}`);
 
     res.json({
       success: true,
