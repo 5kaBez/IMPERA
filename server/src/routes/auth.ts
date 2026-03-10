@@ -355,14 +355,14 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/auth/activate — активация по инвайт-коду (закрытый бета-тест)
-router.post('/activate', authMiddleware, async (req: AuthRequest, res: Response) => {
+// POST /api/auth/register-with-code — регистрация с инвайт-кодом
+router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
     const { code } = req.body;
 
-    if (!code || typeof code !== 'string' || code.length !== 6) {
-      res.status(400).json({ error: 'Введите 6-значный код' });
+    if (!code || typeof code !== 'string') {
+      res.status(400).json({ error: 'Код не предоставлен' });
       return;
     }
 
@@ -373,39 +373,85 @@ router.post('/activate', authMiddleware, async (req: AuthRequest, res: Response)
       return;
     }
 
-    // Уже активирован?
-    if (user.activated) {
-      res.json({ success: true, message: 'Аккаунт уже активирован' });
-      return;
-    }
-
     // Найти инвайт-код
-    const inviteCode = await prisma.inviteCode.findUnique({ where: { code } });
+    const inviteCode = await prisma.inviteCode.findUnique({
+      where: { code }
+    });
+
     if (!inviteCode) {
-      res.status(400).json({ error: 'Неверный код' });
+      res.status(404).json({ error: 'Инвайт-код не найден' });
       return;
     }
 
-    if (inviteCode.used) {
-      res.status(400).json({ error: 'Этот код уже использован' });
+    // Проверить, не использован ли код
+    if (inviteCode.usedAt) {
+      res.status(410).json({ error: 'Этот код уже использован' });
       return;
     }
 
-    // Активируем юзера и помечаем код как использованный
-    await Promise.all([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { activated: true },
-      }),
-      prisma.inviteCode.update({
-        where: { id: inviteCode.id },
-        data: { used: true, usedByTgId: user.telegramId, usedAt: new Date() },
-      }),
-    ]);
+    // Отметить код как использованный
+    await prisma.inviteCode.update({
+      where: { id: inviteCode.id },
+      data: {
+        usedById: user.id,
+        usedAt: new Date(),
+      }
+    });
 
-    console.log(`🎟️ Invite code ${code} used by ${user.firstName} (tgId: ${user.telegramId})`);
+    // Получить информацию о создателе кода
+    const codeCreator = await prisma.user.findUnique({
+      where: { id: inviteCode.creatorId },
+      select: { id: true, firstName: true, lastName: true }
+    });
 
-    res.json({ success: true, message: 'Добро пожаловать в IMPERA!' });
+    // Обновить статистику создателя кода
+    await prisma.user.update({
+      where: { id: inviteCode.creatorId },
+      data: {
+        referralCount: { increment: 1 }
+      }
+    });
+
+    console.log(`🎟️ Invite code ${code} used by ${user.firstName} (userId: ${user.id}), invited by ${codeCreator?.firstName}`);
+
+    res.json({
+      success: true,
+      message: 'Код успешно использован!',
+      invitedBy: codeCreator
+        ? {
+            id: codeCreator.id,
+            name: `${codeCreator.firstName} ${codeCreator.lastName || ''}`
+          }
+        : undefined
+    });
+  } catch (err) {
+    console.error('Register with code error:', err);
+    res.status(500).json({ error: 'Ошибка при использовании кода' });
+  }
+});
+
+// POST /api/auth/activate — (LEGACY) активация по инвайт-коду (закрытый бета-тест)
+// Сохранён для обратной совместимости
+router.post('/activate', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      res.status(400).json({ error: 'Введите код' });
+      return;
+    }
+
+    // Попытаться использовать как новый инвайт-код
+    const inviteCode = await prisma.inviteCode.findUnique({ where: { code } });
+
+    if (inviteCode) {
+      // Это новый инвайт-код, используем новый эндпоинт
+      return res.status(301).json({ error: 'Используйте /register-with-code' });
+    }
+
+    // Иначе пытаемся для легаси (если вообще существуют такие коды)
+    res.status(404).json({ error: 'Код не найден' });
   } catch (err) {
     console.error('Activate error:', err);
     res.status(500).json({ error: 'Ошибка активации' });

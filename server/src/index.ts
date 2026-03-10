@@ -14,6 +14,7 @@ import feedbackRoutes from './routes/feedback';
 import teacherRoutes from './routes/teachers';
 import sportsRoutes from './routes/sports';
 import sportsAttendanceRoutes from './routes/sports-attendance';
+import invitesRoutes from './routes/invites';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
@@ -47,7 +48,7 @@ app.use(express.json());
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../../client/dist')));
+  app.use(express.static(path.join(__dirname, '../../../client/dist')));
 }
 
 // Make prisma available to routes
@@ -63,6 +64,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/sports', sportsRoutes);
 app.use('/api/sports/attendance', sportsAttendanceRoutes);
+app.use('/api/invites', invitesRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {
@@ -89,7 +91,7 @@ app.get('/api/health', async (_req, res) => {
 // SPA fallback in production (Express v5 requires {*path} instead of *)
 if (process.env.NODE_ENV === 'production') {
   app.get('{*path}', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+    res.sendFile(path.join(__dirname, '../../../client/dist/index.html'));
   });
 }
 
@@ -117,26 +119,20 @@ app.listen(Number(PORT), HOST, async () => {
     console.error('Failed to seed admin:', e);
   }
 
-  // Seed invite codes for closed beta (15 одноразовых 6-значных кодов)
+  // Ensure AdminSettings exists (global invite code settings)
   try {
-    const BETA_CODES = [
-      '847291', '163058', '529473', '731649', '285016',
-      '694382', '418597', '956234', '372861', '640715',
-      '198453', '503927', '862140', '275689', '431076',
-    ];
-    let seeded = 0;
-    for (const code of BETA_CODES) {
-      const exists = await prisma.inviteCode.findUnique({ where: { code } });
-      if (!exists) {
-        await prisma.inviteCode.create({ data: { code } });
-        seeded++;
-      }
-    }
-    const totalCodes = await prisma.inviteCode.count();
-    const usedCodes = await prisma.inviteCode.count({ where: { used: true } });
-    console.log(`🎟️ Invite codes: ${totalCodes} total, ${usedCodes} used (${seeded} new seeded)`);
+    await prisma.adminSettings.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
+        inviteCooldownHours: 24,
+        maxActiveCodesPerUser: 5,
+      },
+    });
+    console.log('⚙️ Admin settings ensured');
   } catch (e) {
-    console.error('Failed to seed invite codes:', e);
+    console.error('Failed to seed admin settings:', e);
   }
 
   // Start Telegram bot

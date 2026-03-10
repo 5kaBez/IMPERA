@@ -91,6 +91,8 @@ model User {
   referralCount  Int        @default(0) // сколько людей пригласил
   activated      Boolean    @default(true) // false = нужен инвайт-код для доступа
   banned         Boolean    @default(false) // заблокированный пользователь
+  lastCodeGeneration  DateTime?   // Время последней генерации инвайт-кода
+  codesGeneratedTotal Int     @default(0)  // Общий счётчик созданных кодов
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   feedbacks       Feedback[]
@@ -100,6 +102,8 @@ model User {
   sportTeaching     SportTeacher[]     // Секции, где юзер — преподаватель физры
   sportSessions     SportSession[]     @relation("SessionTeacher")
   sportAttendances  SportAttendance[]  @relation("AttendanceStudent")
+  codesCreated    InviteCode[]  @relation("CodeCreator")
+  codesUsed       InviteCode[]  @relation("CodeUsedBy")
 }
 
 model Feedback {
@@ -265,12 +269,27 @@ model ScheduleImport {
   finishedAt    DateTime?
 }
 
-// ===== Инвайт-коды для закрытого бета-теста =====
+// ===== Инвайт-коды для вирусной механики приглашений =====
 model InviteCode {
   id         Int       @id @default(autoincrement())
-  code       String    @unique   // 6-значный код
-  used       Boolean   @default(false)
-  usedByTgId String?             // telegramId того, кто использовал
-  usedAt     DateTime?
+  code       String    @unique   // 8-символьная уникальная строка
+  creatorId  Int
+  creator    User      @relation("CodeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
+  usedById   Int?                // telegramId или id того, кто использовал
+  usedBy     User?     @relation("CodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  usedAt     DateTime?
+  
+  @@index([creatorId])
+  @@index([usedById])
+  @@index([createdAt])
+}
+
+// ===== Глобальные настройки (инвайт-система и другое) =====
+model AdminSettings {
+  id                  Int     @id @default(autoincrement())
+  inviteCooldownHours Int     @default(24)  // N часов между создением кодов
+  maxActiveCodesPerUser Int   @default(5)   // Макс неиспользованных кодов
+  
+  @@unique([id]) // Гарантирует что записей в таблице максимум одна
 }

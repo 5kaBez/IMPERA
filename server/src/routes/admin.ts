@@ -277,44 +277,148 @@ router.get('/invite-codes', async (req: Request, res: Response) => {
 });
 
 // POST /api/admin/invite-codes — create new invite code(s)
-router.post('/invite-codes', async (req: Request, res: Response) => {
+// POST /api/admin/invite-codes — Generate beta invite codes (admin only)
+// Note: These are for administrative distribution, typically one-time use
+router.post('/invite-codes', authMiddleware, async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
+  
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
   const { count = 1 } = req.body;
   const qty = Math.min(Math.max(1, Number(count) || 1), 50);
 
-  const created: string[] = [];
+  const created: Array<{ code: string; id: number }> = [];
   for (let i = 0; i < qty; i++) {
-    // Generate unique 6-digit code
+    // Generate unique 8-char code
     let code: string;
     let exists = true;
+    let attempts = 0;
     do {
-      code = String(Math.floor(100000 + Math.random() * 900000));
+      code = Math.random().toString(36).substring(2, 10).toUpperCase();
       const found = await prisma.inviteCode.findUnique({ where: { code } });
       exists = !!found;
-    } while (exists);
+      attempts++;
+    } while (exists && attempts < 10);
 
-    await prisma.inviteCode.create({ data: { code } });
-    created.push(code);
+    if (!exists) {
+      const adminId = req.userId || 1;
+      const newCode = await prisma.inviteCode.create({
+        data: {
+          code,
+          creatorId: adminId,
+        }
+      });
+      created.push({ code: newCode.code, id: newCode.id });
+    }
   }
 
   res.json({ success: true, created, count: created.length });
 });
 
 // DELETE /api/admin/invite-codes/:id — delete unused invite code
-router.delete('/invite-codes/:id', async (req: Request, res: Response) => {
+router.delete('/invite-codes/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
+
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
   const id = parseInt(String(req.params.id));
   const code = await prisma.inviteCode.findUnique({ where: { id } });
   if (!code) {
     res.status(404).json({ error: 'Код не найден' });
     return;
   }
-  if (code.used) {
+  if (code.usedAt) {
     res.status(400).json({ error: 'Нельзя удалить использованный код' });
     return;
   }
   await prisma.inviteCode.delete({ where: { id } });
   res.json({ success: true });
+});
+
+// GET /api/admin/invite-codes — List all invite codes with filters
+router.get('/invite-codes', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
+  const { filter = 'all', creatorId, limit = 100 } = req.query;
+
+  const whereClause: any = {};
+  if (filter === 'active') {
+    whereClause.usedAt = null;
+  } else if (filter === 'used') {
+    whereClause.usedAt = { not: null };
+  }
+  if (creatorId) {
+    whereClause.creatorId = parseInt(String(creatorId));
+  }
+
+  const codes = await prisma.inviteCode.findMany({
+    where: whereClause,
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(parseInt(String(limit)) || 100, 1000),
+  });
+
+  // Fetch creator/usedBy for each code
+  const codesWithInfo = await Promise.all(
+    codes.map(async (code) => {
+      const creator = code.creatorId 
+        ? await prisma.user.findUnique({ 
+            where: { id: code.creatorId },
+            select: { id: true, firstName: true, lastName: true }
+          })
+        : null;
+      
+      const usedBy = code.usedById
+        ? await prisma.user.findUnique({
+            where: { id: code.usedById },
+            select: { id: true, firstName: true, lastName: true }
+          })
+        : null;
+
+      return { ...code, creator, usedBy };
+    })
+  );
+
+  // Calculate stats
+  const totalCodes = await prisma.inviteCode.count();
+  const usedCodes = await prisma.inviteCode.count({ where: { usedAt: { not: null } } });
+  const activeCodes = totalCodes - usedCodes;
+
+  res.json({
+    codes: codesWithInfo,
+    stats: {
+      total: totalCodes,
+      active: activeCodes,
+      used: usedCodes,
+      average_lifetime_hours: 
+        usedCodes > 0 
+          ? Math.round(
+              codes
+                .filter(c => c.usedAt)
+                .reduce((sum, c) => {
+                  const lifetime = (c.usedAt!.getTime() - c.createdAt.getTime()) / (1000 * 60 * 60);
+                  return sum + lifetime;
+                }, 0) / usedCodes
+            )
+          : 0,
+    }
+  });
 });
 
 // POST /api/admin/invite-codes/reset-users — set all non-admin users to activated=false
@@ -410,6 +514,89 @@ router.put('/users/:id/ban', async (req: Request, res: Response) => {
   });
 
   res.json({ success: true, banned: updated.banned });
+});
+
+// ===== Invite Code Settings =====
+
+// GET /api/admin/settings/invites — Get invite code settings
+router.get('/settings/invites', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
+  const settings = await prisma.adminSettings.findFirst();
+  res.json(settings || { inviteCooldownHours: 24, maxActiveCodesPerUser: 5 });
+});
+
+// POST /api/admin/settings/invites — Update invite code settings
+router.post('/settings/invites', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
+  const { inviteCooldownHours, maxActiveCodesPerUser } = req.body;
+
+  const settings = await prisma.adminSettings.upsert({
+    where: { id: 1 },
+    update: {
+      inviteCooldownHours: inviteCooldownHours || undefined,
+      maxActiveCodesPerUser: maxActiveCodesPerUser || undefined,
+    },
+    create: {
+      id: 1,
+      inviteCooldownHours: inviteCooldownHours || 24,
+      maxActiveCodesPerUser: maxActiveCodesPerUser || 5,
+    },
+  });
+
+  res.json({ success: true, settings });
+});
+
+// POST /api/admin/users/:id/reset-invite-cooldown — Force reset invite code cooldown for user
+router.post('/users/:id/reset-invite-cooldown', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+
+  // Check if user is admin
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
+  const targetUserId = parseInt(String(req.params.id));
+  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+
+  if (!targetUser) {
+    res.status(404).json({ error: 'Пользователь не найден' });
+    return;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: targetUserId },
+    data: { lastCodeGeneration: null } as any,
+  });
+
+  console.log(`⏱️ Invite cooldown reset for user ${updated.firstName} (id: ${updated.id})`);
+
+  res.json({
+    success: true,
+    message: `Cooldown сброшен для ${updated.firstName}`,
+    user: {
+      id: updated.id,
+      firstName: updated.firstName,
+      lastCodeGeneration: (updated as any).lastCodeGeneration,
+    }
+  });
 });
 
 export default router;

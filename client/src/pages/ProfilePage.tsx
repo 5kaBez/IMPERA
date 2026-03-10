@@ -3,12 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
 import type { User as UserType } from '../types';
-import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight } from 'lucide-react';
+import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare } from 'lucide-react';
+import { FeedbackModal } from '../components/FeedbackModal';
 
 export default function ProfilePage() {
   const { user, updateUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   if (!user) return null;
 
@@ -88,6 +90,21 @@ export default function ProfilePage() {
           <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] opacity-30 flex-shrink-0" />
         </button>
 
+        {/* Feedback */}
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          className="w-full flex items-center gap-3 md:gap-5 p-3 md:p-5 rounded-2xl md:rounded-[28px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:scale-[0.98] transition-transform duration-200 group"
+        >
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center text-[var(--color-text-muted)] group-active:iron-metal-bg group-active:text-white transition-colors flex-shrink-0 overflow-hidden">
+            <MessageSquare className="w-5 h-5 md:w-6 md:h-6" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[13px] md:text-sm font-black text-[var(--color-text-main)] tracking-tight">Обратная связь</p>
+            <p className="text-[9px] md:text-[10px] font-bold text-[var(--color-text-muted)] opacity-50 uppercase tracking-wider">Помогите улучшить приложение</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] opacity-30 flex-shrink-0" />
+        </button>
+
         {/* Notifications */}
         <ToggleRow
           icon={Bell}
@@ -126,6 +143,8 @@ export default function ProfilePage() {
         </div>
         <span className="text-[13px] md:text-sm font-black text-rose-500 group-active:text-white tracking-tight">Выйти из аккаунта</span>
       </button>
+
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </div>
   );
 }

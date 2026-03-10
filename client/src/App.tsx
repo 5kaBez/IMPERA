@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import SchedulePage from './pages/SchedulePage';
 import ProfilePage from './pages/ProfilePage';
+import InvitesPage from './pages/InvitesPage';
 import SelectGroupPage from './pages/SelectGroupPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminSchedule from './pages/admin/AdminSchedule';
@@ -103,6 +104,7 @@ function App() {
           <Route path="/" element={<SchedulePage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/invites" element={<InvitesPage />} />
           <Route path="/sports" element={<SportsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
           {user.role === 'admin' && (

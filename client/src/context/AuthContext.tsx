@@ -42,7 +42,7 @@ interface AuthContextType {
   updateUser: (user: User) => void;
 }
 
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   isTelegramWebApp: false,
