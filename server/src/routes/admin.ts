@@ -294,12 +294,12 @@ router.post('/invite-codes', authMiddleware, async (req: AuthRequest, res: Respo
 
   const created: Array<{ code: string; id: number }> = [];
   for (let i = 0; i < qty; i++) {
-    // Generate unique 8-char code
+    // Generate unique 6-digit numeric code
     let code: string;
     let exists = true;
     let attempts = 0;
     do {
-      code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      code = Math.floor(100000 + Math.random() * 900000).toString();
       const found = await prisma.inviteCode.findUnique({ where: { code } });
       exists = !!found;
       attempts++;

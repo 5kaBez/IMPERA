@@ -33,7 +33,7 @@ export function InviteCodes() {
   // Fetch user's codes
   const fetchCodes = async () => {
     try {
-      const data = await api.get<{ codes: InviteCode[], stats: InviteStats }>('/invites/my-codes');
+      const data = await api.get<{ codes: InviteCode[], stats: InviteStats }>('/api/invites/my-codes');
       setCodes(data.codes);
       setStats(data.stats);
     } catch (err) {
@@ -44,7 +44,7 @@ export function InviteCodes() {
   // Check remaining time
   const checkRemainingTime = async () => {
     try {
-      const data = await api.get<{ canGenerateNow: boolean, secondsRemaining: number }>('/invites/remaining-time');
+      const data = await api.get<{ canGenerateNow: boolean, secondsRemaining: number }>('/api/invites/remaining-time');
       setCanGenerateNow(data.canGenerateNow);
       setRemainingSeconds(data.secondsRemaining || 0);
     } catch (err) {
@@ -84,7 +84,7 @@ export function InviteCodes() {
       setSuccess('');
       setNewCode('');
 
-      const data = await api.post<{ code: string }>('/invites/generate', {});
+      const data = await api.post<{ code: string }>('/api/invites/generate', {});
       setNewCode(data.code);
       setSuccess('Код успешно создан!');
       setCanGenerateNow(false);

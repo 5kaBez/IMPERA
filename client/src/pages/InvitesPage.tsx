@@ -13,9 +13,9 @@ export default function InvitesPage() {
       </div>
 
       {/* Info Card */}
-      <div className="rounded-2xl md:rounded-[40px] bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 p-4 md:p-6 mb-6">
-        <h2 className="font-bold text-blue-900 dark:text-blue-200 mb-2">Как это работает?</h2>
-        <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-disc pl-4">
+      <div className="rounded-2xl md:rounded-[40px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-4 md:p-6 mb-6">
+        <h2 className="font-black text-[var(--color-text-main)] mb-3 tracking-tight">Как это работает?</h2>
+        <ul className="text-sm text-[var(--color-text-muted)] space-y-2 list-disc pl-4">
           <li>Создавайте уникальные инвайт-коды для друзей</li>
           <li>Каждый друг может использовать код один раз при регистрации</li>
           <li>Отслеживайте, сколько друзей вы пригласили</li>
