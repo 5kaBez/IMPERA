@@ -36,8 +36,10 @@ export function InviteCodes() {
       const data = await api.get<{ codes: InviteCode[], stats: InviteStats }>('/api/invites/my-codes');
       setCodes(data.codes);
       setStats(data.stats);
-    } catch (err) {
+      setError('');
+    } catch (err: any) {
       console.error('Failed to fetch codes:', err);
+      setError(`Ошибка загрузки кодов: ${err.message || 'Неизвестная ошибка'}`);
     }
   };
 
@@ -47,8 +49,10 @@ export function InviteCodes() {
       const data = await api.get<{ canGenerateNow: boolean, secondsRemaining: number }>('/api/invites/remaining-time');
       setCanGenerateNow(data.canGenerateNow);
       setRemainingSeconds(data.secondsRemaining || 0);
-    } catch (err) {
+      setError('');
+    } catch (err: any) {
       console.error('Failed to check remaining time:', err);
+      setError(`Ошибка проверки таймера: ${err.message || 'Неизвестная ошибка'}`);
     }
   };
 

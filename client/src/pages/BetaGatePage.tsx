@@ -72,7 +72,13 @@ export default function BetaGatePage() {
     setError('');
 
     try {
-      await api.post('/auth/register-with-code', { code });
+      // Get Telegram user data
+      const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      
+      await api.post('/auth/register-with-code', { 
+        code,
+        telegramData: telegramUser 
+      });
       setSuccess(true);
 
       // Refresh user
