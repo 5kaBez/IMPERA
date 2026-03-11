@@ -8,6 +8,7 @@ import https from 'https';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 import { parseGUUScheduleFiles, recordsToXlsxBuffer, type FileInput } from './guuParser';
 import { parseExcelSchedule } from './excelParser';
 
@@ -176,10 +177,17 @@ function fetchUrl(url: string): Promise<string> {
         fetchUrl(nextUrl).then(resolve).catch(reject);
         return;
       }
+
+      let stream: NodeJS.ReadableStream = res;
+      const encoding = res.headers['content-encoding'];
+      if (encoding === 'gzip') stream = res.pipe(zlib.createGunzip());
+      else if (encoding === 'deflate') stream = res.pipe(zlib.createInflate());
+      else if (encoding === 'br') stream = res.pipe(zlib.createBrotliDecompress());
+
       const chunks: Buffer[] = [];
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-      res.on('error', reject);
+      stream.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+      stream.on('error', reject);
     }).on('error', reject);
   });
 }
