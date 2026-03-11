@@ -355,11 +355,11 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/auth/register-with-code — регистрация с инвайт-кодом (публичный, без авторизации)
-router.post('/register-with-code', async (req: AuthRequest, res: Response) => {
+// POST /api/auth/register-with-code - invite code registration for authenticated users
+router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
-    const { code, telegramData } = req.body;
+    const { code } = req.body;
 
     if (!code || typeof code !== 'string') {
       res.status(400).json({ error: 'Код не предоставлен' });
@@ -382,39 +382,13 @@ router.post('/register-with-code', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Проверить telegramData или userId если уже залогинен
-    let userId = req.userId;
-    
+    // Требуется авторизация для использования кода
+    const userId = req.userId;
     if (!userId) {
-      // Регистрируем нового пользователя с кодом
-      if (!telegramData) {
-        res.status(400).json({ error: 'Требуется Telegram данные или авторизация' });
-        return;
-      }
-
-      const { id: telegramId, first_name: firstName, last_name: lastName } = telegramData;
-      
-      // Проверяем, существует ли уже пользователь с этим telegramId
-      let user = await prisma.user.findUnique({
-        where: { telegramId: String(telegramId) }
-      });
-
-      if (!user) {
-        // Создаем нового пользователя
-        user = await prisma.user.create({
-          data: {
-            telegramId: String(telegramId),
-            firstName: firstName || 'User',
-            lastName: lastName || '',
-            role: 'student',
-            activated: true,
-          }
-        });
-      }
-      userId = user.id;
+      res.status(401).json({ error: 'Полязователь не авторизован' });
+      return;
     }
 
-    // Отметить код как использованный
     await prisma.inviteCode.update({
       where: { id: inviteCode.id },
       data: {
@@ -423,7 +397,13 @@ router.post('/register-with-code', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Получить информацию о создателе кода
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        activated: true,
+      }
+    });
+
     const codeCreator = await prisma.user.findUnique({
       where: { id: inviteCode.creatorId },
       select: { id: true, firstName: true, lastName: true }
