@@ -430,26 +430,69 @@ function TeachersTab() {
 interface InviteCode {
   id: number;
   code: string;
-  used: boolean;
-  usedByTgId: string | null;
   usedAt: string | null;
   createdAt: string;
+  creator?: {
+    id: number;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+  usedBy?: {
+    id: number;
+    firstName?: string;
+    lastName?: string;
+  } | null;
+}
+
+interface CodeStats {
+  total: number;
+  active: number;
+  used: number;
+  average_lifetime_hours: number;
 }
 
 function CodesTab() {
   const [codes, setCodes] = useState<InviteCode[]>([]);
+  const [codeStats, setCodeStats] = useState<CodeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [createCount, setCreateCount] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearStatus, setClearStatus] = useState('');
+  const [cooldown, setCooldown] = useState(24);
+  const [maxActive, setMaxActive] = useState(5);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
 
   const fetchCodes = () => {
     setLoading(true);
-    api.get<InviteCode[]>('/admin/invite-codes').then(setCodes).finally(() => setLoading(false));
+    api
+      .get<{ codes: InviteCode[]; stats: CodeStats }>('/admin/invite-codes')
+      .then(data => {
+        setCodes(data.codes);
+        setCodeStats(data.stats);
+      })
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchCodes(); }, []);
+  const loadSettings = () => {
+    setSettingsLoading(true);
+    api
+      .get<{ inviteCooldownHours: number; maxActiveCodesPerUser: number }>('/admin/settings/invites')
+      .then(settings => {
+        setCooldown(settings.inviteCooldownHours);
+        setMaxActive(settings.maxActiveCodesPerUser);
+      })
+      .finally(() => setSettingsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchCodes();
+    loadSettings();
+  }, []);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -473,19 +516,67 @@ function CodesTab() {
   };
 
   const handleResetUsers = async () => {
-    if (!confirm('Сбросить activated у всех не-админов? Они снова увидят экран ввода кода.')) return;
+    if (!confirm('Reset activated flag for all non-admins?')) return;
     setResetting(true);
     try {
       const res = await api.post<{ updated: number }>('/admin/invite-codes/reset-users', {});
-      alert(`Сброшено: ${res.updated} пользователей`);
+      alert(`Reset ${res.updated} users`);
       fetchCodes();
     } finally {
       setResetting(false);
     }
   };
 
-  const usedCount = codes.filter(c => c.used).length;
-  const activeCount = codes.filter(c => !c.used).length;
+  const handleClearCodes = async () => {
+    if (!confirm('Delete all invite codes and reset generation timers?')) return;
+    setClearing(true);
+    try {
+      const res = await api.post<{ cleared: number; usersReset: number }>('/admin/invite-codes/clear');
+      setClearStatus(`Deleted ${res.cleared} codes, reset ${res.usersReset} users`);
+      fetchCodes();
+    } catch (err: any) {
+      setClearStatus(err?.message || 'Failed to clear codes');
+    } finally {
+      setClearing(false);
+      setTimeout(() => setClearStatus(''), 5000);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (savingSettings) return;
+    setSavingSettings(true);
+    try {
+      const payload = {
+        inviteCooldownHours: Math.max(1, Math.round(cooldown)),
+        maxActiveCodesPerUser: Math.max(1, Math.round(maxActive)),
+      };
+      await api.post('/admin/settings/invites', payload);
+      setSettingsMessage('Saved');
+      loadSettings();
+    } catch (err: any) {
+      setSettingsMessage(err?.message || 'Save failed');
+    } finally {
+      setSavingSettings(false);
+      setTimeout(() => setSettingsMessage(''), 4000);
+    }
+  };
+
+  const formatName = (user?: { firstName?: string; lastName?: string }) => {
+    if (!user) return 'User';
+    return `${user.firstName || 'User'}${user.lastName ? ` ${user.lastName}` : ''}`;
+  };
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStatus = (code: InviteCode) => (code.usedAt ? 'Used' : 'Active');
+
+  const totalCount = codeStats?.total ?? codes.length;
+  const activeCount = codeStats?.active ?? codes.filter(c => !c.usedAt).length;
+  const usedCount = codeStats?.used ?? codes.filter(c => !!c.usedAt).length;
+  const averageLifetime = codeStats?.average_lifetime_hours ?? 0;
 
   if (loading) {
     return (
@@ -497,113 +588,172 @@ function CodesTab() {
 
   return (
     <div>
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-2 md:gap-6 mb-4 md:mb-8">
-        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
-          <p className="text-2xl md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter">{codes.length}</p>
-          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Всего</p>
-        </div>
-        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
-          <p className="text-2xl md:text-4xl font-black text-emerald-500 tracking-tighter">{activeCount}</p>
-          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Активных</p>
-        </div>
-        <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
-          <p className="text-2xl md:text-4xl font-black text-red-500 tracking-tighter">{usedCount}</p>
-          <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 md:mt-2 uppercase tracking-widest">Использовано</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-8">
+        <SummaryCard label="Total" value={totalCount} />
+        <SummaryCard label="Active" value={activeCount} tone="emerald" />
+        <SummaryCard label="Used" value={usedCount} tone="rose" />
+        <SummaryCard label="Avg lifetime (h)" value={averageLifetime.toFixed(1)} tone="amber" />
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 md:gap-3 mb-4 md:mb-8">
-        <div className="flex items-center gap-2 apple-glass border border-[var(--apple-border)] rounded-2xl p-1.5 md:p-2">
-          <select
-            value={createCount}
-            onChange={e => setCreateCount(Number(e.target.value))}
-            className="bg-transparent text-xs md:text-sm font-bold text-[var(--color-text-main)] px-2 py-1 rounded-xl outline-none"
-          >
-            {[1, 3, 5, 10, 15, 20].map(n => (
-              <option key={n} value={n}>{n} шт</option>
-            ))}
-          </select>
-          <button
-            onClick={handleCreate}
-            disabled={creating}
-            className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl iron-metal-bg text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-gold-glow active:scale-95 transition-all disabled:opacity-50"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {creating ? 'Создаю...' : 'Создать'}
-          </button>
-        </div>
-
-        <button
-          onClick={handleResetUsers}
-          disabled={resetting}
-          className="flex items-center gap-1.5 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          {resetting ? 'Сброс...' : 'Сбросить юзеров'}
-        </button>
-      </div>
-
-      {/* Codes list */}
-      <div className="grid gap-2 md:gap-3">
-        {codes.map(code => (
-          <div
-            key={code.id}
-            className={`apple-card border p-3 md:p-4 flex items-center gap-3 md:gap-4 ${
-              code.used
-                ? 'border-red-500/20 opacity-60'
-                : 'border-emerald-500/20'
-            }`}
-          >
-            {/* Code */}
-            <button
-              onClick={() => handleCopy(code.code)}
-              className="flex items-center gap-2 min-w-0"
-              title="Скопировать"
+      <div className="grid gap-3 md:grid-cols-2 mb-6">
+        <div className="apple-card border border-[var(--apple-border)] p-4 md:p-6 shadow-lg">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <select
+              value={createCount}
+              onChange={e => setCreateCount(Number(e.target.value))}
+              className="bg-transparent text-xs md:text-sm font-bold text-[var(--color-text-main)] px-2 py-1 rounded-xl outline-none border border-white/10"
             >
-              <span className="text-lg md:text-2xl font-black tracking-[0.15em] text-[var(--color-text-main)] font-mono">
-                {code.code}
-              </span>
-              <Copy className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${
-                copied === code.code ? 'text-emerald-500' : 'text-[var(--color-text-muted)] opacity-40'
-              }`} />
+              {[1, 3, 5, 10, 15, 20].map(n => (
+                <option key={n} value={n}>{n} pcs</option>
+              ))}
+            </select>
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="flex items-center gap-2 px-4 py-2 rounded-2xl iron-metal-bg text-white text-xs font-black uppercase tracking-[0.2em] shadow-lg disabled:opacity-60 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              {creating ? 'Creating...' : 'Create codes'}
             </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleResetUsers}
+              disabled={resetting}
+              className="flex-1 min-w-[180px] flex items-center gap-2 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-[0.2em] disabled:opacity-50 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {resetting ? 'Resetting...' : 'Reset activated'}
+            </button>
+            <button
+              onClick={handleClearCodes}
+              disabled={clearing}
+              className="flex-1 min-w-[180px] flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/5 border border-[var(--apple-border)] text-[var(--color-text-main)] text-[9px] font-black uppercase tracking-[0.2em] disabled:opacity-50 transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              {clearing ? 'Clearing...' : 'Clear all codes'}
+            </button>
+          </div>
+          {clearStatus && (
+            <p className="mt-3 text-xs font-semibold text-[var(--color-text-muted)]">{clearStatus}</p>
+          )}
+        </div>
 
-            {/* Status */}
-            <div className="ml-auto flex items-center gap-2 md:gap-3 flex-shrink-0">
-              {code.used ? (
-                <div className="text-right">
-                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-2 py-1 rounded-lg">
-                    Использован
+        <div className="apple-card border border-[var(--apple-border)] p-4 md:p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Generation settings</p>
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-1">Cooldown & max active codes</p>
+            </div>
+            {settingsLoading && (
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)]">Loading...</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-[10px]">
+            <label className="flex flex-col gap-1 text-[var(--color-text-muted)]">
+              Cooldown (hrs)
+              <input
+                type="number"
+                min={1}
+                value={cooldown}
+                onChange={e => setCooldown(Number(e.target.value) || 0)}
+                className="bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] p-2 rounded-xl text-sm font-bold text-[var(--color-text-main)] outline-none"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[var(--color-text-muted)]">
+              Max active
+              <input
+                type="number"
+                min={1}
+                value={maxActive}
+                onChange={e => setMaxActive(Number(e.target.value) || 0)}
+                className="bg-black/5 dark:bg-white/5 border border-[var(--apple-border)] p-2 rounded-xl text-sm font-bold text-[var(--color-text-main)] outline-none"
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-3 mt-4">
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings || settingsLoading}
+              className="px-4 py-2 rounded-2xl iron-metal-bg text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg transition-all disabled:opacity-50"
+            >
+              {savingSettings ? 'Saving...' : 'Save'}
+            </button>
+            {settingsMessage && (
+              <span className="text-[10px] font-bold text-emerald-500">{settingsMessage}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:gap-3">
+        {codes.map(code => {
+          const isUsed = Boolean(code.usedAt);
+          return (
+            <div
+              key={code.id}
+              className={`apple-card border p-3 md:p-4 flex flex-col gap-3 ${
+                isUsed ? 'border-red-500/20 opacity-80' : 'border-emerald-500/20'
+              }`}
+            >
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => handleCopy(code.code)}
+                  className="flex items-center gap-2 min-w-[220px]"
+                  title="Copy"
+                >
+                  <span className="text-xl md:text-2xl font-black tracking-[0.15em] text-[var(--color-text-main)] font-mono">
+                    {code.code}
                   </span>
-                  {code.usedByTgId && (
-                    <p className="text-[8px] font-bold text-[var(--color-text-muted)] mt-1">
-                      TG: {code.usedByTgId}
-                    </p>
+                  <Copy className={`w-4 h-4 transition-colors ${copied === code.code ? 'text-emerald-500' : 'text-[var(--color-text-muted)]'}`} />
+                </button>
+                <div className="ml-auto flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.3em]">
+                  <span className={`px-3 py-1 rounded-xl ${isUsed ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    {getStatus(code)}
+                  </span>
+                  {!isUsed && (
+                    <button
+                      onClick={() => handleDelete(code.id)}
+                      className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
-              ) : (
-                <>
-                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                    Активен
-                  </span>
-                  <button
-                    onClick={() => handleDelete(code.id)}
-                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-all"
-                    title="Удалить"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              )}
+              </div>
+              <div className="flex flex-col gap-1 text-[11px] text-[var(--color-text-muted)]">
+                <p>Creator: {formatName(code.creator)} · {formatDateTime(code.createdAt)}</p>
+                {isUsed && (
+                  <p>Used by: {formatName(code.usedBy)} · {formatDateTime(code.usedAt || undefined)}</p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
+
+function SummaryCard({ label, value, tone = 'blue' }: { label: string; value: number | string; tone?: 'blue' | 'emerald' | 'rose' | 'amber' }) {
+  const colorClasses: Record<string, string> = {
+    blue: 'bg-blue-500/10 text-blue-500',
+    emerald: 'bg-emerald-500/10 text-emerald-500',
+    rose: 'bg-rose-500/10 text-rose-500',
+    amber: 'bg-amber-500/10 text-amber-500',
+  };
+
+  return (
+    <div className="apple-card border border-[var(--apple-border)] p-3 md:p-6 text-center">
+      <div className={`w-12 h-12 md:w-14 md:h-14 squircle flex items-center justify-center mx-auto mb-2 ${colorClasses[tone]}`}>
+        <span className="text-lg font-black">{value}</span>
+      </div>
+      <p className="text-[8px] md:text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-[0.2em]">{label}</p>
+    </div>
+  );
+}
+
 
 // ===== Auto-Import Tab =====
 interface ImportRecord {
