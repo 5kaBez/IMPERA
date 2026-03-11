@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
-import { Copy, CheckCircle } from 'lucide-react';
+import { Copy, CheckCircle, QrCode, X } from 'lucide-react';
+import QRCode from 'qrcode.react';
 
 interface InviteCode {
   id: number;
@@ -29,6 +30,7 @@ export function InviteCodes() {
   const [success, setSuccess] = useState('');
   const [newCode, setNewCode] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
 
   // Fetch user's codes
   const fetchCodes = async () => {
@@ -132,6 +134,19 @@ export function InviteCodes() {
     navigator.clipboard.writeText(code);
     setCopied(code);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const generateQRLink = (inviteCode: string): string => {
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'your_bot';
+    return `https://t.me/${botUsername}?start=${inviteCode}`;
+  };
+
+  const openQRModal = (code: string) => {
+    setQrCode(code);
+  };
+
+  const closeQRModal = () => {
+    setQrCode(null);
   };
 
   const formatTime = (seconds: number): string => {
@@ -256,16 +271,25 @@ export function InviteCodes() {
                   </p>
                 </div>
                 {!code.usedAt && (
-                  <button
-                    onClick={() => copyToClipboard(code.code)}
-                    className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
-                      copied === code.code
-                        ? 'iron-metal-bg text-white'
-                        : 'bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:iron-metal-bg hover:text-white'
-                    }`}
-                  >
-                    {copied === code.code ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                  </button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => openQRModal(code.code)}
+                      className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all active:scale-90 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400"
+                      title="Показать QR код"
+                    >
+                      <QrCode className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(code.code)}
+                      className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all active:scale-90 ${
+                        copied === code.code
+                          ? 'iron-metal-bg text-white'
+                          : 'bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:iron-metal-bg hover:text-white'
+                      }`}
+                    >
+                      {copied === code.code ? <CheckCircle className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -274,6 +298,54 @@ export function InviteCodes() {
       )}
 
       {loading && <div className="text-center py-8 text-[var(--color-text-muted)]">Загрузка кодов...</div>}
+
+      {/* QR Code Modal */}
+      {qrCode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-10 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg md:text-xl font-black text-[var(--color-text-main)]">QR Код</h3>
+              <button
+                onClick={closeQRModal}
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl flex justify-center mb-6">
+              <QRCode
+                value={generateQRLink(qrCode)}
+                size={256}
+                level="H"
+                includeMargin
+              />
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs md:text-sm text-[var(--color-text-muted)] text-center">
+                Код: <span className="font-mono font-black text-[var(--color-text-main)]">{qrCode}</span>
+              </p>
+              <p className="text-xs md:text-sm text-[var(--color-text-muted)] text-center">
+                Отсканируйте QR или поделитесь этой ссылкой:
+              </p>
+              <div className="bg-black/5 dark:bg-white/5 p-3 rounded-xl break-all text-xs md:text-sm font-mono text-[var(--color-text-main)]">
+                {generateQRLink(qrCode)}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generateQRLink(qrCode));
+                  setCopied(qrCode);
+                  setTimeout(() => setCopied(null), 2000);
+                }}
+                className="w-full py-2 px-4 rounded-xl iron-metal-bg text-white font-bold transition-all active:scale-[0.98]"
+              >
+                {copied === qrCode ? '✓ Ссылка скопирована' : 'Копировать ссылку'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

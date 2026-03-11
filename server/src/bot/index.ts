@@ -25,47 +25,92 @@ export async function startBot(prisma: PrismaClient) {
   globalPrisma = prisma;
   bot = new Bot(BOT_TOKEN);
 
-  // /start command — welcome message
+  // /start command — welcome message with invite code handling
   bot.command('start', async (ctx: Context) => {
     const firstName = ctx.from?.first_name || 'студент';
     const telegramId = ctx.from?.id?.toString();
+    const inviteCode = ctx.match?.trim(); // Параметр из ссылки: /start ABC123INV
 
-    // Auto-register user if not exists
-    if (telegramId) {
-      try {
-        const existing = await prisma.user.findUnique({ where: { telegramId } });
-        if (!existing) {
-          await prisma.user.create({
-            data: {
-              telegramId,
-              firstName: ctx.from?.first_name || 'User',
-              lastName: ctx.from?.last_name || null,
-              username: ctx.from?.username || null,
-              activated: false, // Новые юзеры не активированы — нужен инвайт-код
-            },
-          });
-        }
-      } catch { }
-    }
+    if (!telegramId) return;
 
-    const keyboard = new InlineKeyboard()
-      .webApp('📱 Открыть IMPERA', WEB_APP_URL);
+    try {
+      let user = await prisma.user.findUnique({ where: { telegramId } });
+      let activated = false;
+      let inviteMessage = '';
 
-    await ctx.reply(
-      `Привет, ${firstName}\\! 👋\n\n` +
-      `Добро пожаловать в *IMPERA* — цифровую платформу для студентов ГУУ\\!\n\n` +
-      `🎓 *Что умеет IMPERA:*\n\n` +
-      `📅 *Расписание* — персональное расписание на сегодня, завтра и всю неделю\\. Всегда актуальное, всегда под рукой\\.\n\n` +
-      `🔔 *Уведомления* — напомню о паре за 15 минут до начала, чтобы ты не опоздал\\. Утром пришлю расписание на весь день\\.\n\n` +
-      `⭐ *Отзывы о преподавателях* — оставляй оценки и читай отзывы других студентов\\.\n\n` +
-      `💬 *Обратная связь* — предложения, жалобы, баги — всё принимаем\\!\n\n` +
-      `👇 *Нажми кнопку ниже, чтобы начать\\!*\n` +
-      `Выбери свой институт, направление и группу — и расписание всегда будет с тобой\\.`,
-      {
-        parse_mode: 'MarkdownV2',
-        reply_markup: keyboard,
+      // Auto-register user if not exists
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            telegramId,
+            firstName: ctx.from?.first_name || 'User',
+            lastName: ctx.from?.last_name || null,
+            username: ctx.from?.username || null,
+            activated: false,
+          },
+        });
       }
-    );
+
+      // Если есть инвайт-код, активируем пользователя
+      if (inviteCode) {
+        try {
+          const inviteRecord = await prisma.inviteCode.findUnique({
+            where: { code: inviteCode },
+            include: { createdBy: true },
+          });
+
+          if (inviteRecord && !inviteRecord.usedAt) {
+            // Код валиден и не использован — активируем пользователя
+            await prisma.inviteCode.update({
+              where: { code: inviteCode },
+              data: {
+                usedAt: new Date(),
+                usedById: user.id,
+              },
+            });
+
+            // Активируем пользователя
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { activated: true },
+            });
+
+            activated = true;
+            inviteMessage = `\n\n✅ *Неплохо\\!* Ты активирован через код от ${inviteRecord.createdBy?.firstName || 'одноклассника'}\\!`;
+          } else if (inviteRecord?.usedAt) {
+            inviteMessage = `\n\n⚠️ Этот код уже использован\\.`;
+          } else {
+            inviteMessage = `\n\n❌ Неверный инвайт\\-код\\. Видимо, ссылка потеряла актуальность\\.`;
+          }
+        } catch (err) {
+          console.error('Invite code processing error:', err);
+          inviteMessage = `\n\n⚠️ Ошибка при обработке кода приглашения\\.`;
+        }
+      }
+
+      const keyboard = new InlineKeyboard()
+        .webApp('📱 Открыть IMPERA', WEB_APP_URL);
+
+      await ctx.reply(
+        `Привет, ${firstName}\\! 👋\n\n` +
+        `Добро пожаловать в *IMPERA* — цифровую платформу для студентов ГУУ\\!\n\n` +
+        `🎓 *Что умеет IMPERA:*\n\n` +
+        `📅 *Расписание* — персональное расписание на сегодня, завтра и всю неделю\\. Всегда актуальное, всегда под рукой\\.\n\n` +
+        `🔔 *Уведомления* — напомню о паре за 15 минут до начала, чтобы ты не опоздал\\. Утром пришлю расписание на весь день\\.\n\n` +
+        `⭐ *Отзывы о преподавателях* — оставляй оценки и читай отзывы других студентов\\.\n\n` +
+        `💬 *Обратная связь* — предложения, жалобы, баги — всё принимаем\\!\n\n` +
+        `👇 *Нажми кнопку ниже, чтобы начать\\!*\n` +
+        `Выбери свой институт, направление и группу — и расписание всегда будет с тобой\\.` +
+        inviteMessage,
+        {
+          parse_mode: 'MarkdownV2',
+          reply_markup: keyboard,
+        }
+      );
+    } catch (err) {
+      console.error('Start command error:', err);
+      await ctx.reply('❌ Произошла ошибка при запуске бота. Попробуй позже.');
+    }
   });
 
   // /help command
