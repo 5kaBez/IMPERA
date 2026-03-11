@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Copy, CheckCircle, QrCode, X } from 'lucide-react';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface InviteCode {
   id: number;
@@ -314,7 +314,7 @@ export function InviteCodes() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl flex justify-center mb-6">
-              <QRCode
+              <QRCodeSVG
                 value={generateQRLink(qrCode)}
                 size={256}
                 level="H"
