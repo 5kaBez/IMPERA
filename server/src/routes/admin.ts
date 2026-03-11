@@ -267,15 +267,6 @@ router.delete('/teachers/ghost', async (req: Request, res: Response) => {
 
 // ===== Invite Codes Management =====
 
-// GET /api/admin/invite-codes — list all codes with status
-router.get('/invite-codes', async (req: Request, res: Response) => {
-  const prisma: PrismaClient = req.app.locals.prisma;
-  const codes = await prisma.inviteCode.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(codes);
-});
-
 // POST /api/admin/invite-codes — create new invite code(s)
 // POST /api/admin/invite-codes — Generate beta invite codes (admin only)
 // Note: These are for administrative distribution, typically one-time use
@@ -343,6 +334,33 @@ router.delete('/invite-codes/:id', authMiddleware, async (req: AuthRequest, res:
   }
   await prisma.inviteCode.delete({ where: { id } });
   res.json({ success: true });
+});
+
+// POST /api/admin/invite-codes/clear — delete all invite codes and reset generation stats
+router.post('/invite-codes/clear', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only' });
+    return;
+  }
+
+  const deleted = await prisma.inviteCode.deleteMany({});
+  const resetUsers = await prisma.user.updateMany({
+    data: {
+      lastCodeGeneration: null,
+      codesGeneratedTotal: 0,
+    },
+  });
+
+  console.log(`🧹 Admin ${user.id} cleared ${deleted.count} invite codes`);
+
+  res.json({
+    success: true,
+    cleared: deleted.count,
+    usersReset: resetUsers.count,
+  });
 });
 
 // GET /api/admin/invite-codes — List all invite codes with filters
