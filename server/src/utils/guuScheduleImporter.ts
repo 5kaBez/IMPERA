@@ -13,59 +13,167 @@ import { parseExcelSchedule } from './excelParser';
 
 const GUU_SCHEDULE_URL = 'https://guu.ru/student/schedule/';
 
-// File mapping: GUU label pattern → our filename
-const FILE_MAPPINGS = [
-  { pattern: /1\s*курс\s*бакалавриат\s*ОФО/i, filename: '1.xlsx' },
-  { pattern: /2\s*курс\s*бакалавриат\s*ОФО/i, filename: '2.xlsx' },
-  { pattern: /3\s*курс\s*бакалавриат\s*ОФО/i, filename: '3.xlsx' },
-  { pattern: /4\s*курс\s*бакалавриат\s*ОФО/i, filename: '4.xlsx' },
-  { pattern: /1-5\s*курс\s*бакалавриат\s*ОЗФО/i, filename: 'z.xlsx' },
-  { pattern: /1-2\s*курс\s*магистратура\s*ОФО/i, filename: 'm.xlsx' },
+type FileMapping = {
+  filename: string;
+  patterns: RegExp[];      // all must match to consider the label a candidate
+  urlPatterns?: RegExp[];  // optional fallback when label is missing or boilerplate
+  exclude?: RegExp[];      // disqualifiers (used to keep 1-5 from matching 1)
+};
+
+const FILE_MAPPINGS: FileMapping[] = [
+  {
+    filename: '1.xlsx',
+    patterns: [/1\D*курс/i, /бакалавриат/i, /(?:офо|очн(?![-\s]*заоч))/i],
+    exclude: [/\b1\D*[-–—]\D*5\b/i],
+  },
+  {
+    filename: '2.xlsx',
+    patterns: [/2\D*курс/i, /бакалавриат/i, /(?:офо|очно)/i],
+  },
+  {
+    filename: '3.xlsx',
+    patterns: [/3\D*курс/i, /бакалавриат/i, /(?:офо|очно)/i],
+  },
+  {
+    filename: '4.xlsx',
+    patterns: [/4\D*курс/i, /бакалавриат/i, /(?:офо|очно)/i],
+  },
+  {
+    filename: 'z.xlsx',
+    patterns: [/1\D*[-–—]\D*5/i, /курс/i, /бакалавриат/i, /(?:озфо|очно[-\s]*заоч)/i],
+  },
+  {
+    filename: 'm.xlsx',
+    patterns: [/1\D*[-–—]\D*2/i, /курс/i, /магистратура/i, /(?:офо|очно)/i],
+  },
 ];
 
 interface DownloadLink {
   label: string;
   url: string;
-  filename: string;
+  filename?: string;
 }
 
-/**
- * Fetch HTML from GUU schedule page and extract xlsx download links.
- */
-async function scrapeGUULinks(): Promise<DownloadLink[]> {
-  const html = await fetchUrl(GUU_SCHEDULE_URL);
+const resolveUrl = (rawUrl: string, base: string) => {
+  try {
+    return new URL(rawUrl, base).toString();
+  } catch {
+    return rawUrl;
+  }
+};
 
-  // Parse links: <a href="...xlsx">label</a>
-  const linkRegex = /<a\s+[^>]*href=["']([^"']*\.xlsx)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  const links: DownloadLink[] = [];
-  let match;
+const normalizeForMatching = (input: string) => {
+  if (!input) return '';
+  try {
+    return decodeURIComponent(input.replace(/\+/g, ' ')).toLowerCase();
+  } catch {
+    return input.toLowerCase();
+  }
+};
 
-  while ((match = linkRegex.exec(html)) !== null) {
-    const url = match[1];
-    const label = match[2].replace(/<[^>]*>/g, '').trim();
+const cleanLabel = (raw: string) => {
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(raw.replace(/\+/g, ' '));
+    } catch {
+      return raw;
+    }
+  })();
+  return decoded
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
 
-    for (const mapping of FILE_MAPPINGS) {
-      if (mapping.pattern.test(label)) {
-        links.push({ label, url, filename: mapping.filename });
-        break;
-      }
+const matchesAll = (source: string, patterns: RegExp[]) => patterns.every(pattern => pattern.test(source));
+
+const matchLinkToFilename = (link: DownloadLink) => {
+  const normalizedLabel = cleanLabel(link.label).toLowerCase();
+  const normalizedUrl = normalizeForMatching(link.url);
+
+  for (const mapping of FILE_MAPPINGS) {
+    if (mapping.exclude?.some(pattern => pattern.test(normalizedLabel) || pattern.test(normalizedUrl))) {
+      continue;
+    }
+
+    const labelMatch = matchesAll(normalizedLabel, mapping.patterns);
+    const urlMatch = mapping.urlPatterns ? matchesAll(normalizedUrl, mapping.urlPatterns) : false;
+
+    if (labelMatch || urlMatch) {
+      return mapping.filename;
     }
   }
 
-  console.log(`[GUU Import] Found ${links.length} schedule files on guu.ru`);
+  return null;
+};
+
+const extractLinksFromHtml = (html: string): DownloadLink[] => {
+  const links: DownloadLink[] = [];
+  const seen = new Set<string>();
+
+  const anchorRegex = /<a\s+[^>]*href=("|')([^"']*\.(?:xlsx|xls|zip)(?:\?[^"']*)?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = anchorRegex.exec(html)) !== null) {
+    const rawUrl = match[2];
+    const href = resolveUrl(rawUrl, GUU_SCHEDULE_URL);
+    if (seen.has(href)) continue;
+    seen.add(href);
+
+    const label = cleanLabel(match[3] || path.basename(href));
+    if (!label && !href) continue;
+    links.push({ label, url: href });
+  }
+
+  const urlOnlyRegex = /https?:\/\/[^"'\s]+\.(?:xlsx|xls|zip)(?:\?[^"'\s]*)?/gi;
+  while ((match = urlOnlyRegex.exec(html)) !== null) {
+    const href = resolveUrl(match[0], GUU_SCHEDULE_URL);
+    if (seen.has(href)) continue;
+    seen.add(href);
+
+    const label = cleanLabel(path.basename(href));
+    links.push({ label, url: href });
+  }
+
   return links;
-}
+};
+
+const saveHtmlSnapshot = (html: string, importsDir: string, tag: string) => {
+  try {
+    const debugDir = path.join(importsDir, 'debug');
+    if (!fs.existsSync(debugDir)) {
+      fs.mkdirSync(debugDir, { recursive: true });
+    }
+    const filePath = path.join(debugDir, `${tag}-${Date.now()}.html`);
+    fs.writeFileSync(filePath, html, 'utf-8');
+  } catch (err) {
+    console.warn('[GUU Import] Failed to write html snapshot:', err);
+  }
+};
+
+const fetchDownloadLinks = async () => {
+  const html = await fetchUrl(GUU_SCHEDULE_URL);
+  return { html, links: extractLinksFromHtml(html) };
+};
 
 /**
  * Fetch URL and return body as string.
  */
 function fetchUrl(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proto = url.startsWith('https') ? https : http;
-    proto.get(url, { headers: { 'User-Agent': 'IMPERA-Bot/1.0' } }, (res) => {
+    const requestUrl = resolveUrl(url, GUU_SCHEDULE_URL);
+    const proto = requestUrl.startsWith('https') ? https : http;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+      Referer: GUU_SCHEDULE_URL,
+    };
+    proto.get(requestUrl, { headers }, (res) => {
       // Follow redirects
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchUrl(res.headers.location).then(resolve).catch(reject);
+        const nextUrl = resolveUrl(res.headers.location, requestUrl);
+        fetchUrl(nextUrl).then(resolve).catch(reject);
         return;
       }
       const chunks: Buffer[] = [];
@@ -81,16 +189,21 @@ function fetchUrl(url: string): Promise<string> {
  */
 function downloadFile(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    // Handle encoded Cyrillic URLs
-    const encodedUrl = encodeURI(decodeURI(url));
-    const proto = encodedUrl.startsWith('https') ? https : http;
-    proto.get(encodedUrl, { headers: { 'User-Agent': 'IMPERA-Bot/1.0' } }, (res) => {
+    const requestUrl = resolveUrl(url, GUU_SCHEDULE_URL);
+    const proto = requestUrl.startsWith('https') ? https : http;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: '*/*',
+      Referer: GUU_SCHEDULE_URL,
+    };
+    proto.get(requestUrl, { headers }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        downloadFile(res.headers.location).then(resolve).catch(reject);
+        const nextUrl = resolveUrl(res.headers.location, requestUrl);
+        downloadFile(nextUrl).then(resolve).catch(reject);
         return;
       }
       if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+        reject(new Error(`HTTP ${res.statusCode} for ${requestUrl}`));
         return;
       }
       const chunks: Buffer[] = [];
@@ -124,23 +237,54 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
   try {
     console.log(`[GUU Import #${importRecord.id}] Starting ${source} import...`);
 
+    const importsDir = path.join(process.cwd(), 'imports');
+    if (!fs.existsSync(importsDir)) fs.mkdirSync(importsDir, { recursive: true });
+    const dateStr = new Date().toISOString().split('T')[0];
+    const dayDir = path.join(importsDir, dateStr);
+    const rawDir = path.join(dayDir, 'raw');
+    const finalDir = path.join(dayDir, 'final');
+    fs.mkdirSync(rawDir, { recursive: true });
+    fs.mkdirSync(finalDir, { recursive: true });
+
     // 1. Scrape download links
-    const links = await scrapeGUULinks();
+    const { html, links } = await fetchDownloadLinks();
     if (links.length === 0) {
+      saveHtmlSnapshot(html, importsDir, 'no-links');
       throw new Error('Не найдены файлы расписания на guu.ru');
     }
-    if (links.length < 4) {
-      console.warn(`[GUU Import] Warning: found only ${links.length} files (expected 6)`);
+
+    const resolvedLinks: DownloadLink[] = [];
+    const seen = new Set<string>();
+    for (const link of links) {
+      const filename = matchLinkToFilename(link);
+      if (!filename) continue;
+      if (seen.has(filename)) continue;
+      resolvedLinks.push({ ...link, filename });
+      seen.add(filename);
+    }
+
+    const orderedLinks = FILE_MAPPINGS
+      .map(mapping => resolvedLinks.find(link => link.filename === mapping.filename))
+      .filter((link): link is DownloadLink => Boolean(link));
+
+    if (orderedLinks.length < FILE_MAPPINGS.length) {
+      const missing = FILE_MAPPINGS.map(mapping => mapping.filename)
+        .filter(filename => !orderedLinks.some(link => link.filename === filename));
+      saveHtmlSnapshot(html, importsDir, 'missing-files');
+      throw new Error(`Найдено только ${orderedLinks.length} файлов (${missing.join(', ')})`);
     }
 
     // 2. Download all files
-    console.log(`[GUU Import] Downloading ${links.length} files...`);
+    console.log(`[GUU Import] Downloading ${orderedLinks.length} files...`);
     const files: FileInput[] = [];
-    for (const link of links) {
-      console.log(`  Downloading: ${link.label} → ${link.filename}`);
+    for (const link of orderedLinks) {
+      console.log(`  Downloading: ${link.label || link.url} → ${link.filename}`);
       const buffer = await downloadFile(link.url);
-      files.push({ filename: link.filename, buffer });
+      const rawPath = path.join(rawDir, link.filename!);
+      fs.writeFileSync(rawPath, buffer);
+      files.push({ filename: link.filename!, buffer });
     }
+    console.log(`[GUU Import] Raw downloads saved to ${rawDir}`);
 
     // 3. Parse with GUU parser
     console.log(`[GUU Import] Parsing ${files.length} files...`);
@@ -153,15 +297,11 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     const xlsxBuffer = recordsToXlsxBuffer(records);
 
     // 5. Save xlsx file to disk
-    const importsDir = path.join(process.cwd(), 'imports');
-    if (!fs.existsSync(importsDir)) fs.mkdirSync(importsDir, { recursive: true });
-
-    const dateStr = new Date().toISOString().split('T')[0]; // 2026-03-08
     const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
     const fileName = `schedule_${dateStr}_${timeStr}.xlsx`;
-    const filePath = path.join(importsDir, fileName);
-    fs.writeFileSync(filePath, xlsxBuffer);
-    console.log(`[GUU Import] Saved xlsx: ${filePath}`);
+    const savedPath = path.join(finalDir, fileName);
+    fs.writeFileSync(savedPath, xlsxBuffer);
+    console.log(`[GUU Import] Saved xlsx: ${savedPath}`);
 
     // 6. Import into database
     console.log(`[GUU Import] Importing ${records.length} records into database...`);
@@ -186,7 +326,7 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
         directions,
         programs,
         groups,
-        filePath: fileName,
+        filePath: path.posix.join(dateStr, 'final', fileName),
         finishedAt: new Date(),
       },
     });
