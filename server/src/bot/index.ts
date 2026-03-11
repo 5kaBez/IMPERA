@@ -29,7 +29,7 @@ export async function startBot(prisma: PrismaClient) {
   bot.command('start', async (ctx: Context) => {
     const firstName = ctx.from?.first_name || 'студент';
     const telegramId = ctx.from?.id?.toString();
-    const inviteCode = ctx.match?.trim(); // Параметр из ссылки: /start ABC123INV
+    const inviteCode = typeof ctx.match === 'string' ? ctx.match.trim() : undefined; // Параметр из ссылки: /start ABC123INV
 
     if (!telegramId) return;
 
@@ -56,7 +56,7 @@ export async function startBot(prisma: PrismaClient) {
         try {
           const inviteRecord = await prisma.inviteCode.findUnique({
             where: { code: inviteCode },
-            include: { createdBy: true },
+            include: { creator: true },
           });
 
           if (inviteRecord && !inviteRecord.usedAt) {
@@ -76,7 +76,7 @@ export async function startBot(prisma: PrismaClient) {
             });
 
             activated = true;
-            inviteMessage = `\n\n✅ *Неплохо\\!* Ты активирован через код от ${inviteRecord.createdBy?.firstName || 'одноклассника'}\\!`;
+            inviteMessage = `\n\n✅ *Неплохо\\!* Ты активирован через код от ${inviteRecord.creator?.firstName || 'одноклассника'}\\!`;
           } else if (inviteRecord?.usedAt) {
             inviteMessage = `\n\n⚠️ Этот код уже использован\\.`;
           } else {
