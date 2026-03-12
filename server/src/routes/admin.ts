@@ -8,11 +8,40 @@ import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { parseExcelSchedule } from '../utils/excelParser';
 import { runAutoImport } from '../utils/guuScheduleImporter';
 import { safeImportScheduleFromExcel, importPreformedSchedule, type SafeImportResult } from '../utils/scheduleImporter';
+import { readMaintenanceSettings, updateMaintenanceSettings } from '../utils/maintenance';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(authMiddleware, adminMiddleware);
+
+// GET /api/admin/settings/maintenance — maintenance banner settings
+router.get('/settings/maintenance', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(readMaintenanceSettings());
+});
+
+// POST /api/admin/settings/maintenance — update maintenance banner settings
+router.post('/settings/maintenance', (req: Request, res: Response) => {
+  const enabled = (req.body as any)?.enabled;
+  const message = (req.body as any)?.message;
+
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    res.status(400).json({ error: 'enabled must be boolean' });
+    return;
+  }
+  if (message !== undefined && typeof message !== 'string') {
+    res.status(400).json({ error: 'message must be string' });
+    return;
+  }
+
+  const updated = updateMaintenanceSettings({
+    enabled: typeof enabled === 'boolean' ? enabled : undefined,
+    message: typeof message === 'string' ? message.trim().slice(0, 200) : undefined,
+  });
+
+  res.json(updated);
+});
 
 // GET /api/admin/stats
 router.get('/stats', async (req: Request, res: Response) => {
@@ -205,6 +234,59 @@ router.delete('/schedule/reset', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('Full reset error:', err);
     res.status(500).json({ error: 'Ошибка полного сброса' });
+  }
+});
+
+// DELETE /api/admin/structure/prune — delete unused structure only (keeps students' chosen groups intact)
+// Query: ?dryRun=1 to preview counts without deleting
+router.delete('/structure/prune', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const dryRun = String(req.query.dryRun || '') === '1' || String(req.query.dryRun || '').toLowerCase() === 'true';
+  const confirm = String(req.query.confirm || '');
+
+  try {
+    if (dryRun) {
+      const [groups, programs, directions, institutes] = await prisma.$transaction([
+        prisma.group.count({ where: { users: { none: {} } } }),
+        prisma.program.count({ where: { groups: { every: { users: { none: {} } } } } }),
+        prisma.direction.count({ where: { programs: { every: { groups: { every: { users: { none: {} } } } } } } }),
+        prisma.institute.count({ where: { directions: { every: { programs: { every: { groups: { every: { users: { none: {} } } } } } } } } }),
+      ]);
+
+      res.json({
+        success: true,
+        dryRun: true,
+        wouldDelete: { groups, programs, directions, institutes },
+      });
+      return;
+    }
+
+    if (!(confirm === 'PRUNE' || confirm === '1' || confirm.toLowerCase() === 'true')) {
+      res.status(400).json({
+        success: false,
+        error: 'Нужно подтверждение. Повторите запрос с ?confirm=PRUNE (или сначала сделайте ?dryRun=1).',
+      });
+      return;
+    }
+
+    const deleted = await prisma.$transaction(async (tx) => {
+      const groups = await tx.group.deleteMany({ where: { users: { none: {} } } });
+      const programs = await tx.program.deleteMany({ where: { groups: { none: {} } } });
+      const directions = await tx.direction.deleteMany({ where: { programs: { none: {} } } });
+      const institutes = await tx.institute.deleteMany({ where: { directions: { none: {} } } });
+
+      return {
+        groups: groups.count,
+        programs: programs.count,
+        directions: directions.count,
+        institutes: institutes.count,
+      };
+    });
+
+    res.json({ success: true, dryRun: false, deleted });
+  } catch (err: any) {
+    console.error('Prune structure error:', err);
+    res.status(500).json({ success: false, error: 'Ошибка очистки структуры (prune)' });
   }
 });
 

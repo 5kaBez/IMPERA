@@ -94,8 +94,56 @@ export default function AdminDashboard() {
 }
 
 function DashboardTab({ stats }: { stats: Stats }) {
+  const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string } | null>(null);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+
+  useEffect(() => {
+    api.get<{ enabled: boolean; message: string }>('/admin/settings/maintenance').then(setMaintenance).catch(() => {});
+  }, []);
+
+  const toggleMaintenance = async () => {
+    if (!maintenance || maintenanceSaving) return;
+    const nextEnabled = !maintenance.enabled;
+
+    setMaintenanceSaving(true);
+    try {
+      const updated = await api.post<{ enabled: boolean; message: string }>('/admin/settings/maintenance', { enabled: nextEnabled });
+      setMaintenance(updated);
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
   return (
     <>
+      <div className="mb-3 md:mb-8 p-3 md:p-6 apple-glass rounded-2xl md:rounded-[28px] border border-[var(--apple-border)] shadow-lg flex items-center justify-between gap-3 md:gap-6">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={`inline-flex w-2 h-2 rounded-full ${maintenance?.enabled ? 'bg-amber-400' : 'bg-zinc-400'}`} />
+            <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
+              Техработы
+            </p>
+          </div>
+          <p className="text-[10px] md:text-sm font-black text-[var(--color-text-main)] truncate">
+            {maintenance?.enabled ? 'Включено: сообщение видят все пользователи' : 'Выключено'}
+          </p>
+          <p className="text-[9px] md:text-[10px] font-bold text-[var(--color-text-muted)] mt-1 truncate">
+            {maintenance?.message || 'ИДУТ ТЕХНИЧЕСКИЕ РАБОТЫ'}
+          </p>
+        </div>
+
+        <button
+          onClick={toggleMaintenance}
+          disabled={!maintenance || maintenanceSaving}
+          className={`px-3 md:px-5 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap ${maintenance?.enabled
+            ? 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/25'
+            : 'bg-black/5 dark:bg-white/5 text-[var(--color-text-main)] hover:bg-black/10 dark:hover:bg-white/10'
+            } ${maintenanceSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+        >
+          {maintenanceSaving ? '...' : maintenance?.enabled ? 'Выключить' : 'Включить'}
+        </button>
+      </div>
+
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-6">
         <StatCard icon={Calendar} label="Расписание" value={stats.lessons} color="blue" />

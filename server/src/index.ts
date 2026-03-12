@@ -20,6 +20,7 @@ import { startNotifications } from './bot/notifications';
 import cron from 'node-cron';
 import { runAutoImport } from './utils/guuScheduleImporter';
 import { createAutoBackup, cleanupOldBackups } from './utils/backupManager';
+import { readMaintenanceSettings } from './utils/maintenance';
 
 // Ensure database tables exist on startup
 try {
@@ -88,6 +89,12 @@ app.get('/api/health', async (_req, res) => {
     users: userCount,
     hasDbUrl: !!process.env.DATABASE_URL,
   });
+});
+
+// Public app status (maintenance banner, etc.)
+app.get('/api/app/status', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ maintenance: readMaintenanceSettings() });
 });
 
 // SPA fallback in production (Express v5 requires {*path} instead of *)
