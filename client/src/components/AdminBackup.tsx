@@ -1,419 +1,290 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Download, RotateCcw, Trash2 } from 'lucide-react';
+import { api } from '../api/client';
 
 interface Backup {
   id: number;
   name: string;
-  fileSizeMB: string;
+  fileSize: number;
   userCount: number | null;
   groupCount: number | null;
   lessonCount: number | null;
   createdAt: string;
   source: string;
-  createdBy: string;
   restoredCount: number;
 }
 
+type StatusType = 'error' | 'success';
+
 export function AdminBackup() {
   const [backups, setBackups] = useState<Backup[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ type: StatusType; message: string } | null>(null);
+  const [authInvalid, setAuthInvalid] = useState(false);
 
   useEffect(() => {
     loadBackups();
   }, []);
 
-  const loadBackups = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/admin/backup/list', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+  const handleApiError = (error: any, fallback: string) => {
+    const message = error?.message || fallback;
+    if (error?.status === 401) {
+      setAuthInvalid(true);
+      setStatus({
+        type: 'error',
+        message: 'Недействительный токен. Перезапустите авторизацию через главную страницу.',
       });
-      if (response.ok) {
-        const data = await response.json();
-        setBackups(data.backups || []);
-      }
-    } catch (err) {
-      setError('Failed to load backups');
-      console.error(err);
+      return;
+    }
+    setStatus({ type: 'error', message });
+  };
+
+  const loadBackups = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const data = await api.get<{ backups: Backup[] }>('/admin/backup/list');
+      setBackups(data.backups || []);
+    } catch (error) {
+      handleApiError(error, 'Не удалось загрузить список бекапов');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateBackup = async () => {
+    setBusy('create');
+    setStatus(null);
     try {
-      setLoading(true);
-      setError('');
-      setSuccessMessage('');
-
-      const response = await fetch('/api/admin/backup/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setSuccessMessage('✅ Backup created successfully!');
-        setTimeout(() => loadBackups(), 1000);
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to create backup');
-      }
-    } catch (err) {
-      setError('Error creating backup');
-      console.error(err);
+      await api.post('/admin/backup/create');
+      setStatus({ type: 'success', message: 'Резервная копия создана' });
+      await loadBackups();
+    } catch (error) {
+      handleApiError(error, 'Не удалось создать бекап');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  const handleRestore = async (backupId: number, backupName: string) => {
-    if (!window.confirm(`⚠️ This will restore ALL data from: ${backupName}\n\nAre you absolutely sure?`)) {
+  const handleRestore = async (backup: Backup) => {
+    if (!window.confirm(`⚠️ Это перезапишет данные из ${backup.name}. Продолжить?`)) {
+      return;
+    }
+    if (!window.confirm('🔥 Последний шанс — все текущие данные будут заменены. Продолжить?')) {
       return;
     }
 
-    if (!window.confirm('🔥 Last chance! This will DELETE all current data and restore from backup. Continue?')) {
-      return;
-    }
-
+    setBusy(`restore-${backup.id}`);
+    setStatus(null);
     try {
-      setLoading(true);
-      setError('');
-      
-      const response = await fetch(`/api/admin/backup/restore/${backupId}`, {
-        method: 'POST',
+      const response = await api.post<{ message: string; requiresRestart?: boolean }>(
+        `/admin/backup/restore/${backup.id}`,
+        { confirm: true },
+      );
+      setStatus({ type: 'success', message: response.message || 'Данные восстановлены' });
+      if (response.requiresRestart) {
+        setStatus(prev => (prev ? { ...prev, message: prev.message + '. Перезапустите сервер' } : prev));
+      }
+    } catch (error) {
+      handleApiError(error, 'Не удалось восстановить бекап');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDelete = async (backup: Backup) => {
+    if (!window.confirm(`Удалить бекап "${backup.name}"?`)) {
+      return;
+    }
+
+    setBusy(`delete-${backup.id}`);
+    setStatus(null);
+    try {
+      await api.delete(`/admin/backup/${backup.id}`);
+      setStatus({ type: 'success', message: 'Бекап удалён' });
+      await loadBackups();
+    } catch (error) {
+      handleApiError(error, 'Не удалось удалить бекап');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDownload = async (backup: Backup) => {
+    const token = api.getToken();
+    if (!token) {
+      setStatus({ type: 'error', message: 'Требуется авторизация' });
+      return;
+    }
+
+    setBusy(`download-${backup.id}`);
+    try {
+      const response = await fetch(`/api/admin/backup/download/${backup.id}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ confirm: true })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSuccessMessage(`✅ ${data.message}`);
-        if (data.requiresRestart) {
-          setSuccessMessage(prev => prev + '\n⚠️ Server restart required, reloading in 5 seconds...');
-          setTimeout(() => window.location.reload(), 5000);
-        }
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to restore backup');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: 'Не удалось скачать файл' }));
+        const error = new Error(payload.error || `HTTP ${response.status}`);
+        (error as any).status = response.status;
+        throw error;
       }
-    } catch (err) {
-      setError('Error restoring backup');
-      console.error(err);
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = backup.name;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      handleApiError(error, 'Не удалось скачать файл');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  const handleDownload = (backupId: number, fileName: string) => {
-    window.location.href = `/api/admin/backup/download/${backupId}`;
+  const resetSession = () => {
+    api.setToken(null);
+    window.location.href = '/';
   };
 
-  const handleDelete = async (backupId: number, backupName: string) => {
-    if (!window.confirm(`Delete backup: ${backupName}?`)) {
-      return;
-    }
+  const isBusy = (key: string) => busy === key;
 
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/backup/${backupId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-      if (response.ok) {
-        setSuccessMessage(`✅ Backup deleted`);
-        setTimeout(() => loadBackups(), 500);
-      } else {
-        setError('Failed to delete backup');
-      }
-    } catch (err) {
-      setError('Error deleting backup');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const formatSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 
   return (
-    <div className="admin-backup">
-      <h2>📦 Database Backups</h2>
-      
-      <div className="backup-controls">
-        <button
-          onClick={handleCreateBackup}
-          disabled={loading}
-          className="btn btn-primary"
-        >
-          {loading ? '⏳ Creating...' : '✚ Create Backup Now'}
-        </button>
-        <p className="info-text">ℹ️ Automatic backups are created daily at 12:00 and 00:00 (MSK)</p>
-      </div>
-
-      {error && (
-        <div className="alert alert-error">
-          {error}
-          <button onClick={() => setError('')}>&times;</button>
+    <div className="space-y-5">
+      <div className="apple-card border border-[var(--apple-border)] rounded-[32px] p-5 md:p-8 shadow-xl bg-white/5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--color-text-muted)] mb-1">
+              Database Backups
+            </p>
+            <h3 className="text-lg md:text-2xl font-black text-[var(--color-text-main)]">Резервные копии</h3>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1 md:max-w-xl">
+              Ручной бекап сохраняет пользователей, расписание и все зависимые таблицы, а система автоматически снимает
+              дамп каждый день в 12:00 и 00:00 МСК.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleCreateBackup}
+              disabled={Boolean(authInvalid) || isBusy('create')}
+              className="iron-metal-bg text-white px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-lg disabled:opacity-60"
+            >
+              {isBusy('create') ? 'Создание...' : 'Создать бекап'}
+            </button>
+            <p className="text-[9px] uppercase tracking-[0.3em] text-[var(--color-text-muted)]">Авто: 00:00 / 12:00 МСК</p>
+          </div>
         </div>
-      )}
 
-      {successMessage && (
-        <div className="alert alert-success">
-          {successMessage}
-          <button onClick={() => setSuccessMessage('')}>&times;</button>
-        </div>
-      )}
-
-      <div className="backups-list">
-        {loading && backups.length === 0 ? (
-          <p>Loading backups...</p>
-        ) : backups.length === 0 ? (
-          <p>No backups yet. Create one to get started!</p>
-        ) : (
-          <table className="backups-table">
-            <thead>
-              <tr>
-                <th>Backup Name</th>
-                <th>Created</th>
-                <th>Type</th>
-                <th>Size</th>
-                <th>Users</th>
-                <th>Groups</th>
-                <th>Lessons</th>
-                <th>Restored</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {backups.map((backup) => (
-                <tr key={backup.id} className="backup-row">
-                  <td className="backup-name">{backup.name}</td>
-                  <td className="backup-date">
-                    {new Date(backup.createdAt).toLocaleString('ru-RU')}
-                  </td>
-                  <td className="backup-type">
-                    {backup.source === 'auto' ? '🤖 Auto' : '👤 Manual'}
-                  </td>
-                  <td className="backup-size">{backup.fileSizeMB} MB</td>
-                  <td className="backup-stat">{backup.userCount || '—'}</td>
-                  <td className="backup-stat">{backup.groupCount || '—'}</td>
-                  <td className="backup-stat">{backup.lessonCount || '—'}</td>
-                  <td className="backup-stat">{backup.restoredCount}x</td>
-                  <td className="backup-actions">
-                    <button
-                      onClick={() => handleDownload(backup.id, backup.name)}
-                      className="btn btn-sm btn-info"
-                      title="Download backup file"
-                    >
-                      ⬇️
-                    </button>
-                    <button
-                      onClick={() => handleRestore(backup.id, backup.name)}
-                      className="btn btn-sm btn-warning"
-                      title="Restore from this backup (DANGEROUS!)"
-                    >
-                      ↩️
-                    </button>
-                    <button
-                      onClick={() => handleDelete(backup.id, backup.name)}
-                      className="btn btn-sm btn-danger"
-                      title="Delete backup"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {authInvalid && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-red-500">
+            <p>Недействительный токен. Переавторизуйтесь через главную страницу.</p>
+            <button onClick={resetSession} className="text-blue-500 font-black underline">
+              Сбросить сессию
+            </button>
+          </div>
         )}
       </div>
 
-      <style>{`
-        .admin-backup {
-          padding: 20px;
-          background: #f5f5f5;
-          border-radius: 8px;
-        }
+      {status && (
+        <div
+          className={`flex items-center justify-between gap-4 px-4 py-3 rounded-2xl border text-sm font-black ${
+            status.type === 'error'
+              ? 'bg-red-500/10 border-red-500/20 text-red-600'
+              : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600'
+          }`}
+        >
+          <span>{status.message}</span>
+          <button onClick={() => setStatus(null)} className="text-[var(--color-text-muted)]">
+            ×
+          </button>
+        </div>
+      )}
 
-        .admin-backup h2 {
-          margin: 0 0 15px 0;
-          color: #333;
-        }
-
-        .backup-controls {
-          margin-bottom: 20px;
-          display: flex;
-          gap: 15px;
-          align-items: center;
-        }
-
-        .info-text {
-          margin: 0;
-          font-size: 0.9em;
-          color: #666;
-        }
-
-        .alert {
-          padding: 12px 15px;
-          border-radius: 4px;
-          margin-bottom: 15px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .alert-error {
-          background: #fee;
-          border: 1px solid #fcc;
-          color: #c33;
-        }
-
-        .alert-success {
-          background: #efe;
-          border: 1px solid #cfc;
-          color: #3c3;
-        }
-
-        .alert button {
-          background: none;
-          border: none;
-          font-size: 1.5em;
-          cursor: pointer;
-          color: inherit;
-        }
-
-        .btn {
-          padding: 8px 15px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 0.95em;
-          transition: all 0.2s;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn-primary {
-          background: #007bff;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: #0056b3;
-        }
-
-        .btn-sm {
-          padding: 6px 10px;
-          font-size: 0.85em;
-        }
-
-        .btn-info {
-          background: #17a2b8;
-          color: white;
-        }
-
-        .btn-info:hover:not(:disabled) {
-          background: #138496;
-        }
-
-        .btn-warning {
-          background: #ffc107;
-          color: #333;
-        }
-
-        .btn-warning:hover:not(:disabled) {
-          background: #e0a800;
-        }
-
-        .btn-danger {
-          background: #dc3545;
-          color: white;
-        }
-
-        .btn-danger:hover:not(:disabled) {
-          background: #c82333;
-        }
-
-        .backups-list {
-          background: white;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .backups-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.9em;
-        }
-
-        .backups-table thead {
-          background: #f8f9fa;
-          border-bottom: 2px solid #dee2e6;
-        }
-
-        .backups-table th {
-          padding: 10px;
-          text-align: left;
-          font-weight: 600;
-          color: #495057;
-        }
-
-        .backups-table td {
-          padding: 10px;
-          border-bottom: 1px solid #dee2e6;
-        }
-
-        .backup-row:hover {
-          background: #f8f9fa;
-        }
-
-        .backup-name {
-          font-family: monospace;
-          font-size: 0.85em;
-          color: #495057;
-        }
-
-        .backup-date {
-          white-space: nowrap;
-        }
-
-        .backup-type {
-          text-align: center;
-        }
-
-        .backup-size {
-          text-align: right;
-        }
-
-        .backup-stat {
-          text-align: center;
-          color: #666;
-        }
-
-        .backup-actions {
-          display: flex;
-          gap: 5px;
-          justify-content: center;
-        }
-
-        .backup-actions button {
-          margin: 0;
-        }
-      `}</style>
+      <div className="apple-card border border-[var(--apple-border)] rounded-[28px] shadow-lg bg-white/5 overflow-hidden">
+        {loading && backups.length === 0 ? (
+          <div className="p-6 text-center text-[var(--color-text-muted)] uppercase tracking-[0.3em] text-[10px]">
+            Загрузка...
+          </div>
+        ) : backups.length === 0 ? (
+          <div className="p-10 text-center text-[var(--color-text-muted)] uppercase tracking-[0.35em] text-[10px]">
+            Нет бекапов
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-[10px] uppercase tracking-[0.3em] text-[var(--color-text-muted)] bg-black/5">
+                <tr>
+                  <th className="px-4 py-3 text-left">Имя</th>
+                  <th className="px-4 py-3 text-left">Создан</th>
+                  <th className="px-4 py-3 text-center">Тип</th>
+                  <th className="px-4 py-3 text-right">Размер</th>
+                  <th className="px-4 py-3 text-center">Польз.</th>
+                  <th className="px-4 py-3 text-center">Групп</th>
+                  <th className="px-4 py-3 text-center">Пар</th>
+                  <th className="px-4 py-3 text-center">Восстановлений</th>
+                  <th className="px-4 py-3 text-center">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.map(backup => (
+                  <tr key={backup.id} className="border-t border-black/5">
+                    <td className="px-4 py-3 text-xs font-mono text-[var(--color-text-main)]">{backup.name}</td>
+                    <td className="px-4 py-3 text-[10px] text-[var(--color-text-muted)]">{formatDate(backup.createdAt)}</td>
+                    <td className="px-4 py-3 text-center text-[10px]">{backup.source === 'auto' ? 'Авто' : 'Ручной'}</td>
+                    <td className="px-4 py-3 text-right text-[10px]">{formatSize(backup.fileSize)}</td>
+                    <td className="px-4 py-3 text-center">{backup.userCount || '—'}</td>
+                    <td className="px-4 py-3 text-center">{backup.groupCount || '—'}</td>
+                    <td className="px-4 py-3 text-center">{backup.lessonCount || '—'}</td>
+                    <td className="px-4 py-3 text-center">{backup.restoredCount}x</td>
+                    <td className="px-4 py-3 flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleDownload(backup)}
+                        disabled={Boolean(authInvalid) || isBusy(`download-${backup.id}`)}
+                        className="rounded-full bg-blue-500/10 text-blue-500 p-2 transition-colors disabled:opacity-40"
+                        aria-label="Скачать"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRestore(backup)}
+                        disabled={Boolean(authInvalid) || isBusy(`restore-${backup.id}`)}
+                        className="rounded-full bg-amber-500/10 text-amber-500 p-2 transition-colors disabled:opacity-40"
+                        aria-label="Восстановить"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(backup)}
+                        disabled={Boolean(authInvalid) || isBusy(`delete-${backup.id}`)}
+                        className="rounded-full bg-red-500/10 text-red-500 p-2 transition-colors disabled:opacity-40"
+                        aria-label="Удалить"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
