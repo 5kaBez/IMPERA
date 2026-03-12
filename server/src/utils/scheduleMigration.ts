@@ -209,8 +209,8 @@ export async function migrateSchedule(
       const normalizedInstitute = normalizeInstitute(groupInfo.instituteName);
       const normalizedDirection = normalizeDirection(groupInfo.directionName);
       
-      // Сначала найдём direction
-      const direction = await prisma.direction.findFirst({
+      // Сначала найдём или создадим direction
+      let direction = await prisma.direction.findFirst({
         where: {
           name: normalizedDirection,
           institute: { name: normalizedInstitute },
@@ -218,12 +218,27 @@ export async function migrateSchedule(
       });
 
       if (!direction) {
-        console.warn(`   ⚠️  Направление ${normalizedDirection} не найдено для группы ${groupInfo.name}`);
-        continue;
+        // Найти/создать institute если надо
+        let institute = await prisma.institute.findUnique({
+          where: { name: normalizedInstitute },
+        });
+        if (!institute) {
+          institute = await prisma.institute.create({
+            data: { name: normalizedInstitute },
+          });
+        }
+        
+        // Создать direction
+        direction = await prisma.direction.create({
+          data: {
+            name: normalizedDirection,
+            instituteId: institute.id,
+          },
+        });
       }
 
-      // Затем найдём программу
-      const program = await prisma.program.findFirst({
+      // Затем найдём или создадим программу
+      let program = await prisma.program.findFirst({
         where: {
           name: groupInfo.programName,
           directionId: direction.id,
@@ -231,12 +246,16 @@ export async function migrateSchedule(
       });
 
       if (!program) {
-        console.warn(`   ⚠️  Программа ${groupInfo.programName} не найдена в направлении ${normalizedDirection}`);
-        continue;
+        program = await prisma.program.create({
+          data: {
+            name: groupInfo.programName,
+            directionId: direction.id,
+          },
+        });
       }
 
-      // Наконец найдём группу
-      const group = await prisma.group.findFirst({
+      // Наконец найдём или создадим группу
+      let group = await prisma.group.findFirst({
         where: {
           number: groupInfo.number,
           course: groupInfo.course,
@@ -246,8 +265,17 @@ export async function migrateSchedule(
       });
 
       if (!group) {
-        console.warn(`   ⚠️  Группа ${groupInfo.name} (${normalizedInstitute} → ${normalizedDirection}, курс ${groupInfo.course}) не найдена в БД`);
-        continue;
+        group = await prisma.group.create({
+          data: {
+            name: groupInfo.name,
+            number: groupInfo.number,
+            course: groupInfo.course,
+            studyForm: groupInfo.studyForm,
+            educationLevel: groupInfo.educationLevel,
+            programId: program.id,
+          },
+        });
+        console.log(`   ➕ Создана группа для урока: ${groupInfo.name}`);
       }
 
       const dayNum = dayNameToNumber[lessonData.dayOfWeek] || 1;
