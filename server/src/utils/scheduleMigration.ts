@@ -4,6 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType } from './normalize';
 
 const prisma = new PrismaClient();
 
@@ -76,25 +77,29 @@ export async function migrateSchedule(
     const directionsMap = new Map<string, number>(); // "institute|direction" -> directionId
 
     for (const groupData of newGroupsData) {
+      // Нормализуем названия
+      const normalizedInstitute = normalizeInstitute(groupData.instituteName);
+      const normalizedDirection = normalizeDirection(groupData.directionName);
+      
       // Получить/создать институт
       let institute = await prisma.institute.findUnique({
-        where: { name: groupData.instituteName },
+        where: { name: normalizedInstitute },
       });
       if (!institute) {
         institute = await prisma.institute.create({
-          data: { name: groupData.instituteName },
+          data: { name: normalizedInstitute },
         });
-        console.log(`   ➕ Создан институт: ${groupData.instituteName}`);
+        console.log(`   ➕ Создан институт: ${normalizedInstitute}`);
       }
-      institutesMap.set(groupData.instituteName, institute.id);
+      institutesMap.set(normalizedInstitute, institute.id);
 
       // Получить/создать направление
-      const directionKey = `${groupData.instituteName}|${groupData.directionName}`;
+      const directionKey = `${normalizedInstitute}|${normalizedDirection}`;
       if (!directionsMap.has(directionKey)) {
         let direction = await prisma.direction.findUnique({
           where: {
             name_instituteId: {
-              name: groupData.directionName,
+              name: normalizedDirection,
               instituteId: institute.id,
             },
           },
@@ -102,12 +107,12 @@ export async function migrateSchedule(
         if (!direction) {
           direction = await prisma.direction.create({
             data: {
-              name: groupData.directionName,
+              name: normalizedDirection,
               instituteId: institute.id,
             },
           });
           stats.newDirectionsCreated++;
-          console.log(`   ➕ Создано направление: ${groupData.instituteName} → ${groupData.directionName}`);
+          console.log(`   ➕ Создано направление: ${normalizedInstitute} → ${normalizedDirection}`);
         }
         directionsMap.set(directionKey, direction.id);
       }
@@ -192,14 +197,38 @@ export async function migrateSchedule(
     };
 
     for (const lessonData of newLessonsData) {
+      // Ищем группу правильно - она должна быть в массиве созданных групп
+      const groupInfo = newGroupsData.find(g => g.number === lessonData.groupNumber);
+      
+      if (!groupInfo) {
+        console.warn(`   ⚠️  Информация о группе ${lessonData.groupNumber} не найдена в парсере`);
+        continue;
+      }
+
+      // Нормализуем названия для поиска в БД
+      const normalizedInstitute = normalizeInstitute(groupInfo.instituteName);
+      const normalizedDirection = normalizeDirection(groupInfo.directionName);
+      
+      // Ищем группу в БД по уникальным параметрам
       const group = await prisma.group.findFirst({
         where: {
-          number: lessonData.groupNumber,
+          number: groupInfo.number,
+          course: groupInfo.course,
+          studyForm: groupInfo.studyForm,
+          program: {
+            direction: {
+              name: normalizedDirection,
+              institute: {
+                name: normalizedInstitute,
+              },
+            },
+          },
         },
+        include: { program: { include: { direction: { include: { institute: true } } } } },
       });
 
       if (!group) {
-        console.warn(`   ⚠️  Группа ${lessonData.groupNumber} не найдена для урока в ${lessonData.dayOfWeek}`);
+        console.warn(`   ⚠️  Группа ${groupInfo.name} (${normalizedInstitute} → ${normalizedDirection}, курс ${groupInfo.course}) не найдена в БД`);
         continue;
       }
 
@@ -213,21 +242,22 @@ export async function migrateSchedule(
       if (lessonData.parity === '0') parity = 0; // четная
       else if (lessonData.parity === '1') parity = 1; // нечетная
 
-      // Парсим время
-      const [timeStart, timeEnd] = lessonData.time.split('-').map(t => t.trim());
+      // Нормализуем время
+      const { start: timeStart, end: timeEnd } = normalizeTime(lessonData.time);
+      const lessonType = normalizeLessonType(lessonData.lessonType);
 
       await prisma.lesson.create({
         data: {
           groupId: group.id,
           dayOfWeek: dayNum,
           pairNumber: pairNum,
-          timeStart: timeStart || '9:00',
-          timeEnd: timeEnd || '10:30',
+          timeStart,
+          timeEnd,
           parity,
-          subject: lessonData.subject,
-          lessonType: lessonData.lessonType,
-          teacher: lessonData.teacher,
-          room: lessonData.room,
+          subject: lessonData.subject.trim(),
+          lessonType,
+          teacher: lessonData.teacher.trim(),
+          room: lessonData.room.trim(),
           weekStart: 1,
           weekEnd: 18,
         },
