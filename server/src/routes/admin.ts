@@ -7,6 +7,7 @@ import { spawnSync, execSync } from 'child_process';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { parseExcelSchedule } from '../utils/excelParser';
 import { runAutoImport } from '../utils/guuScheduleImporter';
+import { safeImportScheduleFromExcel, importPreformedSchedule, type SafeImportResult } from '../utils/scheduleImporter';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -51,6 +52,37 @@ router.post('/import', upload.single('file'), async (req: Request, res: Response
   } catch (err: any) {
     console.error('Import error:', err);
     res.status(500).json({ error: `Ошибка импорта: ${err.message}` });
+  }
+});
+
+// POST /api/admin/import-safe — безопасный импорт с сохранением пользователей
+// Поддерживает файлы: 1.xlsx, 2.xlsx, 3.xlsx, 4.xlsx, z.xlsx, m.xlsx
+// Или один файл schedule_full.xlsx
+router.post('/import-safe', upload.array('files', 10), async (req: Request, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const files = req.files as Express.Multer.File[] | undefined;
+    
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'Файлы не загружены' });
+      return;
+    }
+
+    // Конвертируем Multer файлы в FileInput для парсера
+    const fileInputs = files.map((file: Express.Multer.File) => ({
+      filename: file.originalname,
+      buffer: file.buffer,
+    }));
+
+    // Выполняем безопасный импорт
+    const result = await safeImportScheduleFromExcel(fileInputs, prisma);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Safe import error:', err);
+    res.status(500).json({
+      success: false,
+      error: `Ошибка безопасного импорта: ${err.message}`,
+    });
   }
 });
 

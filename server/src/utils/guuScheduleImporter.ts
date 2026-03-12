@@ -11,6 +11,7 @@ import path from 'path';
 import zlib from 'zlib';
 import { parseGUUScheduleFiles, recordsToXlsxBuffer, type FileInput } from './guuParser';
 import { parseExcelSchedule } from './excelParser';
+import { migrateSchedule } from './scheduleMigration';
 
 const GUU_SCHEDULE_URL = 'https://guu.ru/student/schedule/';
 
@@ -311,11 +312,80 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     fs.writeFileSync(savedPath, xlsxBuffer);
     console.log(`[GUU Import] Saved xlsx: ${savedPath}`);
 
-    // 6. Import into database
-    console.log(`[GUU Import] Importing ${records.length} records into database...`);
-    const result = await parseExcelSchedule(xlsxBuffer, prisma);
+    // 6. Prepare data for safe migration
+    console.log(`[GUU Import] Preparing data for safe migration...`);
+    
+    // Собираем уникальные группы
+    const groupsMap = new Map<string, {
+      number: number;
+      name: string;
+      course: number;
+      studyForm: string;
+      educationLevel: string;
+      directionName: string;
+      instituteName: string;
+      programName: string;
+    }>();
 
-    // 7. Get stats
+    const lessonsData: Array<{
+      groupNumber: number;
+      dayOfWeek: string;
+      pairNumber: number | string;
+      time: string;
+      parity: string;
+      subject: string;
+      lessonType: string;
+      teacher: string;
+      room: string;
+      weeks: string;
+    }> = [];
+
+    // Агрегируем данные из распарсенных рекордов
+    for (const record of records) {
+      const groupKey = `${record.institute}|${record.direction}|${record.program}|${record.groupNumber}`;
+      
+      if (!groupsMap.has(groupKey)) {
+        groupsMap.set(groupKey, {
+          number: record.groupNumber,
+          name: record.groupName,
+          course: record.course,
+          studyForm: record.studyForm,
+          educationLevel: record.educationLevel,
+          directionName: record.direction,
+          instituteName: record.institute,
+          programName: record.program,
+        });
+      }
+
+      lessonsData.push({
+        groupNumber: record.groupNumber,
+        dayOfWeek: record.dayOfWeek,
+        pairNumber: record.pairNumber,
+        time: record.time,
+        parity: record.parity,
+        subject: record.subject,
+        lessonType: record.lessonType,
+        teacher: record.teacher,
+        room: record.room,
+        weeks: record.weeks,
+      });
+    }
+
+    const groupsData = Array.from(groupsMap.values());
+    console.log(`[GUU Import] Prepared: ${groupsData.length} groups, ${lessonsData.length} lessons`);
+
+    // 7. Execute safe migration (preserves users!)
+    console.log(`[GUU Import] Executing safe migration...`);
+    const migrationStats = await migrateSchedule(groupsData, lessonsData);
+    
+    // Use migration result instead of old parseExcelSchedule
+    const result = {
+      imported: migrationStats.lessonsCreated,
+      skipped: 0,
+      total: migrationStats.lessonsCreated,
+    };
+
+    // 8. Get stats
     const [institutes, directions, programs, groups] = await Promise.all([
       prisma.institute.count(),
       prisma.direction.count(),
@@ -323,7 +393,7 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
       prisma.group.count(),
     ]);
 
-    // 8. Update import record
+    // 9. Update import record
     await prisma.scheduleImport.update({
       where: { id: importRecord.id },
       data: {
@@ -339,12 +409,29 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
       },
     });
 
-    console.log(`[GUU Import #${importRecord.id}] Done! Imported: ${result.imported}, Skipped: ${result.skipped}`);
+    console.log(
+      `[GUU Import #${importRecord.id}] Done! ✅\n` +
+      `Users preserved: ${migrationStats.usersPreserved}\n` +
+      `Lessons created: ${migrationStats.lessonsCreated}\n` +
+      `New groups: ${migrationStats.newGroupsCreated}`
+    );
 
     return {
       success: true,
       importId: importRecord.id,
-      stats: { ...result, institutes, directions, programs, groups },
+      stats: { 
+        ...result, 
+        institutes, 
+        directions, 
+        programs, 
+        groups,
+        usersPreserved: migrationStats.usersPreserved,
+        groupsPreserved: migrationStats.groupsPreserved,
+        lessonsDeleted: migrationStats.lessonsDeleted,
+        newGroupsCreated: migrationStats.newGroupsCreated,
+        newDirectionsCreated: migrationStats.newDirectionsCreated,
+        orphanedUsers: migrationStats.orphanedUsers,
+      },
     };
   } catch (err: any) {
     console.error(`[GUU Import #${importRecord.id}] Error:`, err.message);
