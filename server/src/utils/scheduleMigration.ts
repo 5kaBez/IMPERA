@@ -209,22 +209,40 @@ export async function migrateSchedule(
       const normalizedInstitute = normalizeInstitute(groupInfo.instituteName);
       const normalizedDirection = normalizeDirection(groupInfo.directionName);
       
-      // Ищем группу в БД по уникальным параметрам
+      // Сначала найдём direction
+      const direction = await prisma.direction.findFirst({
+        where: {
+          name: normalizedDirection,
+          institute: { name: normalizedInstitute },
+        },
+      });
+
+      if (!direction) {
+        console.warn(`   ⚠️  Направление ${normalizedDirection} не найдено для группы ${groupInfo.name}`);
+        continue;
+      }
+
+      // Затем найдём программу
+      const program = await prisma.program.findFirst({
+        where: {
+          name: groupInfo.programName,
+          directionId: direction.id,
+        },
+      });
+
+      if (!program) {
+        console.warn(`   ⚠️  Программа ${groupInfo.programName} не найдена в направлении ${normalizedDirection}`);
+        continue;
+      }
+
+      // Наконец найдём группу
       const group = await prisma.group.findFirst({
         where: {
           number: groupInfo.number,
           course: groupInfo.course,
           studyForm: groupInfo.studyForm,
-          program: {
-            direction: {
-              name: normalizedDirection,
-              institute: {
-                name: normalizedInstitute,
-              },
-            },
-          },
+          programId: program.id,
         },
-        include: { program: { include: { direction: { include: { institute: true } } } } },
       });
 
       if (!group) {
