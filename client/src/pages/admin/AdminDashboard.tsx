@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import type { Feedback, Teacher } from '../../types';
 import { Users, BookOpen, Calendar, Building2, Upload, ArrowRight, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Ticket, Plus, Trash2, Copy, RotateCcw, Download, RefreshCw, Clock, AlertCircle } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
+import AdminBackup from '../../components/AdminBackup';
 
 interface Stats {
   users: number;
@@ -20,7 +21,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes' | 'autoimport';
+type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'codes' | 'autoimport' | 'backup';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
             { key: 'teachers', label: 'Учителя' },
             { key: 'codes', label: 'Коды' },
             { key: 'autoimport', label: 'Авто-импорт' },
+            { key: 'backup', label: 'Бекап' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -88,6 +90,7 @@ export default function AdminDashboard() {
       {tab === 'teachers' && <TeachersTab />}
       {tab === 'codes' && <CodesTab />}
       {tab === 'autoimport' && <AutoImportTab />}
+      {tab === 'backup' && <AdminBackup />}
     </div>
   );
 }
