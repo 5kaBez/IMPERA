@@ -98,7 +98,12 @@ function DashboardTab({ stats }: { stats: Stats }) {
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
 
   useEffect(() => {
-    api.get<{ enabled: boolean; message: string }>('/admin/settings/maintenance').then(setMaintenance).catch(() => {});
+    api.get<{ enabled: boolean; message: string }>('/admin/settings/maintenance')
+      .then(setMaintenance)
+      .catch((err) => {
+        console.error('Failed to load maintenance settings:', err);
+        setMaintenance({ enabled: false, message: 'ИДЯТ ТЕХНИЧЕСКИЕ РАБОТЫ' });
+      });
   }, []);
 
   const toggleMaintenance = async () => {
@@ -109,6 +114,9 @@ function DashboardTab({ stats }: { stats: Stats }) {
     try {
       const updated = await api.post<{ enabled: boolean; message: string }>('/admin/settings/maintenance', { enabled: nextEnabled });
       setMaintenance(updated);
+    } catch (err) {
+      console.error('Failed to toggle maintenance:', err);
+      alert('Ошибка при переключении техработ. Проверьте консоль.');
     } finally {
       setMaintenanceSaving(false);
     }
