@@ -275,13 +275,25 @@ export async function migrateSchedule(
             programId: program.id,
           },
         });
-        console.log(`   ➕ Создана группа для урока: ${groupInfo.name}`);
+        console.log(`   ➕ Создана группа для урока: ${groupInfo.name} (ID: ${group.id})`);
+      }
+
+      // Проверяем что ID группы валидный
+      if (!group || !group.id || isNaN(Number(group.id))) {
+        console.warn(`   ⚠️  Невалидный ID группы для ${groupInfo.name}: ${group?.id}`);
+        continue;
       }
 
       const dayNum = dayNameToNumber[lessonData.dayOfWeek] || 1;
-      const pairNum = typeof lessonData.pairNumber === 'string'
+      let pairNum = typeof lessonData.pairNumber === 'string'
         ? parseInt(lessonData.pairNumber)
         : lessonData.pairNumber;
+
+      // Если pairNum не валидное число (NaN) - пропускаем урок
+      if (!pairNum || isNaN(pairNum) || pairNum <= 0) {
+        console.warn(`   ⚠️  Невалидный номер пары для урока в ${groupInfo.name}: "${lessonData.pairNumber}"`);
+        continue;
+      }
 
       // Определяем четность
       let parity = 2; // по-умолчанию обе недели
