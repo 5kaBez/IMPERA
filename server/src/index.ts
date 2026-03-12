@@ -14,7 +14,6 @@ import feedbackRoutes from './routes/feedback';
 import teacherRoutes from './routes/teachers';
 import sportsRoutes from './routes/sports';
 import sportsAttendanceRoutes from './routes/sports-attendance';
-import invitesRoutes from './routes/invites';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
@@ -64,7 +63,6 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/sports', sportsRoutes);
 app.use('/api/sports/attendance', sportsAttendanceRoutes);
-app.use('/api/invites', invitesRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {
@@ -117,22 +115,6 @@ app.listen(Number(PORT), HOST, async () => {
     console.log('👤 Admin user ensured');
   } catch (e) {
     console.error('Failed to seed admin:', e);
-  }
-
-  // Ensure AdminSettings exists (global invite code settings)
-  try {
-    await prisma.adminSettings.upsert({
-      where: { id: 1 },
-      update: {},
-      create: {
-        id: 1,
-        inviteCooldownHours: 24,
-        maxActiveCodesPerUser: 5,
-      },
-    });
-    console.log('⚙️ Admin settings ensured');
-  } catch (e) {
-    console.error('Failed to seed admin settings:', e);
   }
 
   // Start Telegram bot

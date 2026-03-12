@@ -49,6 +49,14 @@ router.post('/telegram', async (req: Request, res: Response) => {
       include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
     });
 
+    if (user && !user.activated) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { activated: true },
+        include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+      });
+    }
+
     if (!user) {
       user = await prisma.user.create({
         data: {
@@ -57,7 +65,7 @@ router.post('/telegram', async (req: Request, res: Response) => {
           lastName: telegramData.last_name || null,
           username: telegramData.username || null,
           photoUrl: telegramData.photo_url || null,
-          activated: false, // Новые юзеры не активированы — нужен инвайт-код
+          activated: true,
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -146,7 +154,7 @@ router.post('/webapp', async (req: Request, res: Response) => {
           lastName: telegramUser.last_name || null,
           username: telegramUser.username || null,
           photoUrl: telegramUser.photo_url || null,
-          activated: false, // Новые юзеры не активированы — нужен инвайт-код
+          activated: true,
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -159,6 +167,7 @@ router.post('/webapp', async (req: Request, res: Response) => {
           lastName: telegramUser.last_name || user.lastName,
           username: telegramUser.username || user.username,
           photoUrl: telegramUser.photo_url || user.photoUrl,
+          activated: true,
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -213,6 +222,14 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
       include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
     });
 
+    if (user && !user.activated) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { activated: true },
+        include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+      });
+    }
+
     if (!user) {
       // Create new user
       user = await prisma.user.create({
@@ -222,7 +239,7 @@ router.post('/webapp-user', async (req: Request, res: Response) => {
           lastName: tgUser.last_name || null,
           username: tgUser.username || null,
           photoUrl: tgUser.photo_url || null,
-          activated: false, // Новые юзеры не активированы — нужен инвайт-код
+          activated: true,
         },
         include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
       });
@@ -322,7 +339,7 @@ router.post('/dev-login', async (req: Request, res: Response) => {
         telegramId: String(telegramId || '123456'),
         firstName: firstName || 'Dev User',
         role: role || 'student',
-        activated: role === 'admin' ? true : false, // Админ сразу активирован, остальные нет
+        activated: true,
       },
       include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
     });
@@ -352,114 +369,6 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('Me error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// POST /api/auth/register-with-code - invite code registration for authenticated users
-router.post('/register-with-code', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const prisma: PrismaClient = req.app.locals.prisma;
-    const { code } = req.body;
-
-    if (!code || typeof code !== 'string') {
-      res.status(400).json({ error: 'Код не предоставлен' });
-      return;
-    }
-
-    // Найти инвайт-код первым
-    const inviteCode = await prisma.inviteCode.findUnique({
-      where: { code }
-    });
-
-    if (!inviteCode) {
-      res.status(404).json({ error: 'Инвайт-код не найден' });
-      return;
-    }
-
-    // Проверить, не использован ли код
-    if (inviteCode.usedAt) {
-      res.status(410).json({ error: 'Этот код уже использован' });
-      return;
-    }
-
-    // Требуется авторизация для использования кода
-    const userId = req.userId;
-    if (!userId) {
-      res.status(401).json({ error: 'Полязователь не авторизован' });
-      return;
-    }
-
-    await prisma.inviteCode.update({
-      where: { id: inviteCode.id },
-      data: {
-        usedById: userId,
-        usedAt: new Date(),
-      }
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        activated: true,
-      }
-    });
-
-    const codeCreator = await prisma.user.findUnique({
-      where: { id: inviteCode.creatorId },
-      select: { id: true, firstName: true, lastName: true }
-    });
-
-    // Обновить статистику создателя кода
-    await prisma.user.update({
-      where: { id: inviteCode.creatorId },
-      data: {
-        referralCount: { increment: 1 }
-      }
-    });
-
-    console.log(`🎟️ Invite code ${code} used, invited by ${codeCreator?.firstName}`);
-
-    res.json({
-      success: true,
-      message: 'Код успешно использован!',
-      invitedBy: codeCreator
-        ? {
-            id: codeCreator.id,
-            name: `${codeCreator.firstName} ${codeCreator.lastName || ''}`
-          }
-        : undefined
-    });
-  } catch (err) {
-    console.error('Register with code error:', err);
-    res.status(500).json({ error: 'Ошибка при использовании кода' });
-  }
-});
-
-// POST /api/auth/activate — (LEGACY) активация по инвайт-коду (закрытый бета-тест)
-// Сохранён для обратной совместимости
-router.post('/activate', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const prisma: PrismaClient = req.app.locals.prisma;
-    const { code } = req.body;
-
-    if (!code || typeof code !== 'string') {
-      res.status(400).json({ error: 'Введите код' });
-      return;
-    }
-
-    // Попытаться использовать как новый инвайт-код
-    const inviteCode = await prisma.inviteCode.findUnique({ where: { code } });
-
-    if (inviteCode) {
-      // Это новый инвайт-код, используем новый эндпоинт
-      return res.status(301).json({ error: 'Используйте /register-with-code' });
-    }
-
-    // Иначе пытаемся для легаси (если вообще существуют такие коды)
-    res.status(404).json({ error: 'Код не найден' });
-  } catch (err) {
-    console.error('Activate error:', err);
-    res.status(500).json({ error: 'Ошибка активации' });
   }
 });
 

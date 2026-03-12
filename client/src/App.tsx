@@ -4,7 +4,6 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import SchedulePage from './pages/SchedulePage';
 import ProfilePage from './pages/ProfilePage';
-import InvitesPage from './pages/InvitesPage';
 import SelectGroupPage from './pages/SelectGroupPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminSchedule from './pages/admin/AdminSchedule';
@@ -12,7 +11,6 @@ import AdminImport from './pages/admin/AdminImport';
 import AdminUsers from './pages/admin/AdminUsers';
 import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
-import BetaGatePage from './pages/BetaGatePage';
 import { Component, type ReactNode } from 'react';
 
 // Error Boundary to catch runtime crashes
@@ -88,11 +86,6 @@ function App() {
     );
   }
 
-  // Beta gate: require invite code activation
-  if (!user.activated && user.role !== 'admin') {
-    return <BetaGatePage />;
-  }
-
   if (!user.groupId && !user.isSportTeacher && !localStorage.getItem('impera_skip_group')) {
     return <SelectGroupPage />;
   }
@@ -104,7 +97,6 @@ function App() {
           <Route path="/" element={<SchedulePage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/invites" element={<InvitesPage />} />
           <Route path="/sports" element={<SportsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
           {user.role === 'admin' && (

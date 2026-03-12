@@ -25,18 +25,15 @@ export async function startBot(prisma: PrismaClient) {
   globalPrisma = prisma;
   bot = new Bot(BOT_TOKEN);
 
-  // /start command — welcome message with invite code handling
+  // /start command — welcome message
   bot.command('start', async (ctx: Context) => {
     const firstName = ctx.from?.first_name || 'студент';
     const telegramId = ctx.from?.id?.toString();
-    const inviteCode = typeof ctx.match === 'string' ? ctx.match.trim() : undefined; // Параметр из ссылки: /start ABC123INV
 
     if (!telegramId) return;
 
     try {
       let user = await prisma.user.findUnique({ where: { telegramId } });
-      let activated = false;
-      let inviteMessage = '';
 
       // Auto-register user if not exists
       if (!user) {
@@ -46,46 +43,14 @@ export async function startBot(prisma: PrismaClient) {
             firstName: ctx.from?.first_name || 'User',
             lastName: ctx.from?.last_name || null,
             username: ctx.from?.username || null,
-            activated: false,
+            activated: true,
           },
         });
-      }
-
-      // Если есть инвайт-код, активируем пользователя
-      if (inviteCode) {
-        try {
-          const inviteRecord = await prisma.inviteCode.findUnique({
-            where: { code: inviteCode },
-            include: { creator: true },
-          });
-
-          if (inviteRecord && !inviteRecord.usedAt) {
-            // Код валиден и не использован — активируем пользователя
-            await prisma.inviteCode.update({
-              where: { code: inviteCode },
-              data: {
-                usedAt: new Date(),
-                usedById: user.id,
-              },
-            });
-
-            // Активируем пользователя
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { activated: true },
-            });
-
-            activated = true;
-            inviteMessage = `\n\n✅ *Неплохо\\!* Ты активирован через код от ${inviteRecord.creator?.firstName || 'одноклассника'}\\!`;
-          } else if (inviteRecord?.usedAt) {
-            inviteMessage = `\n\n⚠️ Этот код уже использован\\.`;
-          } else {
-            inviteMessage = `\n\n❌ Неверный инвайт\\-код\\. Видимо, ссылка потеряла актуальность\\.`;
-          }
-        } catch (err) {
-          console.error('Invite code processing error:', err);
-          inviteMessage = `\n\n⚠️ Ошибка при обработке кода приглашения\\.`;
-        }
+      } else if (!user.activated) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { activated: true },
+        });
       }
 
       const keyboard = new InlineKeyboard()
@@ -100,8 +65,7 @@ export async function startBot(prisma: PrismaClient) {
         `⭐ *Отзывы о преподавателях* — оставляй оценки и читай отзывы других студентов\\.\n\n` +
         `💬 *Обратная связь* — предложения, жалобы, баги — всё принимаем\\!\n\n` +
         `👇 *Нажми кнопку ниже, чтобы начать\\!*\n` +
-        `Выбери свой институт, направление и группу — и расписание всегда будет с тобой\\.` +
-        inviteMessage,
+        `Выбери свой институт, направление и группу — и расписание всегда будет с тобой\\.`,
         {
           parse_mode: 'MarkdownV2',
           reply_markup: keyboard,

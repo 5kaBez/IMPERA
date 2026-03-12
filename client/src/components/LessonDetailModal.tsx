@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import type { Lesson, Teacher, Review } from '../types';
-import { LESSON_TYPE_COLORS } from '../types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { X, Star, MapPin, Clock, User, BookOpen, Send, ChevronDown } from 'lucide-react';
+import { X, Star, MapPin, Clock, User, BookOpen, Send } from 'lucide-react';
 
 interface LessonDetailModalProps {
   lesson: Lesson;
@@ -126,8 +125,6 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
       setSubmitting(false);
     }
   };
-
-  const typeColor = LESSON_TYPE_COLORS[lesson.lessonType] || LESSON_TYPE_COLORS['Другое'];
 
   const formatPairLabel = (n: number) => {
     return `${n}-я пара`;

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import type { Lesson, ScheduleDay, ScheduleWeek } from '../types';
 import { DAY_NAMES } from '../types';
-import { Calendar, MapPin, User, ChevronRight, Dumbbell } from 'lucide-react';
+import { Calendar, User, ChevronRight, Dumbbell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
