@@ -23,8 +23,11 @@ import { runAutoImport } from './utils/guuScheduleImporter';
 // Ensure database tables exist on startup
 try {
   console.log('📦 Syncing database schema...');
+  const serverDir = path.resolve(__dirname, '..');
+  const prismaDir = path.join(serverDir, 'prisma');
   execSync('npx prisma db push --skip-generate --accept-data-loss', {
-    cwd: path.join(__dirname, '..'),
+    cwd: serverDir,
+    env: { ...process.env, PRISMA_SCHEMA_PATH: path.join(prismaDir, 'schema.prisma') },
     stdio: 'inherit',
     timeout: 30000,
   });

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { spawnSync } from 'child_process';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { parseExcelSchedule } from '../utils/excelParser';
 import { runAutoImport } from '../utils/guuScheduleImporter';
@@ -348,6 +349,215 @@ router.put('/users/:id/ban', async (req: Request, res: Response) => {
   });
 
   res.json({ success: true, banned: updated.banned });
+});
+
+// ===== Backup Routes =====
+
+// Helper: Get or create backups directory
+function ensureBackupDir(): string {
+  const backupDir = path.join(process.cwd(), 'backups');
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+  return backupDir;
+}
+
+// Helper: Generate backup filename
+function generateBackupName(): string {
+  const now = new Date();
+  return `backup-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.sql`;
+}
+
+// GET /api/admin/backup/list — list all backups
+router.get('/backup/list', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const backups = await prisma.backup.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ backups });
+  } catch (err: any) {
+    console.error('Backup list error:', err);
+    res.status(500).json({ error: 'Ошибка получения списка бекапов' });
+  }
+});
+
+// POST /api/admin/backup/create — create backup
+router.post('/backup/create', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const backupDir = ensureBackupDir();
+    const backupName = generateBackupName();
+    const backupPath = path.join(backupDir, backupName);
+
+    // Get database connection string from environment
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+      res.status(500).json({ error: 'DATABASE_URL не установлена' });
+      return;
+    }
+
+    // Create backup using pg_dump
+    const result = spawnSync('pg_dump', [dbUrl, '-Fc', '-f', backupPath], {
+      encoding: 'utf-8',
+    });
+
+    if (result.error) {
+      console.error('pg_dump error:', result.error);
+      res.status(500).json({ error: 'Ошибка создания бекапа: pg_dump failed' });
+      return;
+    }
+
+    if (result.status !== 0) {
+      console.error('pg_dump stderr:', result.stderr);
+      res.status(500).json({ error: `Ошибка создания бекапа: ${result.stderr}` });
+      return;
+    }
+
+    // Get file size
+    const stats = fs.statSync(backupPath);
+    const fileSize = stats.size;
+
+    // Get current counts
+    const [userCount, groupCount, lessonCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.group.count(),
+      prisma.lesson.count(),
+    ]);
+
+    // Record in database
+    const backup = await prisma.backup.create({
+      data: {
+        name: backupName,
+        fileSize,
+        userCount,
+        groupCount,
+        lessonCount,
+        source: 'manual',
+        filePath: backupPath,
+      },
+    });
+
+    res.json({ success: true, backup, message: 'Резервная копия создана' });
+  } catch (err: any) {
+    console.error('Backup create error:', err);
+    res.status(500).json({ error: 'Ошибка создания бекапа' });
+  }
+});
+
+// GET /api/admin/backup/download/:id — download backup file
+router.get('/backup/download/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const id = parseInt(String(req.params.id));
+    const backup = await prisma.backup.findUnique({ where: { id } });
+
+    if (!backup) {
+      res.status(404).json({ error: 'Бекап не найден' });
+      return;
+    }
+
+    if (!fs.existsSync(backup.filePath)) {
+      res.status(404).json({ error: 'Файл бекапа не найден на диске' });
+      return;
+    }
+
+    res.download(backup.filePath, backup.name);
+  } catch (err: any) {
+    console.error('Backup download error:', err);
+    res.status(500).json({ error: 'Ошибка скачивания бекапа' });
+  }
+});
+
+// POST /api/admin/backup/restore/:id — restore from backup
+router.post('/backup/restore/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const id = parseInt(String(req.params.id));
+    const { confirm } = req.body;
+
+    if (!confirm) {
+      res.status(400).json({ error: 'Требуется подтверждение (confirm: true)' });
+      return;
+    }
+
+    const backup = await prisma.backup.findUnique({ where: { id } });
+    if (!backup) {
+      res.status(404).json({ error: 'Бекап не найден' });
+      return;
+    }
+
+    if (!fs.existsSync(backup.filePath)) {
+      res.status(404).json({ error: 'Файл бекапа не найден на диске' });
+      return;
+    }
+
+    // Get database connection string
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+      res.status(500).json({ error: 'DATABASE_URL не установлена' });
+      return;
+    }
+
+    // Restore database using pg_restore
+    const result = spawnSync('pg_restore', ['-Fc', '-d', dbUrl, '--clean', backup.filePath], {
+      encoding: 'utf-8',
+    });
+
+    if (result.error) {
+      console.error('pg_restore error:', result.error);
+      res.status(500).json({ error: 'Ошибка восстановления бекапа: pg_restore failed' });
+      return;
+    }
+
+    if (result.status !== 0) {
+      console.error('pg_restore stderr:', result.stderr);
+      res.status(500).json({ error: `Ошибка восстановления бекапа: ${result.stderr}` });
+      return;
+    }
+
+    // Increment restoreCount
+    await prisma.backup.update({
+      where: { id },
+      data: { restoredCount: backup.restoredCount + 1 },
+    });
+
+    res.json({
+      success: true,
+      message: 'Бекап восстановлен. Перезагрузите приложение.',
+      requiresRestart: true,
+    });
+  } catch (err: any) {
+    console.error('Backup restore error:', err);
+    res.status(500).json({ error: 'Ошибка восстановления бекапа' });
+  }
+});
+
+// DELETE /api/admin/backup/:id — delete backup file and record
+router.delete('/backup/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const id = parseInt(String(req.params.id));
+    const backup = await prisma.backup.findUnique({ where: { id } });
+
+    if (!backup) {
+      res.status(404).json({ error: 'Бекап не найден' });
+      return;
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(backup.filePath)) {
+      fs.unlinkSync(backup.filePath);
+    }
+
+    // Delete record from database
+    await prisma.backup.delete({ where: { id } });
+
+    res.json({ success: true, message: 'Бекап удалён' });
+  } catch (err: any) {
+    console.error('Backup delete error:', err);
+    res.status(500).json({ error: 'Ошибка удаления бекапа' });
+  }
 });
 
 export default router;

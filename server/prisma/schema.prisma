@@ -16,23 +16,23 @@ model Institute {
 }
 
 model Direction {
-  id          Int        @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   name        String
   instituteId Int
-  institute   Institute  @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  institute   Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
   programs    Program[]
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
 
   @@unique([name, instituteId])
 }
 
 model Program {
-  id          Int        @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   name        String
   directionId Int
-  direction   Direction  @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  direction   Direction @relation(fields: [directionId], references: [id], onDelete: Cascade)
   groups      Group[]
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
 
   @@unique([name, directionId])
 }
@@ -57,13 +57,13 @@ model Lesson {
   id         Int      @id @default(autoincrement())
   groupId    Int
   group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  dayOfWeek  Int      // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+  dayOfWeek  Int // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
   pairNumber Int
   timeStart  String
   timeEnd    String
-  parity     Int      // 0=чёт, 1=нечёт, 2=обе
+  parity     Int // 0=чёт, 1=нечёт, 2=обе
   subject    String
-  lessonType String   // Лекция, Практика, Лабораторная, ПЗ
+  lessonType String // Лекция, Практика, Лабораторная, ПЗ
   teacher    String
   room       String
   weekStart  Int      @default(1)
@@ -75,35 +75,35 @@ model Lesson {
 }
 
 model User {
-  id             Int        @id @default(autoincrement())
-  telegramId     String     @unique
-  firstName      String
-  lastName       String?
-  username       String?
-  photoUrl       String?
-  groupId        Int?
-  group          Group?     @relation(fields: [groupId], references: [id])
-  role           String     @default("student") // student, admin
-  notifyBefore   Boolean    @default(true)
-  notifyChanges  Boolean    @default(true)
-  referralCode   String?    @unique  // персональный реферальный код (8-char hex)
-  referredBy     String?              // код того, кто пригласил
-  referralCount  Int        @default(0) // сколько людей пригласил
-  activated      Boolean    @default(true) // false = нужен инвайт-код для доступа
-  banned         Boolean    @default(false) // заблокированный пользователь
-  lastCodeGeneration  DateTime?   // Время последней генерации инвайт-кода
-  codesGeneratedTotal Int     @default(0)  // Общий счётчик созданных кодов
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  feedbacks       Feedback[]
-  reviews         Review[]
-  sportFavorites    SportFavorite[]
-  sportEnrollments  SportEnrollment[]  // На какую секцию записан
-  sportTeaching     SportTeacher[]     // Секции, где юзер — преподаватель физры
-  sportSessions     SportSession[]     @relation("SessionTeacher")
-  sportAttendances  SportAttendance[]  @relation("AttendanceStudent")
-  codesCreated    InviteCode[]  @relation("CodeCreator")
-  codesUsed       InviteCode[]  @relation("CodeUsedBy")
+  id                  Int               @id @default(autoincrement())
+  telegramId          String            @unique
+  firstName           String
+  lastName            String?
+  username            String?
+  photoUrl            String?
+  groupId             Int?
+  group               Group?            @relation(fields: [groupId], references: [id])
+  role                String            @default("student") // student, admin
+  notifyBefore        Boolean           @default(true)
+  notifyChanges       Boolean           @default(true)
+  referralCode        String?           @unique // персональный реферальный код (8-char hex)
+  referredBy          String? // код того, кто пригласил
+  referralCount       Int               @default(0) // сколько людей пригласил
+  activated           Boolean           @default(true) // false = нужен инвайт-код для доступа
+  banned              Boolean           @default(false) // заблокированный пользователь
+  lastCodeGeneration  DateTime? // Время последней генерации инвайт-кода
+  codesGeneratedTotal Int               @default(0) // Общий счётчик созданных кодов
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  feedbacks           Feedback[]
+  reviews             Review[]
+  sportFavorites      SportFavorite[]
+  sportEnrollments    SportEnrollment[] // На какую секцию записан
+  sportTeaching       SportTeacher[] // Секции, где юзер — преподаватель физры
+  sportSessions       SportSession[]    @relation("SessionTeacher")
+  sportAttendances    SportAttendance[] @relation("AttendanceStudent")
+  codesCreated        InviteCode[]      @relation("CodeCreator")
+  codesUsed           InviteCode[]      @relation("CodeUsedBy")
 }
 
 model Feedback {
@@ -133,45 +133,45 @@ model Review {
   teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating    Int      // 1-5
+  rating    Int // 1-5
   text      String?
   anonymous Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@index([teacherId])
   @@unique([teacherId, userId])
+  @@index([teacherId])
 }
 
 // ===== Физкультура =====
 model SportSection {
-  id          Int              @id @default(autoincrement())
-  name        String           @unique // Атлетизм, Аэробика, Баскетбол, etc.
-  emoji       String?          // 🏋️, 💃, 🏀, etc.
-  geoLat      Float?           // Координаты зала для гео-проверки
+  id          Int               @id @default(autoincrement())
+  name        String            @unique // Атлетизм, Аэробика, Баскетбол, etc.
+  emoji       String? // 🏋️, 💃, 🏀, etc.
+  geoLat      Float? // Координаты зала для гео-проверки
   geoLon      Float?
   slots       SportSlot[]
   favorites   SportFavorite[]
   enrollments SportEnrollment[]
   teachers    SportTeacher[]
   sessions    SportSession[]
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime          @default(now())
 }
 
 model SportSlot {
-  id         Int          @id @default(autoincrement())
-  sectionId  Int
-  section    SportSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  dayOfWeek  Int          // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
-  timeStart  String       // "09:00"
-  timeEnd    String       // "10:30"
-  teacher    String
-  location   String?      // Спортзал, Бассейн, etc.
-  capacity   Int?         // Максимум студентов (опционально)
-  sessions   SportSession[]
-  createdAt  DateTime     @default(now())
+  id        Int            @id @default(autoincrement())
+  sectionId Int
+  section   SportSection   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+  timeStart String // "09:00"
+  timeEnd   String // "10:30"
+  teacher   String
+  location  String? // Спортзал, Бассейн, etc.
+  capacity  Int? // Максимум студентов (опционально)
+  sessions  SportSession[]
+  createdAt DateTime       @default(now())
 
-  @@index([sectionId, dayOfWeek])
   @@unique([sectionId, dayOfWeek, timeStart])
+  @@index([sectionId, dayOfWeek])
 }
 
 model SportFavorite {
@@ -213,16 +213,16 @@ model SportTeacher {
 
 // Сессия занятия — преподаватель «открывает пару»
 model SportSession {
-  id          Int              @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   sectionId   Int
-  section     SportSection     @relation(fields: [sectionId], references: [id])
+  section     SportSection      @relation(fields: [sectionId], references: [id])
   slotId      Int?
-  slot        SportSlot?       @relation(fields: [slotId], references: [id])
+  slot        SportSlot?        @relation(fields: [slotId], references: [id])
   teacherId   Int
-  teacher     User             @relation("SessionTeacher", fields: [teacherId], references: [id])
-  status      String           @default("active") // active, completed, cancelled
-  secretSeed  String?          // Секрет (legacy TOTP, теперь опционально)
-  startedAt   DateTime         @default(now())
+  teacher     User              @relation("SessionTeacher", fields: [teacherId], references: [id])
+  status      String            @default("active") // active, completed, cancelled
+  secretSeed  String? // Секрет (legacy TOTP, теперь опционально)
+  startedAt   DateTime          @default(now())
   endedAt     DateTime?
   attendances SportAttendance[]
 
@@ -238,15 +238,15 @@ model SportAttendance {
   studentId   Int
   student     User         @relation("AttendanceStudent", fields: [studentId], references: [id])
   status      String       @default("pending") // pending → confirmed / rejected
-  geoLat      Float?       // Откуда отметился студент
+  geoLat      Float? // Откуда отметился студент
   geoLon      Float?
-  geoDistM    Int?         // Расстояние до зала (метры)
+  geoDistM    Int? // Расстояние до зала (метры)
   geoOk       Boolean      @default(false) // <= 1км
-  deviceHash  String?      // Отпечаток устройства (1 телефон = 1 студент)
+  deviceHash  String? // Отпечаток устройства (1 телефон = 1 студент)
   checkedInAt DateTime     @default(now())
   confirmedAt DateTime?
-  hash        String       // SHA256(studentId:sessionId:timestamp:prevHash)
-  prevHash    String?      // Хеш предыдущей записи этого студента
+  hash        String // SHA256(studentId:sessionId:timestamp:prevHash)
+  prevHash    String? // Хеш предыдущей записи этого студента
 
   @@unique([sessionId, studentId]) // Один студент — одна отметка за сессию
   @@index([studentId, checkedInAt])
@@ -254,32 +254,46 @@ model SportAttendance {
 
 // ===== История импорта расписания =====
 model ScheduleImport {
+  id           Int       @id @default(autoincrement())
+  status       String    @default("running") // running, success, error
+  importedRows Int       @default(0)
+  skippedRows  Int       @default(0)
+  institutes   Int       @default(0)
+  directions   Int       @default(0)
+  programs     Int       @default(0)
+  groups       Int       @default(0)
+  source       String    @default("manual") // manual, auto
+  error        String?
+  filePath     String? // путь к сохранённому xlsx
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+}
+
+// ===== Резервные копии БД =====
+model Backup {
   id            Int      @id @default(autoincrement())
-  status        String   @default("running") // running, success, error
-  importedRows  Int      @default(0)
-  skippedRows   Int      @default(0)
-  institutes    Int      @default(0)
-  directions    Int      @default(0)
-  programs      Int      @default(0)
-  groups        Int      @default(0)
+  name          String   @unique // Имя файла бекапа (e.g., "backup-2026-03-12-15-30.sql")
+  fileSize      Int // Размер файла в байтах
+  userCount     Int? // Мгновенный снимок: кол-во юзеров при создании
+  groupCount    Int? // Кол-во групп при создании
+  lessonCount   Int? // Кол-во уроков при создании
   source        String   @default("manual") // manual, auto
-  error         String?
-  filePath      String?  // путь к сохранённому xlsx
-  startedAt     DateTime @default(now())
-  finishedAt    DateTime?
+  filePath      String // Полный путь к файлу на диске
+  restoredCount Int      @default(0) // Сколько раз был восстановлен
+  createdAt     DateTime @default(now())
 }
 
 // ===== Инвайт-коды для вирусной механики приглашений =====
 model InviteCode {
-  id         Int       @id @default(autoincrement())
-  code       String    @unique   // 8-символьная уникальная строка
-  creatorId  Int
-  creator    User      @relation("CodeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  createdAt  DateTime  @default(now())
-  usedById   Int?                // telegramId или id того, кто использовал
-  usedBy     User?     @relation("CodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
-  usedAt     DateTime?
-  
+  id        Int       @id @default(autoincrement())
+  code      String    @unique // 8-символьная уникальная строка
+  creatorId Int
+  creator   User      @relation("CodeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  usedById  Int? // telegramId или id того, кто использовал
+  usedBy    User?     @relation("CodeUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  usedAt    DateTime?
+
   @@index([creatorId])
   @@index([usedById])
   @@index([createdAt])
@@ -287,9 +301,9 @@ model InviteCode {
 
 // ===== Глобальные настройки (инвайт-система и другое) =====
 model AdminSettings {
-  id                  Int     @id @default(autoincrement())
-  inviteCooldownHours Int     @default(24)  // N часов между создением кодов
-  maxActiveCodesPerUser Int   @default(5)   // Макс неиспользованных кодов
-  
+  id                    Int @id @default(autoincrement())
+  inviteCooldownHours   Int @default(24) // N часов между создением кодов
+  maxActiveCodesPerUser Int @default(5) // Макс неиспользованных кодов
+
   @@unique([id]) // Гарантирует что записей в таблице максимум одна
 }
