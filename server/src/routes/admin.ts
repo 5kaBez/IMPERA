@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { spawnSync } from 'child_process';
+import { spawnSync, execSync } from 'child_process';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { parseExcelSchedule } from '../utils/excelParser';
 import { runAutoImport } from '../utils/guuScheduleImporter';
@@ -372,13 +372,23 @@ function generateBackupName(): string {
 router.get('/backup/list', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   try {
-    const backups = await prisma.backup.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json({ backups });
+    // Check if Backup table exists
+    try {
+      const backups = await prisma.backup.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json({ backups });
+    } catch (tableErr: any) {
+      if (tableErr.code === 'P3019' || tableErr.message?.includes('does not exist')) {
+        return res.status(503).json({
+          error: 'Таблица бекапов не инициализирована. Запустите миграцию: npx prisma migrate deploy',
+        });
+      }
+      throw tableErr;
+    }
   } catch (err: any) {
     console.error('Backup list error:', err);
-    res.status(500).json({ error: 'Ошибка получения списка бекапов' });
+    res.status(500).json({ error: `Ошибка получения списка бекапов: ${err.message}` });
   }
 });
 
@@ -386,6 +396,15 @@ router.get('/backup/list', async (req: Request, res: Response) => {
 router.post('/backup/create', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   try {
+    // Check if Backup table exists
+    try {
+      await prisma.$queryRaw`SELECT 1 FROM "Backup" LIMIT 1`;
+    } catch (tableErr: any) {
+      return res.status(503).json({
+        error: 'Таблица бекапов не инициализирована. Запустите миграцию: npx prisma migrate deploy',
+      });
+    }
+
     const backupDir = ensureBackupDir();
     const backupName = generateBackupName();
     const backupPath = path.join(backupDir, backupName);
@@ -397,20 +416,59 @@ router.post('/backup/create', async (req: Request, res: Response) => {
       return;
     }
 
+    // Try to find pg_dump in common locations
+    let pgDumpCmd = 'pg_dump';
+    const commonPaths = [
+      '/usr/bin/pg_dump',
+      '/usr/local/bin/pg_dump',
+      'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
+      'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
+    ];
+
+    for (const cmdPath of commonPaths) {
+      try {
+        if (fs.existsSync(cmdPath)) {
+          pgDumpCmd = cmdPath;
+          break;
+        }
+      } catch (e) {
+        // continue
+      }
+    }
+
     // Create backup using pg_dump
-    const result = spawnSync('pg_dump', [dbUrl, '-Fc', '-f', backupPath], {
-      encoding: 'utf-8',
-    });
+    let result;
+    try {
+      result = spawnSync(pgDumpCmd, [dbUrl, '-Fc', '-f', backupPath], {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (spawnErr: any) {
+      console.error('spawnSync error:', spawnErr);
+      return res.status(500).json({
+        error: `pg_dump не найден. Убедитесь что PostgreSQL-клиенты установлены на сервере: ${spawnErr.message}`,
+      });
+    }
 
     if (result.error) {
       console.error('pg_dump error:', result.error);
-      res.status(500).json({ error: 'Ошибка создания бекапа: pg_dump failed' });
+      res.status(500).json({
+        error: `pg_dump ошибка: ${result.error.message || result.error}`,
+      });
       return;
     }
 
     if (result.status !== 0) {
       console.error('pg_dump stderr:', result.stderr);
-      res.status(500).json({ error: `Ошибка создания бекапа: ${result.stderr}` });
+      res.status(500).json({
+        error: `Ошибка создания бекапа (код ${result.status}): ${result.stderr || 'Неизвестная ошибка'}`,
+      });
+      return;
+    }
+
+    // Check if file was created
+    if (!fs.existsSync(backupPath) || fs.statSync(backupPath).size === 0) {
+      res.status(500).json({ error: 'Файл бекапа не был создан' });
       return;
     }
 
@@ -441,7 +499,9 @@ router.post('/backup/create', async (req: Request, res: Response) => {
     res.json({ success: true, backup, message: 'Резервная копия создана' });
   } catch (err: any) {
     console.error('Backup create error:', err);
-    res.status(500).json({ error: 'Ошибка создания бекапа' });
+    res.status(500).json({
+      error: `Ошибка создания бекапа: ${err.message || 'Неизвестная ошибка'}`,
+    });
   }
 });
 

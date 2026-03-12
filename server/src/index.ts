@@ -19,6 +19,7 @@ import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
 import cron from 'node-cron';
 import { runAutoImport } from './utils/guuScheduleImporter';
+import { createAutoBackup, cleanupOldBackups } from './utils/backupManager';
 
 // Ensure database tables exist on startup
 try {
@@ -137,6 +138,28 @@ app.listen(Number(PORT), HOST, async () => {
     }
   }, { timezone: 'Europe/Moscow' });
   console.log('📅 Auto-import cron scheduled: daily at 7:00 MSK');
+
+  // Schedule auto-backup every day at 00:00 MSK (midnight)
+  cron.schedule('0 0 * * *', async () => {
+    console.log('🌙 [CRON] Starting midnight auto-backup...');
+    const result = await createAutoBackup(prisma, 'auto:midnight');
+    console.log(`🌙 [CRON] Midnight backup ${result.success ? 'completed' : 'failed'}: ${result.message}`);
+    
+    // Cleanup old backups, keep last 30
+    await cleanupOldBackups(prisma, 30);
+  }, { timezone: 'Europe/Moscow' });
+  console.log('🌙 Auto-backup cron scheduled: daily at 00:00 MSK (midnight)');
+
+  // Schedule auto-backup every day at 12:00 MSK (noon)
+  cron.schedule('0 12 * * *', async () => {
+    console.log('☀️ [CRON] Starting noon auto-backup...');
+    const result = await createAutoBackup(prisma, 'auto:noon');
+    console.log(`☀️ [CRON] Noon backup ${result.success ? 'completed' : 'failed'}: ${result.message}`);
+    
+    // Cleanup old backups, keep last 30
+    await cleanupOldBackups(prisma, 30);
+  }, { timezone: 'Europe/Moscow' });
+  console.log('☀️ Auto-backup cron scheduled: daily at 12:00 MSK (noon)');
 });
 
 // Graceful shutdown
