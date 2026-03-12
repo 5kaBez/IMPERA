@@ -38,13 +38,27 @@ class ApiClient {
     }
 
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    const raw = await res.text();
+
+    const parseJson = () => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Ошибка сервера' }));
+      const error = parseJson() || { error: 'Ошибка сервера' };
       throw new ApiError(res.status, error.error || `HTTP ${res.status}`);
     }
 
-    return res.json();
+    const payload = parseJson();
+    if (payload === null) {
+      throw new ApiError(res.status, 'Сервер вернул неожидаемый ответ');
+    }
+
+    return payload as T;
   }
 
   get<T>(path: string, options?: RequestInit) {
