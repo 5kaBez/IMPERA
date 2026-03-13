@@ -20,11 +20,11 @@
   /* Premium "Old Money" Palette - Light (Premium Gray) */
   --color-bg-apple: #EDEDF0;
   --color-card-apple: rgba(255, 255, 255, 0.75);
-  --color-primary-apple: #D4AF37;
-  /* Old Gold */
-  --color-secondary-apple: #C5A02E;
+  --color-primary-apple: #B8960F;
+  /* Darker Gold for light backgrounds */
+  --color-secondary-apple: #A3850E;
   --color-text-main: #1C1C1E;
-  --color-text-muted: #6E6E73;
+  --color-text-muted: #48484A;
   --apple-border: rgba(0, 0, 0, 0.08);
 
   /* Premium "Old Money" Palette - Dark (Carbon Black) */

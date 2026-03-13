@@ -447,7 +447,7 @@ function CalendarPicker({ selectedDate, onSelect }: {
 
           const isT = isSameDay(date, today);
           const isSel = selectedDate ? isSameDay(date, selectedDate) : false;
-          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+          const isSunday = date.getDay() === 0;
 
           return (
             <button
@@ -458,7 +458,7 @@ function CalendarPicker({ selectedDate, onSelect }: {
                   ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/30 font-black scale-105'
                   : isT
                     ? 'bg-[var(--color-primary-apple)]/15 text-[var(--color-primary-apple)] font-black ring-1 ring-[var(--color-primary-apple)]/30'
-                    : isWeekend
+                    : isSunday
                       ? 'text-[var(--color-text-muted)] opacity-50 hover:bg-black/5 dark:hover:bg-white/5 hover:opacity-80'
                       : 'text-[var(--color-text-main)] hover:bg-black/5 dark:hover:bg-white/5'
               }`}
