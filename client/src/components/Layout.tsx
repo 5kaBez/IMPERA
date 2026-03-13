@@ -34,59 +34,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20">
-      {/* Bottom Navigation - All screens */}
-      <nav className="fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-40 bg-[var(--color-bg-apple)]/95 safe-bottom">
-        {navItems.map((item) => {
-          const active = isActive(item.path);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="relative flex flex-col items-center justify-center py-2 px-2"
-            >
-              <motion.div
-                whileTap={{ scale: 0.8 }}
-                transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                className={`p-2 rounded-2xl transition-colors duration-300 ${active ? 'iron-metal-bg text-white shadow-lg' : 'text-[var(--color-text-muted)]'}`}
-              >
-                <Icon className="w-[22px] h-[22px]" />
-              </motion.div>
-              <span className={`text-[9px] font-bold mt-1 transition-colors duration-300 ${active ? 'text-[var(--color-primary-apple)]' : 'text-[var(--color-text-muted)] opacity-50'}`}>{item.label}</span>
-              {active && (
-                <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute -top-[1px] w-8 h-[3px] rounded-full metallic-bg"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-            </Link>
-          );
-        })}
-        {isAdmin && (
-          <Link
-            to="/admin"
-            className="relative flex flex-col items-center justify-center py-2 px-2"
-          >
-            <motion.div
-              whileTap={{ scale: 0.8 }}
-              transition={{ type: "spring", stiffness: 500, damping: 20 }}
-              className={`p-2 rounded-2xl transition-colors duration-300 ${location.pathname.startsWith('/admin') ? 'iron-metal-bg text-white shadow-lg' : 'text-[var(--color-text-muted)]'}`}
-            >
-              <Shield className="w-[22px] h-[22px]" />
-            </motion.div>
-            <span className={`text-[9px] font-bold mt-1 transition-colors duration-300 ${location.pathname.startsWith('/admin') ? 'text-[var(--color-primary-apple)]' : 'text-[var(--color-text-muted)] opacity-50'}`}>Админ</span>
-            {location.pathname.startsWith('/admin') && (
-              <motion.div
-                layoutId="nav-indicator"
-                className="absolute -top-[1px] w-8 h-[3px] rounded-full metallic-bg"
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              />
-            )}
-          </Link>
-        )}
-      </nav>
-
       {/* Sidebar overlay - for all users, hidden by default */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-[60]">
@@ -189,6 +136,59 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
+
+      {/* Bottom Navigation - All screens */}
+      <nav className="fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-40 bg-[var(--color-bg-apple)]/95 safe-bottom">
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className="relative flex flex-col items-center justify-center py-2 px-2"
+            >
+              <motion.div
+                whileTap={{ scale: 0.8 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                className={`p-2 rounded-2xl transition-colors duration-300 ${active ? 'iron-metal-bg text-white shadow-lg' : 'text-[var(--color-text-muted)]'}`}
+              >
+                <Icon className="w-[22px] h-[22px]" />
+              </motion.div>
+              <span className={`text-[9px] font-bold mt-1 transition-colors duration-300 ${active ? 'text-[var(--color-primary-apple)]' : 'text-[var(--color-text-muted)] opacity-50'}`}>{item.label}</span>
+              {active && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute -top-[1px] w-8 h-[3px] rounded-full metallic-bg"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+            </Link>
+          );
+        })}
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="relative flex flex-col items-center justify-center py-2 px-2"
+          >
+            <motion.div
+              whileTap={{ scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 500, damping: 20 }}
+              className={`p-2 rounded-2xl transition-colors duration-300 ${location.pathname.startsWith('/admin') ? 'iron-metal-bg text-white shadow-lg' : 'text-[var(--color-text-muted)]'}`}
+            >
+              <Shield className="w-[22px] h-[22px]" />
+            </motion.div>
+            <span className={`text-[9px] font-bold mt-1 transition-colors duration-300 ${location.pathname.startsWith('/admin') ? 'text-[var(--color-primary-apple)]' : 'text-[var(--color-text-muted)] opacity-50'}`}>Админ</span>
+            {location.pathname.startsWith('/admin') && (
+              <motion.div
+                layoutId="nav-indicator"
+                className="absolute -top-[1px] w-8 h-[3px] rounded-full metallic-bg"
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            )}
+          </Link>
+        )}
+      </nav>
     </div>
   );
 }
