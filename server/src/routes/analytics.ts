@@ -663,9 +663,9 @@ router.get('/admin/retention', authMiddleware, adminMiddleware, async (req: Requ
 router.get('/admin/top-buttons', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const prisma: PrismaClient = (req as any).prisma;
-    const { days = 30 } = req.query;
+    const { days = '30' } = req.query;
 
-    const dateFrom = new Date(Date.now() - (days as any) * 24 * 60 * 60 * 1000);
+    const dateFrom = new Date(Date.now() - (parseInt(days as string || '30') || 30) * 24 * 60 * 60 * 1000);
 
     // Топ кнопок по всему приложению
     const topButtons = await prisma.buttonClick.groupBy({
@@ -678,7 +678,7 @@ router.get('/admin/top-buttons', authMiddleware, adminMiddleware, async (req: Re
 
     // Детальная статистика для каждой кнопки
     const buttonStats = await Promise.all(
-      topButtons.map(async (btn) => {
+      topButtons.map(async (btn: any) => {
         const details = await prisma.buttonClick.groupBy({
           by: ['buttonText'],
           where: {
@@ -692,10 +692,10 @@ router.get('/admin/top-buttons', authMiddleware, adminMiddleware, async (req: Re
         return {
           buttonName: btn.buttonName,
           buttonGroup: btn.buttonGroup,
-          totalClicks: btn._count.id,
-          variants: details.map((d) => ({
+          totalClicks: (btn._count as any).id,
+          variants: details.map((d: any) => ({
             text: d.buttonText,
-            clicks: d._count.id,
+            clicks: (d._count as any).id,
           })),
         };
       })
