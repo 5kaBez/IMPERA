@@ -116,6 +116,7 @@ model User {
   contentInteractions ContentInteraction[] @relation("ContentInteractions")
   subscriptions       Subscription[]    @relation("Subscriptions")
   recommendations     Recommendation[]  @relation("Recommendations")
+  buttonClicks        ButtonClick[]     @relation("ButtonClicks")
   metricsSnapshots    UserMetricsSnapshot[] @relation("MetricsSnapshots")
 }
 
@@ -503,6 +504,25 @@ model Recommendation {
   @@index([userId])
   @@index([type])
   @@index([timestamp])
+}
+
+// Отслеживание кликов на кнопки (детальная статистика)
+model ButtonClick {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation("ButtonClicks", fields: [userId], references: [id], onDelete: Cascade)
+  buttonName   String   // profile_btn, today_btn, tomorrow_btn, feedback_btn, etc.
+  buttonText   String?  // Отображаемый текст кнопки
+  buttonGroup  String   // Группа: navigation, schedule, admin, profile, sports, feedback, etc.
+  page         String?  // Страница где находилась кнопка
+  sessionToken String?  // Сессия пользователя
+  timestamp    DateTime @default(now())
+
+  @@index([userId])
+  @@index([buttonName])
+  @@index([buttonGroup])
+  @@index([timestamp])
+  @@index([page])
 }
 
 // Ежедневные/еженедельные/ежемесячные метрики пользователя (кэш)

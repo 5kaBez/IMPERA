@@ -80,10 +80,19 @@ class AnalyticsService {
   }
 
   /**
-   * Отправить клик на кнопку
+   * Отправить клик на кнопку с полной информацией
    */
-  async trackButtonClick(buttonName: string, buttonText?: string) {
-    return this.trackEvent('button_click', 'interaction', 1, { buttonName, buttonText });
+  async trackButtonClick(buttonName: string, buttonText?: string, buttonGroup?: string) {
+    try {
+      await api.post('/analytics/button-click', {
+        buttonName,
+        buttonText: buttonText || buttonName,
+        buttonGroup: buttonGroup || 'other',
+        sessionToken: this.sessionToken,
+      });
+    } catch (error) {
+      console.error('Failed to track button click:', error);
+    }
   }
 
   /**

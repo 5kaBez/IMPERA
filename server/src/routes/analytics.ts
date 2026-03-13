@@ -189,6 +189,31 @@ router.post('/filter', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/analytics/button-click - Клик на кнопку
+router.post('/button-click', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const prisma: PrismaClient = (req as any).prisma;
+    const userId = (req as any).userId;
+    const { buttonName, buttonText, buttonGroup, sessionToken, page } = req.body;
+
+    await prisma.buttonClick.create({
+      data: {
+        userId,
+        buttonName: buttonName || 'unknown',
+        buttonText: buttonText || buttonName,
+        buttonGroup: buttonGroup || 'other',
+        page: page || null,
+        sessionToken: sessionToken || null,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Button click tracking error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/analytics/client-error - JavaScript ошибка на клиенте
 router.post('/client-error', authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -630,6 +655,109 @@ router.get('/admin/retention', authMiddleware, adminMiddleware, async (req: Requ
     res.json(activeDates.reverse());
   } catch (err: any) {
     console.error('Retention error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/analytics/admin/top-buttons - Топ нажимаемых кнопок
+router.get('/admin/top-buttons', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const prisma: PrismaClient = (req as any).prisma;
+    const { days = 30 } = req.query;
+
+    const dateFrom = new Date(Date.now() - (days as any) * 24 * 60 * 60 * 1000);
+
+    // Топ кнопок по всему приложению
+    const topButtons = await prisma.buttonClick.groupBy({
+      by: ['buttonName', 'buttonGroup'],
+      where: { timestamp: { gte: dateFrom } },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 50,
+    });
+
+    // Детальная статистика для каждой кнопки
+    const buttonStats = await Promise.all(
+      topButtons.map(async (btn) => {
+        const details = await prisma.buttonClick.groupBy({
+          by: ['buttonText'],
+          where: {
+            buttonName: btn.buttonName,
+            buttonGroup: btn.buttonGroup,
+            timestamp: { gte: dateFrom },
+          },
+          _count: { id: true },
+        });
+
+        return {
+          buttonName: btn.buttonName,
+          buttonGroup: btn.buttonGroup,
+          totalClicks: btn._count.id,
+          variants: details.map((d) => ({
+            text: d.buttonText,
+            clicks: d._count.id,
+          })),
+        };
+      })
+    );
+
+    res.json(buttonStats);
+  } catch (err: any) {
+    console.error('Top buttons error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/analytics/admin/button-details - Детальная статистика по кнопке
+router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const prisma: PrismaClient = (req as any).prisma;
+    const { buttonName } = req.params;
+    const { days = 30 } = req.query;
+
+    const dateFrom = new Date(Date.now() - (days as any) * 24 * 60 * 60 * 1000);
+
+    // Клики по дням
+    const clicksByDay = await prisma.buttonClick.groupBy({
+      by: ['buttonName'],
+      where: {
+        buttonName,
+        timestamp: { gte: dateFrom },
+      },
+      _count: { id: true },
+    });
+
+    // Кто нажимал (топ пользователей)
+    const topUsers = await prisma.buttonClick.groupBy({
+      by: ['userId'],
+      where: {
+        buttonName,
+        timestamp: { gte: dateFrom },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 20,
+    });
+
+    // Со скольких страниц нажимали
+    const butto_pages = await prisma.buttonClick.groupBy({
+      by: ['page'],
+      where: {
+        buttonName,
+        timestamp: { gte: dateFrom },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+
+    res.json({
+      buttonName,
+      totalClicks: clicksByDay[0]?._count.id || 0,
+      topUsers: topUsers.map((u) => ({ userId: u.userId, clicks: u._count.id })),
+      pages: butto_pages.map((p) => ({ page: p.page, clicks: p._count.id })),
+    });
+  } catch (err: any) {
+    console.error('Button details error:', err);
     res.status(500).json({ error: err.message });
   }
 });

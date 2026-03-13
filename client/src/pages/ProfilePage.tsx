@@ -83,7 +83,11 @@ export default function ProfilePage() {
       <div className="space-y-2 md:space-y-3 mb-3 md:mb-8">
         {/* Change Group */}
         <button
-          onClick={() => { localStorage.removeItem('impera_skip_group'); api.put('/user/group', { groupId: null }).then(() => window.location.reload()); }}
+          onClick={() => {
+            analytics.trackButtonClick('change_group_btn', 'Сменить группу', 'profile');
+            localStorage.removeItem('impera_skip_group');
+            api.put('/user/group', { groupId: null }).then(() => window.location.reload());
+          }}
           className="w-full flex items-center gap-3 md:gap-5 p-3 md:p-5 rounded-2xl md:rounded-[28px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:scale-[0.98] transition-transform duration-200 group"
         >
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center text-[var(--color-text-muted)] group-active:iron-metal-bg group-active:text-white transition-colors flex-shrink-0 overflow-hidden">
@@ -98,7 +102,10 @@ export default function ProfilePage() {
 
         {/* Feedback */}
         <button
-          onClick={() => setFeedbackOpen(true)}
+          onClick={() => {
+            analytics.trackButtonClick('feedback_btn', 'Обратная связь', 'profile');
+            setFeedbackOpen(true);
+          }}
           className="w-full flex items-center gap-3 md:gap-5 p-3 md:p-5 rounded-2xl md:rounded-[28px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:scale-[0.98] transition-transform duration-200 group"
         >
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center text-[var(--color-text-muted)] group-active:iron-metal-bg group-active:text-white transition-colors flex-shrink-0 overflow-hidden">
@@ -141,7 +148,10 @@ export default function ProfilePage() {
 
       {/* Logout */}
       <button
-        onClick={logout}
+        onClick={() => {
+          analytics.trackButtonClick('logout_btn', 'Выйти из аккаунта', 'profile');
+          logout();
+        }}
         className="w-full flex items-center gap-3 p-3 md:p-5 rounded-2xl md:rounded-[28px] bg-rose-500/5 border border-rose-500/15 active:bg-rose-500 active:text-white active:scale-[0.98] transition-all duration-200 group"
       >
         <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-active:bg-white/20 group-active:text-white transition-colors flex-shrink-0">

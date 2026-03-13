@@ -69,6 +69,13 @@ interface ClientError {
   user?: { id: number; firstName: string; lastName?: string };
 }
 
+interface ButtonStat {
+  buttonName: string;
+  buttonGroup: string;
+  totalClicks: number;
+  variants: Array<{ text: string; clicks: number }>;
+}
+
 export default function MetricsTab() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [topPages, setTopPages] = useState<PageView[]>([]);
@@ -76,19 +83,21 @@ export default function MetricsTab() {
   const [searches, setSearches] = useState<SearchTrend[]>([]);
   const [performance, setPerformance] = useState<PerformanceStats | null>(null);
   const [errors, setErrors] = useState<ClientError[]>([]);
+  const [buttonStats, setButtonStats] = useState<ButtonStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePeriod, setActivePeriod] = useState<'7' | '30'>('30');
 
   const loadMetrics = async () => {
     setLoading(true);
     try {
-      const [metricsRes, pagesRes, eventsRes, searchesRes, perfRes, errorsRes] = await Promise.all([
+      const [metricsRes, pagesRes, eventsRes, searchesRes, perfRes, errorsRes, buttonsRes] = await Promise.all([
         api.get<DashboardMetrics>('/analytics/admin/dashboard'),
         api.get<PageView[]>('/analytics/admin/top-pages', { params: { limit: 10, days: activePeriod } }),
         api.get<EventStats[]>('/analytics/admin/top-events', { params: { limit: 15, days: activePeriod } }),
         api.get<SearchTrend[]>('/analytics/admin/search-trends', { params: { limit: 15, days: activePeriod } }),
         api.get<PerformanceStats>('/analytics/admin/performance', { params: { days: activePeriod } }),
         api.get<ClientError[]>('/analytics/admin/errors', { params: { limit: 20, days: activePeriod } }),
+        api.get<ButtonStat[]>('/analytics/admin/top-buttons', { params: { days: activePeriod } }),
       ]);
 
       setMetrics(metricsRes);
@@ -97,6 +106,7 @@ export default function MetricsTab() {
       setSearches(searchesRes);
       setPerformance(perfRes);
       setErrors(errorsRes);
+      setButtonStats(buttonsRes);
     } catch (error) {
       console.error('Failed to load metrics:', error);
     } finally {
@@ -338,6 +348,55 @@ export default function MetricsTab() {
             </div>
           ))}
         </div>
+      </motion.div>
+
+      {/* Top Buttons */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.32 }}
+        className="p-6 rounded-2xl border border-[var(--apple-border)] bg-[var(--color-bg-secondary)]"
+      >
+        <h3 className="text-lg font-black mb-4 text-[var(--color-text-main)]">🔘 Топ кнопок (клики)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--apple-border)]">
+                <th className="text-left py-2 px-2 font-bold text-[var(--color-text-muted)]">Кнопка</th>
+                <th className="text-left py-2 px-2 font-bold text-[var(--color-text-muted)]">Группа</th>
+                <th className="text-right py-2 px-2 font-bold text-[var(--color-text-muted)]">Клики</th>
+                <th className="text-center py-2 px-2 font-bold text-[var(--color-text-muted)]">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buttonStats.slice(0, 15).map((btn, idx) => {
+                const totalClicks = buttonStats.reduce((sum, b) => sum + b.totalClicks, 0);
+                const percentage = totalClicks > 0 ? ((btn.totalClicks / totalClicks) * 100).toFixed(1) : '0';
+                return (
+                  <tr key={idx} className="border-b border-[var(--apple-border)] hover:bg-[var(--color-bg-apple)] transition">
+                    <td className="py-2 px-2 font-mono text-xs">
+                      <span className="inline-block bg-[var(--color-bg-apple)] px-2 py-1 rounded">
+                        {btn.buttonName}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-xs text-[var(--color-text-muted)]">{btn.buttonGroup}</td>
+                    <td className="py-2 px-2 text-right font-black text-[var(--color-primary-apple)]">
+                      {btn.totalClicks.toLocaleString()}
+                    </td>
+                    <td className="py-2 px-2 text-center">
+                      <span className="inline-block bg-[var(--color-primary-apple)]/10 text-[var(--color-primary-apple)] rounded px-2 py-0.5 text-xs font-bold">
+                        {percentage}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {buttonStats.length === 0 && (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-4">Нет данных о кликах на кнопки</p>
+        )}
       </motion.div>
 
       {/* Summary */}

@@ -107,7 +107,10 @@ export default function FeedbackPage() {
               Ваше обращение отправлено. Мы рассмотрим его в ближайшее время.
             </p>
             <button
-              onClick={handleNewFeedback}
+              onClick={() => {
+                analytics.trackButtonClick('new_feedback_btn', 'Написать ещё', 'feedback');
+                handleNewFeedback();
+              }}
               className="inline-flex items-center gap-2 px-6 md:px-8 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold text-white bg-[var(--color-primary-apple)] shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
               <MessageSquare className="w-4 h-4" />
@@ -128,7 +131,10 @@ export default function FeedbackPage() {
                   <button
                     key={ft.value}
                     type="button"
-                    onClick={() => setType(ft.value)}
+                    onClick={() => {
+                      analytics.trackButtonClick(`feedback_type_${ft.value}_btn`, ft.label, 'feedback');
+                      setType(ft.value);
+                    }}
                     className={`flex flex-col md:flex-row items-center gap-2 px-3 md:px-5 py-3 md:py-4 rounded-lg md:rounded-2xl text-xs md:text-sm font-bold transition-all border ${selected
                         ? 'border-[var(--color-primary-apple)] bg-[var(--color-primary-apple)] text-white shadow-lg shadow-blue-500/20'
                         : 'border-[var(--apple-border)] bg-black/5 dark:bg-white/5 text-[var(--color-text-muted)] hover:border-zinc-400'
@@ -162,6 +168,7 @@ export default function FeedbackPage() {
             <button
               type="submit"
               disabled={submitting || !message.trim()}
+              onClick={() => analytics.trackButtonClick('submit_feedback_btn', 'Отправить', 'feedback')}
               className="w-full mt-6 md:mt-8 flex items-center justify-center gap-3 py-3 md:py-4 rounded-xl md:rounded-2xl text-sm md:text-base font-bold text-white bg-[var(--color-primary-apple)] shadow-2xl shadow-blue-500/30 transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.98]"
             >
               {submitting ? (

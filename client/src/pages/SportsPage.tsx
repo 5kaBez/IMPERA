@@ -269,7 +269,10 @@ export default function SportsPage() {
         ]).map(t => (
           <button
             key={t.key}
-            onClick={() => setView(t.key)}
+            onClick={() => {
+              setView(t.key);
+              analytics.trackButtonClick(`sports_view_${t.key}_btn`, t.label, 'sports');
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 md:py-3 px-3 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${view === t.key
               ? 'iron-metal-bg text-white shadow-lg'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
@@ -293,7 +296,10 @@ export default function SportsPage() {
             {DAYS_SHORT.map((day, idx) => (
               <button
                 key={day}
-                onClick={() => setSelectedDay(idx)}
+                onClick={() => {
+                  setSelectedDay(idx);
+                  analytics.trackButtonClick(`sports_day_${day}_btn`, DAYS_FULL[idx], 'sports');
+                }}
                 className={`flex-1 py-2 md:py-2.5 rounded-xl text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${selectedDay === idx
                   ? 'iron-metal-bg text-white shadow-lg'
                   : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'

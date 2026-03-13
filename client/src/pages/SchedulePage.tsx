@@ -182,7 +182,9 @@ export default function SchedulePage() {
               key={t}
               onClick={() => {
                 setTab(t);
+                const buttonText = t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя';
                 analytics.trackEvent('schedule_tab_click', 'schedule', 1, { tab: t });
+                analytics.trackButtonClick(`schedule_${t}_btn`, buttonText, 'schedule');
               }}
               className={`flex-1 py-2 md:py-4.5 px-3 md:px-6 rounded-[16px] md:rounded-[28px] text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] transition-colors duration-300 relative ${tab === t
                 ? 'text-white'
