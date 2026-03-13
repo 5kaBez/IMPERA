@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { PrismaClient } from '@prisma/client';
-import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType, parseWeeks, getPairNumberByTime } from './normalize';
+import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType, parseWeeks } from './normalize';
 
 const DAY_MAP: Record<string, number> = {
   'ПОНЕДЕЛЬНИК': 1, 'ВТОРНИК': 2, 'СРЕДА': 3,
@@ -87,18 +87,12 @@ export async function parseExcelSchedule(buffer: Buffer, prisma: PrismaClient) {
         const dayNum = DAY_MAP[lastDayOfWeek] || DAY_MAP[dayOfWeekRaw] || 1;
         const parityNum = parseParity(parity);
         const { weekStart, weekEnd } = parseWeeks(weeks);
-        
-        // Determine pair number: use from Excel if valid, otherwise detect from time
-        let finalPairNumber = pairNumber;
-        if (!finalPairNumber || isNaN(finalPairNumber) || finalPairNumber <= 0) {
-          finalPairNumber = getPairNumberByTime(start);
-        }
 
         parsed.push({
           instituteName, directionName, programName,
           groupName: lastGroup, groupNumber: lastGroupNumber,
           course: lastCourse, studyForm: lastStudyForm, educationLevel: lastEducationLevel,
-          dayOfWeek: dayNum, pairNumber: finalPairNumber,
+          dayOfWeek: dayNum, pairNumber: pairNumber || 1,
           timeStart: start, timeEnd: end,
           parity: parityNum, subject, lessonType: normalizeLessonType(lessonType),
           teacher: teacher === '-' ? '' : teacher,

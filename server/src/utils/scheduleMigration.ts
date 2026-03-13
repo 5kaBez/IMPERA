@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType, getPairNumberByTime } from './normalize';
+import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType } from './normalize';
 
 const prisma = new PrismaClient();
 
@@ -289,16 +289,9 @@ export async function migrateSchedule(
         ? parseInt(lessonData.pairNumber)
         : lessonData.pairNumber;
 
-      // Если pairNum не валидное число (NaN или ≤ 0) - пытаемся определить по времени
+      // Если pairNum невалидный - используем временное значение (будет пересчитана позже)
       if (!pairNum || isNaN(pairNum) || pairNum <= 0) {
-        // Нормализуем время сначала
-        const { start: timeStart } = normalizeTime(lessonData.time);
-        // Определяем номер пары по времени
-        pairNum = getPairNumberByTime(timeStart);
-        if (!pairNum || pairNum <= 0) {
-          console.warn(`   ⚠️  Не удалось определить номер пары для урока в ${groupInfo.name}: время="${lessonData.time}", pairNumber="${lessonData.pairNumber}"`);
-          continue;
-        }
+        pairNum = 1; // Временное значение, будет переписано в ЭТАП 4.5
       }
 
       // Определяем четность
@@ -330,6 +323,51 @@ export async function migrateSchedule(
     }
 
     console.log(`\n✅ Создано ${stats.lessonsCreated} новых уроков`);
+
+    // ===== ЭТАП 4.5: Пересчитать номера пар по времени =====
+    console.log('\n🔢 Этап 4.5: Пересчет номеров пар по времени...');
+    
+    // Получить все уроки для групп, что участвовали в миграции
+    const groupIdsList = groupsToUpdate.map(g => g.id);
+    const allLessons = await prisma.lesson.findMany({
+      where: { groupId: { in: groupIdsList } },
+      orderBy: [{ dayOfWeek: 'asc' }, { parity: 'asc' }, { timeStart: 'asc' }]
+    });
+
+    // Группировать по (groupId, dayOfWeek, parity) и пересчитать пары
+    const lessonsByGroupDayParity = new Map<string, typeof allLessons>();
+    for (const lesson of allLessons) {
+      const key = `${lesson.groupId}|${lesson.dayOfWeek}|${lesson.parity}`;
+      if (!lessonsByGroupDayParity.has(key)) {
+        lessonsByGroupDayParity.set(key, []);
+      }
+      lessonsByGroupDayParity.get(key)!.push(lesson);
+    }
+
+    // Для каждой группы-день-четность пересчитать pairNumber
+    let pairNumberUpdates = 0;
+    for (const [key, lessons] of lessonsByGroupDayParity) {
+      // Сортируем по timeStart
+      lessons.sort((a, b) => {
+        const aTime = a.timeStart.replace(':', '.');
+        const bTime = b.timeStart.replace(':', '.');
+        return aTime.localeCompare(bTime);
+      });
+
+      // Пересчитываем номера пар (1, 2, 3, ...)
+      for (let i = 0; i < lessons.length; i++) {
+        const newPairNum = i + 1;
+        if (lessons[i].pairNumber !== newPairNum) {
+          await prisma.lesson.update({
+            where: { id: lessons[i].id },
+            data: { pairNumber: newPairNum }
+          });
+          pairNumberUpdates++;
+        }
+      }
+    }
+
+    console.log(`   ✅ Пересчитано номеров пар: ${pairNumberUpdates}`);
 
     // ===== ЭТАП 5: Проверить orphaned users =====
     const orphanedUsers = await prisma.user.findMany({
