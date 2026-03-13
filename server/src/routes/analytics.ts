@@ -715,7 +715,7 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
     const { buttonName } = req.params;
     const { days = 30 } = req.query;
 
-    const dateFrom = new Date(Date.now() - (days as any) * 24 * 60 * 60 * 1000);
+    const dateFrom = new Date(Date.now() - (parseInt(days as string) || 30) * 24 * 60 * 60 * 1000);
 
     // Клики по дням
     const clicksByDay = await prisma.buttonClick.groupBy({
@@ -752,9 +752,9 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
 
     res.json({
       buttonName,
-      totalClicks: clicksByDay[0]?._count.id || 0,
-      topUsers: topUsers.map((u) => ({ userId: u.userId, clicks: u._count.id })),
-      pages: butto_pages.map((p) => ({ page: p.page, clicks: p._count.id })),
+      totalClicks: clicksByDay[0] && typeof clicksByDay[0]._count === 'object' ? (clicksByDay[0]._count as any).id || 0 : 0,
+      topUsers: topUsers.map((u: any) => ({ userId: u.userId, clicks: (u._count as any).id || 0 })),
+      pages: butto_pages.map((p: any) => ({ page: p.page, clicks: (p._count as any).id || 0 })),
     });
   } catch (err: any) {
     console.error('Button details error:', err);
