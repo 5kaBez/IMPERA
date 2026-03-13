@@ -203,8 +203,6 @@ export default function SportsPage() {
   };
 
   const [expandedSport, setExpandedSport] = useState<string | null>(null);
-  const [showHighlight, setShowHighlight] = useState(!!highlightTime);
-  const highlightRowRef = useRef<HTMLDivElement>(null);
 
   // Clear navigation state so highlight disappears on re-visit
   useEffect(() => {
