@@ -448,7 +448,7 @@ export default function SportsPage() {
                       className="overflow-hidden"
                     >
                       <div className="mt-1 mx-3 p-3 md:p-4 rounded-xl md:rounded-2xl bg-[var(--color-primary-apple)]/5 border border-[var(--color-primary-apple)]/10">
-                        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-wider text-[var(--color-primary-apple)] mb-2.5">
+                        <p className="text-[10px] md:text-[11px] font-black uppercase tracking-wider text-[var(--color-primary-apple)] mb-3">
                           Расписание
                         </p>
                         {/* Group by day */}
@@ -456,16 +456,16 @@ export default function SportsPage() {
                           const dayEntries = schedule.filter(e => e.dayIdx === dayIdx);
                           if (dayEntries.length === 0) return null;
                           return (
-                            <div key={day} className="mb-2 last:mb-0">
-                              <span className="text-[10px] font-black text-[var(--color-primary-apple)] opacity-80">{DAYS_FULL[dayIdx]}</span>
-                              <div className="ml-2 mt-0.5 space-y-0.5">
+                            <div key={day} className="mb-3 last:mb-0">
+                              <span className="text-[12px] md:text-[13px] font-black text-[var(--color-primary-apple)]">{DAYS_FULL[dayIdx]}</span>
+                              <div className="ml-2 mt-1 space-y-1">
                                 {dayEntries.map(e => (
-                                  <div key={`${e.dayIdx}-${e.timeIdx}`} className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-[var(--color-text-main)] opacity-70">
-                                    <span className="text-[var(--color-text-muted)] opacity-50 w-24 flex-shrink-0">
+                                  <div key={`${e.dayIdx}-${e.timeIdx}`} className="flex items-center gap-2 text-[13px] md:text-sm font-bold text-[var(--color-text-main)]">
+                                    <span className="text-[var(--color-text-muted)] w-28 flex-shrink-0">
                                       {TIME_SLOTS[e.timeIdx].time} — {TIME_SLOTS[e.timeIdx].end}
                                     </span>
-                                    <span className="opacity-40">•</span>
-                                    <span className="text-[var(--color-text-muted)] opacity-50">{e.teacher}</span>
+                                    <span className="text-[var(--color-text-muted)] opacity-40">•</span>
+                                    <span className="text-[var(--color-text-main)] opacity-80">{e.teacher}</span>
                                   </div>
                                 ))}
                               </div>

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { analytics } from '../api/analytics';
 import type { Lesson, ScheduleDay, ScheduleWeek } from '../types';
 import { DAY_NAMES } from '../types';
-import { Calendar, User, ChevronRight, Dumbbell } from 'lucide-react';
+import { Calendar, User, ChevronRight, ChevronLeft, Dumbbell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
@@ -28,7 +28,8 @@ function isSportLesson(lesson: Lesson): boolean {
   );
 }
 
-type Tab = 'today' | 'tomorrow' | 'week';
+type Tab = 'today' | 'tomorrow' | 'week' | 'date';
+const MAIN_TABS: ('today' | 'tomorrow' | 'week')[] = ['today', 'tomorrow', 'week'];
 
 export default function SchedulePage() {
   const { user } = useAuth();
@@ -37,11 +38,15 @@ export default function SchedulePage() {
   const [todayData, setTodayData] = useState<ScheduleDay | null>(null);
   const [tomorrowData, setTomorrowData] = useState<ScheduleDay | null>(null);
   const [weekData, setWeekData] = useState<ScheduleWeek | null>(null);
+  const [dateData, setDateData] = useState<ScheduleDay | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const showLoader = useDelayedLoading(loading, 1500);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
-  /** If it's a sport lesson → navigate to /sports with time+day highlight, otherwise open detail modal */
+  /** If it's a sport lesson -> navigate to /sports with time+day highlight, otherwise open detail modal */
   const handleLessonClick = (lesson: Lesson) => {
     if (isSportLesson(lesson)) {
       navigate('/sports', { state: { highlightTime: lesson.timeStart, highlightDay: lesson.dayOfWeek } });
@@ -51,6 +56,17 @@ export default function SchedulePage() {
   };
 
   const groupId = user?.groupId;
+
+  // Close calendar on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setShowCalendar(false);
+      }
+    };
+    if (showCalendar) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCalendar]);
 
   useEffect(() => {
     if (!groupId) { setLoading(false); return; }
@@ -89,18 +105,27 @@ export default function SchedulePage() {
       }
     ];
 
-    const fetchTask = tab === 'today'
-      ? api.get<ScheduleDay>(`/schedule/${groupId}/today`).then(setTodayData)
-      : tab === 'tomorrow'
-        ? api.get<ScheduleDay>(`/schedule/${groupId}/tomorrow`).then(setTomorrowData)
-        : api.get<ScheduleWeek>(`/schedule/${groupId}/week`).then(weekData => {
-          // If no lessons, show mock data
-          if (!weekData || Object.keys(weekData.days || {}).length === 0) {
-            setWeekData({ days: { [new Date().getDay() || 7]: mockLessons }, parity: 2, weekNumber: 1 });
-          } else {
-            setWeekData(weekData);
-          }
-        });
+    let fetchTask: Promise<void>;
+
+    if (tab === 'today') {
+      fetchTask = api.get<ScheduleDay>(`/schedule/${groupId}/today`).then(setTodayData);
+    } else if (tab === 'tomorrow') {
+      fetchTask = api.get<ScheduleDay>(`/schedule/${groupId}/tomorrow`).then(setTomorrowData);
+    } else if (tab === 'week') {
+      fetchTask = api.get<ScheduleWeek>(`/schedule/${groupId}/week`).then(weekData => {
+        if (!weekData || Object.keys(weekData.days || {}).length === 0) {
+          setWeekData({ days: { [new Date().getDay() || 7]: mockLessons }, parity: 2, weekNumber: 1 });
+        } else {
+          setWeekData(weekData);
+        }
+      });
+    } else if (tab === 'date' && selectedDate) {
+      const dateStr = formatDateISO(selectedDate);
+      fetchTask = api.get<ScheduleDay>(`/schedule/${groupId}/date/${dateStr}`).then(setDateData);
+    } else {
+      setLoading(false);
+      return;
+    }
 
     fetchTask.catch((err) => {
       console.warn('API fetch failed, showing mock data:', err);
@@ -108,15 +133,36 @@ export default function SchedulePage() {
         setTodayData({ lessons: mockLessons, dayOfWeek: new Date().getDay() || 7, parity: 2, weekNumber: 1, date: new Date().toISOString() });
       } else if (tab === 'tomorrow') {
         setTomorrowData({ lessons: [mockLessons[0]], dayOfWeek: (new Date().getDay() % 7) + 1, parity: 2, weekNumber: 1, date: new Date().toISOString() });
-      } else {
+      } else if (tab === 'week') {
         setWeekData({ days: { [new Date().getDay() || 7]: mockLessons }, parity: 2, weekNumber: 1 });
+      } else if (tab === 'date' && selectedDate) {
+        const dow = selectedDate.getDay();
+        setDateData({ lessons: [], dayOfWeek: dow === 0 ? 7 : dow, parity: 2, weekNumber: 1, date: selectedDate.toISOString() });
       }
     }).finally(() => setLoading(false));
-  }, [groupId, tab]);
+  }, [groupId, tab, selectedDate]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setTab('date');
+    setShowCalendar(false);
+    analytics.trackEvent('schedule_date_pick', 'schedule', 1, { date: formatDateISO(date) });
+    analytics.trackButtonClick('schedule_calendar_date_btn', formatDate(date), 'schedule');
+  };
+
+  const handleMainTabClick = (t: 'today' | 'tomorrow' | 'week') => {
+    setTab(t);
+    setShowCalendar(false);
+    const buttonText = t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя';
+    analytics.trackEvent('schedule_tab_click', 'schedule', 1, { tab: t });
+    analytics.trackButtonClick(`schedule_${t}_btn`, buttonText, 'schedule');
+  };
+
+  const headerDate = tab === 'date' && selectedDate ? selectedDate : new Date();
 
   return (
     <div>
@@ -128,84 +174,144 @@ export default function SchedulePage() {
         <div className="flex items-center gap-2 md:gap-4 text-[var(--color-text-muted)] font-black uppercase tracking-widest text-[8px] md:text-[10px]">
           <Calendar className="w-3 md:w-4 h-3 md:h-4 text-[var(--color-primary-apple)]" />
           <p className="opacity-60">
-            {formatDate(new Date())}
+            {formatDate(headerDate)}
           </p>
         </div>
       </div>
 
-      {/* Tabs - Compact on mobile */}
-      <div className="mb-3 md:mb-8 liquid-glass-tab p-1 rounded-[20px] md:rounded-[32px] flex items-center shadow-lg md:shadow-2xl relative overflow-hidden">
-        {/* Bubble indicator */}
-        <div className="absolute inset-0 pointer-events-none hidden md:block" style={{ filter: "url(#liquid-goo)" }}>
-          {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
-            tab === t && (
-              <motion.div
-                key={`bubble-${t}`}
-                layoutId="liquid-bubble"
-                className="absolute inset-y-2 iron-metal-bg rounded-[24px] shadow-gold-glow"
-                initial={false}
-                transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.8 }}
-                style={{
-                  left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 4px)',
-                  width: 'calc(33.33% - 8px)'
-                }}
+      {/* Tabs Row: main tabs + calendar button */}
+      <div className="mb-3 md:mb-8 flex items-center gap-2">
+        {/* Main liquid tabs */}
+        <div className="flex-1 liquid-glass-tab p-1 rounded-[20px] md:rounded-[32px] flex items-center shadow-lg md:shadow-2xl relative overflow-hidden">
+          {/* Desktop bubble indicator */}
+          <div className="absolute inset-0 pointer-events-none hidden md:block" style={{ filter: "url(#liquid-goo)" }}>
+            {MAIN_TABS.map((t) => (
+              tab === t && (
+                <motion.div
+                  key={`bubble-${t}`}
+                  layoutId="liquid-bubble"
+                  className="absolute inset-y-2 iron-metal-bg rounded-[24px] shadow-gold-glow"
+                  initial={false}
+                  transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.8 }}
+                  style={{
+                    left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 4px)',
+                    width: 'calc(33.33% - 8px)'
+                  }}
+                >
+                  <div className="absolute top-1 left-2 right-2 h-1/2 bg-white/10 blur-[2px] rounded-full" />
+                </motion.div>
+              )
+            ))}
+          </div>
+
+          {/* Mobile-only simple indicator (no SVG filter) */}
+          <div className="absolute inset-0 pointer-events-none md:hidden">
+            {MAIN_TABS.map((t) => (
+              tab === t && (
+                <motion.div
+                  key={`mbubble-${t}`}
+                  layoutId="mobile-bubble"
+                  className="absolute inset-y-1 iron-metal-bg rounded-[16px]"
+                  initial={false}
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  style={{
+                    left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 2px)',
+                    width: 'calc(33.33% - 6px)'
+                  }}
+                />
+              )
+            ))}
+          </div>
+
+          {/* Text Layer */}
+          <div className="flex w-full relative z-10">
+            {MAIN_TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => handleMainTabClick(t)}
+                className={`flex-1 py-2 md:py-4.5 px-3 md:px-6 rounded-[16px] md:rounded-[28px] text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] transition-colors duration-300 relative ${tab === t
+                  ? 'text-white'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+                  }`}
               >
-                <div className="absolute top-1 left-2 right-2 h-1/2 bg-white/10 blur-[2px] rounded-full" />
-              </motion.div>
-            )
-          ))}
+                {t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя'}
+              </button>
+            ))}
+          </div>
+
+          <svg className="absolute w-0 h-0 invisible">
+            <defs>
+              <filter id="liquid-goo">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+              </filter>
+            </defs>
+          </svg>
         </div>
 
-        {/* Mobile-only simple indicator (no SVG filter) */}
-        <div className="absolute inset-0 pointer-events-none md:hidden">
-          {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
-            tab === t && (
+        {/* Calendar button */}
+        <div className="relative" ref={calendarRef}>
+          <button
+            onClick={() => {
+              setShowCalendar(prev => !prev);
+              analytics.trackButtonClick('schedule_calendar_btn', 'Calendar', 'schedule');
+            }}
+            className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl md:rounded-[20px] flex items-center justify-center transition-all duration-300 border shadow-lg ${
+              tab === 'date'
+                ? 'iron-metal-bg text-white shadow-gold-glow border-transparent'
+                : showCalendar
+                  ? 'bg-[var(--color-primary-apple)]/10 text-[var(--color-primary-apple)] border-[var(--color-primary-apple)]/30'
+                  : 'bg-black/[0.03] dark:bg-white/[0.04] text-[var(--color-text-muted)] border-[var(--apple-border)] hover:text-[var(--color-text-main)] hover:border-[var(--color-primary-apple)]/20'
+            }`}
+          >
+            <Calendar className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
+
+          {/* Calendar Picker Dropdown */}
+          <AnimatePresence>
+            {showCalendar && (
               <motion.div
-                key={`mbubble-${t}`}
-                layoutId="mobile-bubble"
-                className="absolute inset-y-1 iron-metal-bg rounded-[16px]"
-                initial={false}
-                transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                style={{
-                  left: t === 'today' ? '4px' : t === 'tomorrow' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 2px)',
-                  width: 'calc(33.33% - 6px)'
-                }}
-              />
-            )
-          ))}
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-0 top-full mt-2 z-50"
+              >
+                <CalendarPicker
+                  selectedDate={selectedDate}
+                  onSelect={handleDateSelect}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-
-        {/* Text Layer */}
-        <div className="flex w-full relative z-10">
-          {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => {
-                setTab(t);
-                const buttonText = t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя';
-                analytics.trackEvent('schedule_tab_click', 'schedule', 1, { tab: t });
-                analytics.trackButtonClick(`schedule_${t}_btn`, buttonText, 'schedule');
-              }}
-              className={`flex-1 py-2 md:py-4.5 px-3 md:px-6 rounded-[16px] md:rounded-[28px] text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] transition-colors duration-300 relative ${tab === t
-                ? 'text-white'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
-                }`}
-            >
-              {t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя'}
-            </button>
-          ))}
-        </div>
-
-        <svg className="absolute w-0 h-0 invisible">
-          <defs>
-            <filter id="liquid-goo">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-              <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
-              <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-            </filter>
-          </defs>
-        </svg>
       </div>
+
+      {/* Selected date indicator */}
+      <AnimatePresence>
+        {tab === 'date' && selectedDate && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary-apple)]" />
+              <span className="text-[10px] md:text-[11px] font-black text-[var(--color-primary-apple)] uppercase tracking-wider">
+                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              <button
+                onClick={() => { setTab('today'); setSelectedDate(null); }}
+                className="ml-auto text-[9px] font-black text-[var(--color-text-muted)] opacity-50 uppercase tracking-wider hover:opacity-80 transition-opacity"
+              >
+                Сбросить
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       {!groupId ? (
@@ -219,7 +325,7 @@ export default function SchedulePage() {
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={tab}
+            key={tab === 'date' ? `date-${selectedDate?.toISOString()}` : tab}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -234,6 +340,13 @@ export default function SchedulePage() {
             {tab === 'week' && weekData && (
               <WeekSchedule data={weekData} onLessonClick={handleLessonClick} />
             )}
+            {tab === 'date' && dateData && (
+              <DaySchedule
+                data={dateData}
+                emptyMessage={selectedDate ? `${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} — нет занятий` : 'Нет занятий'}
+                onLessonClick={handleLessonClick}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       )}
@@ -245,6 +358,153 @@ export default function SchedulePage() {
     </div>
   );
 }
+
+/* ─── Helpers ─── */
+
+function formatDateISO(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const MONTH_NAMES_RU = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+const WEEKDAY_HEADERS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+}
+
+/* ─── Calendar Picker ─── */
+
+function CalendarPicker({ selectedDate, onSelect }: {
+  selectedDate: Date | null;
+  onSelect: (date: Date) => void;
+}) {
+  const [viewDate, setViewDate] = useState(() => {
+    const d = selectedDate || new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  const today = new Date();
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+
+  // Build grid: first day of month, padded to start from Monday
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  let startDow = firstDay.getDay() - 1; // 0=Mon, 6=Sun
+  if (startDow < 0) startDow = 6;
+
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= lastDay.getDate(); d++) cells.push(new Date(year, month, d));
+  // Pad to complete last week
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="w-72 md:w-80 rounded-2xl border border-[var(--apple-border)] bg-[var(--color-bg-apple)] shadow-2xl overflow-hidden">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--apple-border)]">
+        <button
+          onClick={prevMonth}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-black text-[var(--color-text-main)] tracking-tight">
+          {MONTH_NAMES_RU[month]} {year}
+        </span>
+        <button
+          onClick={nextMonth}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 px-3 pt-2">
+        {WEEKDAY_HEADERS.map(d => (
+          <div key={d} className="text-center text-[9px] font-black uppercase tracking-wider text-[var(--color-text-muted)] opacity-50 py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7 px-3 pb-3 gap-0.5">
+        {cells.map((date, idx) => {
+          if (!date) {
+            return <div key={`empty-${idx}`} className="w-full aspect-square" />;
+          }
+
+          const isT = isSameDay(date, today);
+          const isSel = selectedDate ? isSameDay(date, selectedDate) : false;
+          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+          return (
+            <button
+              key={date.getDate()}
+              onClick={() => onSelect(date)}
+              className={`w-full aspect-square rounded-xl flex items-center justify-center text-[12px] md:text-[13px] font-bold transition-all duration-200 relative ${
+                isSel
+                  ? 'iron-metal-bg text-white shadow-lg shadow-gold-glow/30 font-black scale-105'
+                  : isT
+                    ? 'bg-[var(--color-primary-apple)]/15 text-[var(--color-primary-apple)] font-black ring-1 ring-[var(--color-primary-apple)]/30'
+                    : isWeekend
+                      ? 'text-[var(--color-text-muted)] opacity-50 hover:bg-black/5 dark:hover:bg-white/5 hover:opacity-80'
+                      : 'text-[var(--color-text-main)] hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+            >
+              {date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex gap-1 px-3 pb-3">
+        <button
+          onClick={() => onSelect(today)}
+          className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-[var(--color-primary-apple)] bg-[var(--color-primary-apple)]/10 hover:bg-[var(--color-primary-apple)]/15 transition-colors"
+        >
+          Сегодня
+        </button>
+        <button
+          onClick={() => {
+            const tmrw = new Date();
+            tmrw.setDate(tmrw.getDate() + 1);
+            onSelect(tmrw);
+          }}
+          className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-[var(--color-text-muted)] bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors"
+        >
+          Завтра
+        </button>
+        <button
+          onClick={() => {
+            const nextMon = new Date();
+            const dow = nextMon.getDay();
+            const daysUntilMon = dow === 0 ? 1 : dow === 1 ? 7 : 8 - dow;
+            nextMon.setDate(nextMon.getDate() + daysUntilMon);
+            onSelect(nextMon);
+          }}
+          className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-[var(--color-text-muted)] bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.06] transition-colors"
+        >
+          Пн
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Schedule Display Components ─── */
 
 function DaySchedule({ data, emptyMessage, onLessonClick }: { data: ScheduleDay; emptyMessage: string; onLessonClick: (l: Lesson) => void }) {
   if (data.lessons.length === 0) {
