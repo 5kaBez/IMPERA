@@ -1,6 +1,8 @@
 /**
  * GUU Schedule Auto-Importer
- * Downloads schedule files from guu.ru, parses them, and imports into IMPERA.
+ * Downloads schedule files from guu.ru, runs Python parser, imports into IMPERA.
+ *
+ * Uses the battle-tested parse_all_sheets.py (Python) instead of a TS port.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -9,17 +11,16 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
-import { parseGUUScheduleFiles, recordsToXlsxBuffer, type FileInput } from './guuParser';
-import { parseExcelSchedule } from './excelParser';
+import { execSync } from 'child_process';
 import { migrateSchedule } from './scheduleMigration';
 
 const GUU_SCHEDULE_URL = 'https://guu.ru/student/schedule/';
 
 type FileMapping = {
   filename: string;
-  patterns: RegExp[];      // all must match to consider the label a candidate
-  urlPatterns?: RegExp[];  // optional fallback when label is missing or boilerplate
-  exclude?: RegExp[];      // disqualifiers (used to keep 1-5 from matching 1)
+  patterns: RegExp[];
+  urlPatterns?: RegExp[];
+  exclude?: RegExp[];
 };
 
 const FILE_MAPPINGS: FileMapping[] = [
@@ -225,13 +226,170 @@ function downloadFile(url: string): Promise<Buffer> {
 }
 
 /**
+ * Parse CSV output from parse_all_sheets.py into structured data.
+ * CSV columns: Форма обучения, Уровень образования, Курс, Институт, Направление, Программа,
+ *              Группа, Номер группы, День недели, Номер пары, Время пары,
+ *              Чётность, Предмет, Вид пары, Преподаватель, Номер аудитории, Недели
+ */
+function parseCsvOutput(csvPath: string): {
+  groups: Array<{
+    number: number;
+    name: string;
+    course: number;
+    studyForm: string;
+    educationLevel: string;
+    directionName: string;
+    instituteName: string;
+    programName: string;
+  }>;
+  lessons: Array<{
+    groupNumber: number;
+    dayOfWeek: string;
+    pairNumber: number | string;
+    time: string;
+    parity: string;
+    subject: string;
+    lessonType: string;
+    teacher: string;
+    room: string;
+    weeks: string;
+  }>;
+} {
+  const csvContent = fs.readFileSync(csvPath, 'utf-8');
+  const lines = csvContent.split('\n').filter(l => l.trim());
+
+  if (lines.length < 2) {
+    throw new Error('CSV файл пуст или содержит только заголовок');
+  }
+
+  // Parse CSV header
+  const header = parseCSVLine(lines[0]);
+  const colIndex = (name: string) => {
+    const idx = header.findIndex(h => h.trim() === name);
+    if (idx === -1) console.warn(`[CSV] Column not found: ${name}`);
+    return idx;
+  };
+
+  const iForm = colIndex('Форма обучения');
+  const iLevel = colIndex('Уровень образования');
+  const iCourse = colIndex('Курс');
+  const iInstitute = colIndex('Институт');
+  const iDirection = colIndex('Направление');
+  const iProgram = colIndex('Программа');
+  const iGroupName = colIndex('Группа');
+  const iGroupNum = colIndex('Номер группы');
+  const iDay = colIndex('День недели');
+  const iPairNum = colIndex('Номер пары');
+  const iTime = colIndex('Время пары');
+  const iParity = colIndex('Чётность');
+  const iSubject = colIndex('Предмет');
+  const iType = colIndex('Вид пары');
+  const iTeacher = colIndex('Преподаватель');
+  const iRoom = colIndex('Номер аудитории');
+  const iWeeks = colIndex('Недели');
+
+  const groupsMap = new Map<string, {
+    number: number;
+    name: string;
+    course: number;
+    studyForm: string;
+    educationLevel: string;
+    directionName: string;
+    instituteName: string;
+    programName: string;
+  }>();
+
+  const lessons: Array<{
+    groupNumber: number;
+    dayOfWeek: string;
+    pairNumber: number | string;
+    time: string;
+    parity: string;
+    subject: string;
+    lessonType: string;
+    teacher: string;
+    room: string;
+    weeks: string;
+  }> = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 10) continue; // Skip malformed lines
+
+    const groupNumber = parseInt(cols[iGroupNum]) || 0;
+    if (groupNumber === 0) continue;
+
+    const groupKey = `${cols[iInstitute]}|${cols[iDirection]}|${cols[iProgram]}|${groupNumber}`;
+
+    if (!groupsMap.has(groupKey)) {
+      groupsMap.set(groupKey, {
+        number: groupNumber,
+        name: cols[iGroupName] || `Группа ${groupNumber}`,
+        course: parseInt(cols[iCourse]) || 1,
+        studyForm: cols[iForm] || 'Очная',
+        educationLevel: cols[iLevel] || 'Бакалавриат',
+        directionName: cols[iDirection] || '-',
+        instituteName: cols[iInstitute] || '-',
+        programName: cols[iProgram] || '-',
+      });
+    }
+
+    lessons.push({
+      groupNumber,
+      dayOfWeek: (cols[iDay] || '').toUpperCase(),
+      pairNumber: parseInt(cols[iPairNum]) || cols[iPairNum] || 1,
+      time: cols[iTime] || '',
+      parity: cols[iParity] || '-',
+      subject: cols[iSubject] || '-',
+      lessonType: cols[iType] || '-',
+      teacher: cols[iTeacher] || '-',
+      room: cols[iRoom] || '-',
+      weeks: cols[iWeeks] || '-',
+    });
+  }
+
+  return {
+    groups: Array.from(groupsMap.values()),
+    lessons,
+  };
+}
+
+/**
+ * Simple CSV line parser that handles quoted fields with commas.
+ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++; // Skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
  * Full auto-import pipeline:
  * 1. Scrape GUU page for download links
  * 2. Download all xlsx files
- * 3. Parse them with GUU parser
- * 4. Convert to unified xlsx
- * 5. Import via existing parseExcelSchedule
- * 6. Save import record + xlsx file
+ * 3. Run Python parser (parse_all_sheets.py)
+ * 4. Read CSV output
+ * 5. Import via migrateSchedule
+ * 6. Save import record
  */
 export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manual' = 'auto'): Promise<{
   success: boolean;
@@ -252,9 +410,7 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     const dateStr = new Date().toISOString().split('T')[0];
     const dayDir = path.join(importsDir, dateStr);
     const rawDir = path.join(dayDir, 'raw');
-    const finalDir = path.join(dayDir, 'final');
     fs.mkdirSync(rawDir, { recursive: true });
-    fs.mkdirSync(finalDir, { recursive: true });
 
     // 1. Scrape download links
     const { html, links } = await fetchDownloadLinks();
@@ -281,112 +437,84 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
       const missing = FILE_MAPPINGS.map(mapping => mapping.filename)
         .filter(filename => !orderedLinks.some(link => link.filename === filename));
       saveHtmlSnapshot(html, importsDir, 'missing-files');
-      throw new Error(`Найдено только ${orderedLinks.length} файлов (${missing.join(', ')})`);
+      throw new Error(`Найдено только ${orderedLinks.length} файлов из ${FILE_MAPPINGS.length} (нет: ${missing.join(', ')})`);
     }
 
-    // 2. Download all files
+    // 2. Download all files into rawDir
     console.log(`[GUU Import] Downloading ${orderedLinks.length} files...`);
-    const files: FileInput[] = [];
     for (const link of orderedLinks) {
-      console.log(`  Downloading: ${link.label || link.url} → ${link.filename}`);
+      console.log(`  Downloading: ${link.label || link.url} -> ${link.filename}`);
       const buffer = await downloadFile(link.url);
       const rawPath = path.join(rawDir, link.filename!);
       fs.writeFileSync(rawPath, buffer);
-      files.push({ filename: link.filename!, buffer });
     }
     console.log(`[GUU Import] Raw downloads saved to ${rawDir}`);
 
-    // 3. Parse with GUU parser
-    console.log(`[GUU Import] Parsing ${files.length} files...`);
-    const records = parseGUUScheduleFiles(files);
-    if (records.length === 0) {
-      throw new Error('Парсер не нашёл записей расписания');
+    // 3. Run Python parser
+    console.log(`[GUU Import] Running Python parser...`);
+    const pythonScript = path.join(process.cwd(), 'scripts', 'parse_all_sheets.py');
+
+    if (!fs.existsSync(pythonScript)) {
+      throw new Error(`Python parser not found: ${pythonScript}`);
     }
 
-    // 4. Convert to xlsx buffer
-    const xlsxBuffer = recordsToXlsxBuffer(records);
+    // Run Python in rawDir so it finds the xlsx files
+    const pythonCmd = `python3 "${pythonScript}"`;
+    try {
+      const output = execSync(pythonCmd, {
+        cwd: rawDir,
+        timeout: 120000, // 2 min timeout
+        encoding: 'utf-8',
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      });
+      console.log(`[GUU Import] Python parser output:\n${output}`);
+    } catch (pyErr: any) {
+      const stderr = pyErr.stderr || '';
+      const stdout = pyErr.stdout || '';
+      console.error(`[GUU Import] Python parser failed:\n${stderr}\n${stdout}`);
+      throw new Error(`Python parser failed: ${stderr.slice(0, 500)}`);
+    }
 
-    // 5. Save xlsx file to disk
+    // 4. Read CSV output
+    const csvPath = path.join(rawDir, 'schedule_full.csv');
+    const xlsxPath = path.join(rawDir, 'schedule_full.xlsx');
+
+    if (!fs.existsSync(csvPath)) {
+      throw new Error('Python parser did not produce schedule_full.csv');
+    }
+
+    console.log(`[GUU Import] Reading CSV output...`);
+    const { groups: groupsData, lessons: lessonsData } = parseCsvOutput(csvPath);
+
+    if (lessonsData.length === 0) {
+      throw new Error('Python parser produced 0 records');
+    }
+
+    console.log(`[GUU Import] Parsed: ${groupsData.length} groups, ${lessonsData.length} lessons`);
+
+    // 5. Save the final xlsx to a permanent location
+    const finalDir = path.join(dayDir, 'final');
+    fs.mkdirSync(finalDir, { recursive: true });
     const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
     const fileName = `schedule_${dateStr}_${timeStr}.xlsx`;
     const savedPath = path.join(finalDir, fileName);
-    fs.writeFileSync(savedPath, xlsxBuffer);
+
+    if (fs.existsSync(xlsxPath)) {
+      fs.copyFileSync(xlsxPath, savedPath);
+    }
     console.log(`[GUU Import] Saved xlsx: ${savedPath}`);
 
-    // 6. Prepare data for safe migration
-    console.log(`[GUU Import] Preparing data for safe migration...`);
-    
-    // Собираем уникальные группы
-    const groupsMap = new Map<string, {
-      number: number;
-      name: string;
-      course: number;
-      studyForm: string;
-      educationLevel: string;
-      directionName: string;
-      instituteName: string;
-      programName: string;
-    }>();
-
-    const lessonsData: Array<{
-      groupNumber: number;
-      dayOfWeek: string;
-      pairNumber: number | string;
-      time: string;
-      parity: string;
-      subject: string;
-      lessonType: string;
-      teacher: string;
-      room: string;
-      weeks: string;
-    }> = [];
-
-    // Агрегируем данные из распарсенных рекордов
-    for (const record of records) {
-      const groupKey = `${record.institute}|${record.direction}|${record.program}|${record.groupNumber}`;
-      
-      if (!groupsMap.has(groupKey)) {
-        groupsMap.set(groupKey, {
-          number: record.groupNumber,
-          name: record.groupName,
-          course: record.course,
-          studyForm: record.studyForm,
-          educationLevel: record.educationLevel,
-          directionName: record.direction,
-          instituteName: record.institute,
-          programName: record.program,
-        });
-      }
-
-      lessonsData.push({
-        groupNumber: record.groupNumber,
-        dayOfWeek: record.dayOfWeek,
-        pairNumber: record.pairNumber,
-        time: record.time,
-        parity: record.parity,
-        subject: record.subject,
-        lessonType: record.lessonType,
-        teacher: record.teacher,
-        room: record.room,
-        weeks: record.weeks,
-      });
-    }
-
-    const groupsData = Array.from(groupsMap.values());
-    console.log(`[GUU Import] Prepared: ${groupsData.length} groups, ${lessonsData.length} lessons`);
-
-    // 7. Execute safe migration (preserves users!)
+    // 6. Execute safe migration (preserves users!)
     console.log(`[GUU Import] Executing safe migration...`);
     const migrationStats = await migrateSchedule(groupsData, lessonsData);
-    
-    // Use migration result instead of old parseExcelSchedule
+
     const result = {
       imported: migrationStats.lessonsCreated,
       skipped: 0,
       total: migrationStats.lessonsCreated,
     };
 
-    // 8. Get stats
+    // 7. Get stats
     const [institutes, directions, programs, groups] = await Promise.all([
       prisma.institute.count(),
       prisma.direction.count(),
@@ -394,7 +522,7 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
       prisma.group.count(),
     ]);
 
-    // 9. Update import record
+    // 8. Update import record
     await prisma.scheduleImport.update({
       where: { id: importRecord.id },
       data: {
@@ -411,7 +539,7 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     });
 
     console.log(
-      `[GUU Import #${importRecord.id}] Done! ✅\n` +
+      `[GUU Import #${importRecord.id}] Done!\n` +
       `Users preserved: ${migrationStats.usersPreserved}\n` +
       `Lessons created: ${migrationStats.lessonsCreated}\n` +
       `New groups: ${migrationStats.newGroupsCreated}`
@@ -420,11 +548,11 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     return {
       success: true,
       importId: importRecord.id,
-      stats: { 
-        ...result, 
-        institutes, 
-        directions, 
-        programs, 
+      stats: {
+        ...result,
+        institutes,
+        directions,
+        programs,
         groups,
         usersPreserved: migrationStats.usersPreserved,
         groupsPreserved: migrationStats.groupsPreserved,
