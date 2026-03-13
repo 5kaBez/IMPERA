@@ -130,14 +130,14 @@ export default function MetricsTab() {
   }
 
   const metricCards = [
-    { label: 'Активные сессии', value: metrics.activeSessions, icon: Activity, change: '+12%' },
-    { label: 'События сегодня', value: metrics.todayEvents, icon: Mouse, change: '+8%' },
-    { label: 'Просмотры сегодня', value: metrics.todayPageViews, icon: Eye, change: '+5%' },
-    { label: 'DAU', value: metrics.dailyActiveUsers, icon: Users, change: '+3%' },
-    { label: 'WAU', value: metrics.weeklyActiveUsers, icon: TrendingUp, change: '+15%' },
-    { label: 'MAU', value: metrics.monthlyActiveUsers, icon: BarChart3, change: '+22%' },
-    { label: 'Всего поиск', value: metrics.totalSearches, icon: Search, change: '+10%' },
-    { label: 'Ошибки', value: metrics.totalErrors, icon: AlertCircle, color: 'text-red-500' },
+    { label: 'Активные сессии (сейчас)', value: metrics.activeSessions, icon: Activity, change: '+12%', tooltip: 'Открытые сессии прямо сейчас' },
+    { label: 'События сегодня', value: metrics.todayEvents, icon: Mouse, change: '+8%', tooltip: 'Клики и события за сегодня' },
+    { label: 'Просмотры сегодня', value: metrics.todayPageViews, icon: Eye, change: '+5%', tooltip: 'Просмотры страниц за сегодня' },
+    { label: 'DAU (уникальные сегодня)', value: metrics.dailyActiveUsers, icon: Users, change: '+3%', tooltip: 'Уникальные пользователи сегодня' },
+    { label: 'WAU (за 7 дней)', value: metrics.weeklyActiveUsers, icon: TrendingUp, change: '+15%', tooltip: 'Уникальные пользователи за 7 дней' },
+    { label: 'MAU (за 30 дней)', value: metrics.monthlyActiveUsers, icon: BarChart3, change: '+22%', tooltip: 'Уникальные пользователи за месяц' },
+    { label: 'Всего поиск', value: metrics.totalSearches, icon: Search, change: '+10%', tooltip: 'Всего поисковых запросов' },
+    { label: 'Ошибки', value: metrics.totalErrors, icon: AlertCircle, color: 'text-red-500', tooltip: 'JavaScript ошибки' },
   ];
 
   const conversionRates = {

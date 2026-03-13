@@ -346,9 +346,24 @@ router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Requ
       prisma.userSession.count({ where: { endedAt: null } }),
       prisma.userSession.count(),
       prisma.user.count(),
-      prisma.userSession.count({ where: { startedAt: { gte: today } } }),
-      prisma.userSession.count({ where: { startedAt: { gte: sevenDaysAgo } } }),
-      prisma.userSession.count({ where: { startedAt: { gte: thirtyDaysAgo } } }),
+      // DAU: Уникальные пользователи, у которых была сессия сегодня
+      prisma.userSession.findMany({
+        where: { startedAt: { gte: today } },
+        distinct: ['userId'],
+        select: { userId: true },
+      }).then(r => r.length),
+      // WAU: Уникальные пользователи за последние 7 дней
+      prisma.userSession.findMany({
+        where: { startedAt: { gte: sevenDaysAgo } },
+        distinct: ['userId'],
+        select: { userId: true },
+      }).then(r => r.length),
+      // MAU: Уникальные пользователи за последние 30 дней
+      prisma.userSession.findMany({
+        where: { startedAt: { gte: thirtyDaysAgo } },
+        distinct: ['userId'],
+        select: { userId: true },
+      }).then(r => r.length),
       prisma.pageView.count(),
       prisma.pageView.count({ where: { viewedAt: { gte: today } } }),
       prisma.search.count(),
