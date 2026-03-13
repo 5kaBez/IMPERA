@@ -138,7 +138,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Bottom Navigation - All screens */}
-      <nav className="fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-40 bg-[var(--color-bg-apple)]/95 safe-bottom">
+      <nav className="fixed bottom-0 inset-x-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-50 bg-[var(--color-bg-apple)]/95 safe-bottom pointer-events-auto">
         {navItems.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
