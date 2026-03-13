@@ -399,12 +399,15 @@ router.delete('/reviews/:id', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
   const id = parseInt(String(req.params.id));
   try {
+    console.log(`Deleting review ${id}`);
     const review = await prisma.review.delete({
       where: { id },
     });
+    console.log(`Review ${id} deleted successfully`);
     res.json({ success: true, review });
   } catch (err: any) {
-    res.status(400).json({ error: 'Не удалось удалить отзыв' });
+    console.error(`Error deleting review ${id}:`, err.message);
+    res.status(400).json({ error: `Не удалось удалить отзыв: ${err.message}` });
   }
 });
 
