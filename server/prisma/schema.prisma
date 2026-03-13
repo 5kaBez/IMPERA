@@ -105,18 +105,18 @@ model User {
   codesCreated        InviteCode[]      @relation("CodeCreator")
   codesUsed           InviteCode[]      @relation("CodeUsedBy")
   // Analytics
-  sessions            UserSession[]
-  events              Event[]
-  pageViews           PageView[]
-  searches            Search[]
-  filters             Filter[]
-  clientErrors        ClientError[]
-  featureUsages       FeatureUsage[]
-  performanceMetrics  PerformanceMetric[]
-  contentInteractions ContentInteraction[]
-  subscriptions       Subscription[]
-  recommendations     Recommendation[]
-  metricsSnapshots    UserMetricsSnapshot[]
+  sessions            UserSession[]     @relation("Sessions")
+  events              Event[]           @relation("Events")
+  pageViews           PageView[]        @relation("PageViews")
+  searches            Search[]          @relation("Searches")
+  filters             Filter[]          @relation("Filters")
+  clientErrors        ClientError[]     @relation("ClientErrors")
+  featureUsages       FeatureUsage[]    @relation("FeatureUsages")
+  performanceMetrics  PerformanceMetric[] @relation("PerformanceMetrics")
+  contentInteractions ContentInteraction[] @relation("ContentInteractions")
+  subscriptions       Subscription[]    @relation("Subscriptions")
+  recommendations     Recommendation[]  @relation("Recommendations")
+  metricsSnapshots    UserMetricsSnapshot[] @relation("MetricsSnapshots")
 }
 
 model Feedback {
@@ -328,6 +328,8 @@ model UserSession {
   durationSec  Int? // Длительность сессии в секундах
   pageViews    Int      @default(0) // Количество просмотров страниц в сессии
   events       Int      @default(0) // Количество событий в сессии
+  sessionEvents  Event[]        @relation("SessionEvents")
+  sessionPageViews PageView[]   @relation("SessionPageViews")
   
   @@index([userId])
   @@index([startedAt])
@@ -339,7 +341,7 @@ model Event {
   userId    Int
   user      User     @relation("Events", fields: [userId], references: [id], onDelete: Cascade)
   sessionId Int?
-  session   UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  session   UserSession? @relation("SessionEvents", fields: [sessionId], references: [id], onDelete: SetNull)
   eventType String   // button_click, page_view, form_submit, search, filter_apply, etc.
   eventName String   // Название события (e.g., "submit_feedback", "join_sport_section")
   category  String?  // Категория события (schedule, profile, sports, feedback, etc.)
@@ -360,7 +362,7 @@ model PageView {
   userId    Int
   user      User     @relation("PageViews", fields: [userId], references: [id], onDelete: Cascade)
   sessionId Int?
-  session   UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  session   UserSession? @relation("SessionPageViews", fields: [sessionId], references: [id], onDelete: SetNull)
   page      String   // /schedule, /profile, /sports, /feedback, /admin, etc.
   referrer  String?  // Откуда пришел пользователь
   timeOnPage Int?    // Время на странице в секундах
