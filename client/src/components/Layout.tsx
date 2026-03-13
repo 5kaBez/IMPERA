@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Calendar, User, Sun, Moon, LogOut, Menu, X, Shield, LayoutDashboard, Upload, Users, Dumbbell } from 'lucide-react';
+import { Calendar, User, LogOut, X, Shield, LayoutDashboard, Upload, Users, Dumbbell } from 'lucide-react';
 import CurrentLessonBanner from './CurrentLessonBanner';
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -34,21 +34,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20">
-      {/* Mobile top bar - minimal, only md screens (tablets). Hidden on phones (handled by bottom nav) */}
-      <header className="hidden md:flex lg:hidden fixed top-0 left-0 right-0 z-50 apple-glass border-b border-[var(--apple-border)]">
-        <div className="flex items-center justify-between px-6 h-12 w-full">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="font-black text-lg tracking-tighter metallic-text lowercase">impera</span>
-          <button onClick={toggleTheme} className="p-2 -mr-2 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all">
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-zinc-500" />}
-          </button>
-        </div>
-      </header>
-
-      {/* Bottom Navigation (Mobile) - Compact with animations */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-40 bg-[var(--color-bg-apple)]/95 safe-bottom">
+      {/* Bottom Navigation - All screens */}
+      <nav className="fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-40 bg-[var(--color-bg-apple)]/95 safe-bottom">
         {navItems.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
@@ -117,8 +104,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Sidebar Navigation (Desktop only) */}
-      <aside className="hidden lg:flex flex-col w-80 apple-glass border-r border-[var(--apple-border)] h-full fixed left-0 top-0 z-50 shadow-2xl group">
+      {/* Sidebar Navigation (Desktop only) - HIDDEN */}
+      <aside className="hidden lg:flex flex-col w-80 apple-glass border-r border-[var(--apple-border)] h-full fixed left-0 top-0 z-50 shadow-2xl group hidden">
         <div className="p-12">
           <h1 className="text-3xl font-black tracking-tighter text-[var(--color-text-main)] flex items-center gap-4 lowercase">
             <div className="w-14 h-14 squircle iron-metal-bg flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
@@ -194,8 +181,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-80 flex-1 flex flex-col pb-18 lg:pb-0 pt-1 md:pt-12 lg:pt-0">
-        <div className="w-full flex flex-col px-3 md:px-6 lg:px-16 pt-0 md:pt-0 lg:pt-11">
+      <main className="flex-1 flex flex-col pb-24 pt-1">
+        <div className="w-full flex flex-col px-3 md:px-6 lg:px-8 pt-0">
           <CurrentLessonBanner />
           <div className="mt-2 md:mt-6">
             {children}

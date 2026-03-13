@@ -56,8 +56,11 @@ export async function startBot(prisma: PrismaClient) {
       const keyboard = new InlineKeyboard()
         .webApp('📱 Открыть IMPERA', WEB_APP_URL);
 
+      // Escape special characters for MarkdownV2
+      const escMd = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+
       await ctx.reply(
-        `Привет, ${firstName}\\! 👋\n\n` +
+        `Привет, ${escMd(firstName)}\\! 👋\n\n` +
         `Добро пожаловать в *IMPERA* — цифровую платформу для студентов ГУУ\\!\n\n` +
         `🎓 *Что умеет IMPERA:*\n\n` +
         `📅 *Расписание* — персональное расписание на сегодня, завтра и всю неделю\\. Всегда актуальное, всегда под рукой\\.\n\n` +
