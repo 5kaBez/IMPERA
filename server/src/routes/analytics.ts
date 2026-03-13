@@ -755,7 +755,7 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
     });
 
     // Со скольких страниц нажимали
-    const butto_pages = await prisma.buttonClick.groupBy({
+    const button_pages = await prisma.buttonClick.groupBy({
       by: ['page'],
       where: {
         buttonName: buttonNameParam,
@@ -766,10 +766,10 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
     });
 
     res.json({
-      buttonName,
+      buttonName: buttonNameParam,
       totalClicks: clicksByDay[0] && typeof clicksByDay[0]._count === 'object' ? (clicksByDay[0]._count as any).id || 0 : 0,
       topUsers: topUsers.map((u: any) => ({ userId: u.userId, clicks: (u._count as any).id || 0 })),
-      pages: butto_pages.map((p: any) => ({ page: p.page, clicks: (p._count as any).id || 0 })),
+      pages: button_pages.map((p: any) => ({ page: p.page, clicks: (p._count as any).id || 0 })),
     });
   } catch (err: any) {
     console.error('Button details error:', err);
