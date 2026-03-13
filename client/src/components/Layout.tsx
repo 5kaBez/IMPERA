@@ -33,7 +33,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20 overflow-x-hidden relative">
+    <div className="flex flex-col min-h-screen w-screen bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20" style={{ position: 'relative', overflow: 'visible' }}>
       {/* Sidebar overlay - for all users, hidden by default */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-[60]">
@@ -127,8 +127,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <SidebarFooter user={user} theme={theme} toggleTheme={toggleTheme} logout={logout} />
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col pb-32 pt-1 relative">
+      {/* Main content with space for fixed nav */}
+      <main className="flex-1 flex flex-col pt-1" style={{ paddingBottom: '100px' }}>
         <div className="w-full flex flex-col px-3 md:px-6 lg:px-8 pt-0">
           <CurrentLessonBanner />
           <div className="mt-2 md:mt-6">
@@ -138,7 +138,20 @@ export default function Layout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Bottom Navigation - All screens */}
-      <nav className="fixed bottom-0 left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-[9999] bg-[var(--color-bg-apple)]/95 safe-bottom pointer-events-auto h-20 will-change-transform" style={{ backgroundColor: 'var(--color-bg-apple)' }}>
+      <nav 
+        className="fixed left-0 right-0 apple-glass border-t border-[var(--apple-border)] flex items-center justify-around px-1 z-[9999] bg-[var(--color-bg-apple)] pointer-events-auto"
+        style={{ 
+          position: 'fixed',
+          bottom: '0px',
+          left: '0px',
+          right: '0px',
+          zIndex: 9999,
+          height: '80px',
+          backgroundColor: 'var(--color-bg-apple)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1px solid var(--apple-border)'
+        }}
+      >
         {navItems.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
