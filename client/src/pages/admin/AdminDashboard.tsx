@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
 import type { Feedback, Teacher } from '../../types';
-import { Users, BookOpen, Calendar, Building2, Upload, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Download, RefreshCw, Clock, AlertCircle } from 'lucide-react';
+import { Users, BookOpen, Calendar, Building2, Upload, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Download, RefreshCw, Clock, AlertCircle, Trash2, BarChart3 } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
 import AdminBackup from '../../components/AdminBackup';
+import MetricsTab from './MetricsTab';
 
 interface Stats {
   users: number;
@@ -21,7 +22,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'analytics' | 'feedback' | 'teachers' | 'autoimport' | 'backup';
+type Tab = 'dashboard' | 'metrics' | 'analytics' | 'feedback' | 'teachers' | 'autoimport' | 'backup';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -56,6 +57,7 @@ export default function AdminDashboard() {
         <div className="flex gap-1 md:gap-2 p-1 md:p-1.5 apple-glass rounded-2xl md:rounded-[24px] border border-[var(--apple-border)] min-w-max md:min-w-0 md:max-w-xl relative overflow-hidden shadow-lg md:shadow-xl">
           {([
             { key: 'dashboard', label: 'Дашборд' },
+            { key: 'metrics', label: 'Метрики' },
             { key: 'analytics', label: 'Аналитика' },
             { key: 'feedback', label: 'Фидбек' },
             { key: 'teachers', label: 'Учителя' },
@@ -84,6 +86,7 @@ export default function AdminDashboard() {
       </div>
 
       {tab === 'dashboard' && stats && <DashboardTab stats={stats} />}
+      {tab === 'metrics' && <MetricsTab />}
       {tab === 'analytics' && stats && <AnalyticsTab stats={stats} />}
       {tab === 'feedback' && <FeedbackTab />}
       {tab === 'teachers' && <TeachersTab />}
@@ -240,6 +243,7 @@ function FeedbackTab() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -251,6 +255,21 @@ function FeedbackTab() {
   const updateStatus = async (id: number, status: string) => {
     await api.put(`/admin/feedback/${id}`, { status });
     setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Вы уверены, что хотите удалить этот отзыв?')) return;
+    
+    setDeletingId(id);
+    try {
+      await api.delete(`/admin/feedback/${id}`);
+      setFeedbacks(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      alert('Ошибка при удалении отзыва');
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const typeLabels: Record<string, string> = { suggestion: 'Предложение', complaint: 'Жалоба', bug: 'Баг', other: 'Другое' };
@@ -334,7 +353,7 @@ function FeedbackTab() {
               <p className="text-sm text-gray-900 dark:text-gray-100 mb-3 whitespace-pre-wrap">{fb.message}</p>
 
               {/* Actions */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {fb.status === 'new' && (
                   <button
                     onClick={() => updateStatus(fb.id, 'read')}
@@ -351,6 +370,22 @@ function FeedbackTab() {
                     <CheckCircle className="w-3 h-3" /> Решено
                   </button>
                 )}
+                <button
+                  onClick={() => handleDelete(fb.id)}
+                  disabled={deletingId === fb.id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deletingId === fb.id ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-red-600 dark:border-red-400 border-t-transparent rounded-full animate-spin" />
+                      Удаление...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3 h-3" /> Удалить
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           ))}
@@ -364,12 +399,47 @@ function TeachersTab() {
   const [teachers, setTeachers] = useState<(Teacher & { avgRating: number; reviewCount: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
 
   useEffect(() => {
     api.get<(Teacher & { avgRating: number; reviewCount: number })[]>('/admin/teachers')
-      .then(setTeachers)
+      .then(data => {
+        console.log('Teachers data:', data);
+        setTeachers(data);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDeleteReview = async (reviewId: number, teacherId: number) => {
+    if (!confirm('Вы уверены, что хотите удалить этот отзыв?')) return;
+    
+    setDeletingReviewId(reviewId);
+    try {
+      await api.delete(`/admin/reviews/${reviewId}`);
+      // Обновляем список учителей
+      setTeachers(prev =>
+        prev.map(t => {
+          if (t.id === teacherId) {
+            const updatedReviews = t.reviews.filter(r => r.id !== reviewId);
+            return {
+              ...t,
+              reviews: updatedReviews,
+              reviewCount: updatedReviews.length,
+              avgRating: updatedReviews.length > 0
+                ? updatedReviews.reduce((s, r) => s + r.rating, 0) / updatedReviews.length
+                : 0,
+            };
+          }
+          return t;
+        })
+      );
+    } catch (err) {
+      alert('Ошибка при удалении отзыва');
+      console.error(err);
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -430,7 +500,10 @@ function TeachersTab() {
         {teachers.sort((a, b) => b.reviewCount - a.reviewCount).map(teacher => (
           <div key={teacher.id} className="apple-card border border-[var(--apple-border)] overflow-hidden shadow-sm">
             <button
-              onClick={() => setExpanded(expanded === teacher.id ? null : teacher.id)}
+              onClick={() => {
+                console.log(`Expanding teacher ${teacher.id}, reviews:`, teacher.reviews);
+                setExpanded(expanded === teacher.id ? null : teacher.id);
+              }}
               className="w-full p-3 md:p-5 flex items-center gap-3 md:gap-4 text-left active:bg-black/5 dark:active:bg-white/5 transition-all"
             >
               <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-[18px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs md:text-base font-black flex-shrink-0 shadow-lg shadow-blue-500/20">
@@ -447,34 +520,60 @@ function TeachersTab() {
             </button>
 
             {/* Expanded reviews */}
-            {expanded === teacher.id && teacher.reviews.length > 0 && (
+            {expanded === teacher.id && (
               <div className="border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
-                <p className="text-xs font-semibold text-gray-500 mt-3 mb-2">Отзывы:</p>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {teacher.reviews.map(review => (
-                    <div key={review.id} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          {renderStars(review.rating)}
-                          {!review.anonymous && review.user && (
-                            <span className="text-xs text-gray-500">
-                              {review.user.firstName} {review.user.lastName || ''}
-                            </span>
-                          )}
-                          {review.anonymous && (
-                            <span className="text-xs text-gray-400 italic">Анонимно</span>
-                          )}
+                <p className="text-xs font-semibold text-gray-500 mt-3 mb-2">Отзывы: ({teacher.reviews?.length || 0})</p>
+                {teacher.reviews && teacher.reviews.length > 0 ? (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {teacher.reviews.map(review => (
+                      <div key={review.id} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                        {/* Delete button at top */}
+                        <div className="flex justify-end mb-2">
+                          <button
+                            onClick={() => handleDeleteReview(review.id, teacher.id)}
+                            disabled={deletingReviewId === review.id}
+                            className="flex items-center gap-1 px-2 py-1 text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-500/20 hover:bg-red-200 dark:hover:bg-red-500/30 rounded border border-red-300 dark:border-red-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Удалить этот отзыв"
+                          >
+                            {deletingReviewId === review.id ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-red-600 dark:border-red-400 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-[10px] font-bold">Удаляю...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4" />
+                                <span className="text-[10px] font-bold uppercase">УДАЛИТЬ</span>
+                              </>
+                            )}
+                          </button>
                         </div>
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(review.createdAt).toLocaleDateString('ru-RU')}
-                        </span>
+                        {/* Review content */}
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            {renderStars(review.rating)}
+                            {!review.anonymous && review.user && (
+                              <span className="text-xs text-gray-500">
+                                {review.user.firstName} {review.user.lastName || ''}
+                              </span>
+                            )}
+                            {review.anonymous && (
+                              <span className="text-xs text-gray-400 italic">Анонимно</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(review.createdAt).toLocaleDateString('ru-RU')}
+                          </span>
+                        </div>
+                        {review.text && (
+                          <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">{review.text}</p>
+                        )}
                       </div>
-                      {review.text && (
-                        <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">{review.text}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 py-4 text-center">Нет отзывов</div>
+                )}
               </div>
             )}
           </div>

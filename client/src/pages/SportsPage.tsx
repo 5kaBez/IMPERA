@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Dumbbell, Clock, MapPin, ChevronRight, Sparkles, Wrench, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { analytics } from '../api/analytics';
 
 /* ─── Sport metadata ─── */
 const SPORT_INFO: Record<string, { emoji: string; place: string }> = {
@@ -177,9 +178,21 @@ export default function SportsPage() {
   const state = (location.state as { highlightTime?: string; highlightDay?: number } | null);
 
   const highlightTime = state?.highlightTime || null;
-  const highlightDayRaw = state?.highlightDay;
-  const highlightDayIdx = highlightDayRaw != null ? (DAY_OF_WEEK_TO_IDX[highlightDayRaw] ?? -1) : -1;
-  const highlightTimeIdx = highlightTime ? TIME_SLOTS.findIndex(s => s.time === highlightTime) : -1;
+  const highlightDay = state?.highlightDay || null;
+  const [view, setView] = useState<ViewTab>('time');
+  const [selectedDay, setSelectedDay] = useState(0);
+  const highlightTimeIdx = highlightTime ? TIME_SLOTS.findIndex(t => t.time === highlightTime) : -1;
+  const highlightDayIdx = highlightDay ? DAY_OF_WEEK_TO_IDX[highlightDay] ?? -1 : -1;
+  const [showHighlight, setShowHighlight] = useState(highlightTimeIdx >= 0);
+  const highlightRowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    analytics.trackPageView('/sports');
+  }, []);
+
+  useEffect(() => {
+    analytics.trackEvent('sports_view_tab_change', 'sports', 1, { view });
+  }, [view]);
 
   const getInitialDay = () => {
     if (highlightDayIdx >= 0) return highlightDayIdx;
@@ -189,8 +202,6 @@ export default function SportsPage() {
     return mapped ?? 0;
   };
 
-  const [selectedDay, setSelectedDay] = useState(getInitialDay());
-  const [view, setView] = useState<ViewTab>('time');
   const [expandedSport, setExpandedSport] = useState<string | null>(null);
   const [showHighlight, setShowHighlight] = useState(!!highlightTime);
   const highlightRowRef = useRef<HTMLDivElement>(null);

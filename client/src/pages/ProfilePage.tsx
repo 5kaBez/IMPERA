@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
+import { analytics } from '../api/analytics';
 import type { User as UserType } from '../types';
 import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare } from 'lucide-react';
 import { FeedbackModal } from '../components/FeedbackModal';
@@ -11,6 +12,10 @@ export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
   const [saving, setSaving] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  useEffect(() => {
+    analytics.trackPageView('/profile');
+  }, []);
 
   if (!user) return null;
 
@@ -22,6 +27,7 @@ export default function ProfilePage() {
         notifyChanges: field === 'notifyChanges' ? !user.notifyChanges : user.notifyChanges,
       });
       updateUser(data.user);
+      analytics.trackFeature('notifications', field === 'notifyBefore' ? 'before' : 'changes', data.user[field] ? 'enabled' : 'disabled');
     } catch (err) {
       console.error(err);
     }

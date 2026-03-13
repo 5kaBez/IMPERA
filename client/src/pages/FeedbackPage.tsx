@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { analytics } from '../api/analytics';
 import type { Feedback } from '../types';
 import {
   MessageSquare,
@@ -53,6 +54,7 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     loadFeedback();
+    analytics.trackPageView('/feedback');
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,6 +65,7 @@ export default function FeedbackPage() {
     setError('');
     try {
       await api.post('/feedback', { type, message: message.trim() });
+      analytics.trackFeedbackSubmitted(type);
       setSubmitted(true);
       setMessage('');
       loadFeedback();

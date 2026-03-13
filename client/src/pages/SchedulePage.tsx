@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
+import { analytics } from '../api/analytics';
 import type { Lesson, ScheduleDay, ScheduleWeek } from '../types';
 import { DAY_NAMES } from '../types';
 import { Calendar, User, ChevronRight, Dumbbell } from 'lucide-react';
@@ -179,7 +180,10 @@ export default function SchedulePage() {
           {(['today', 'tomorrow', 'week'] as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t);
+                analytics.trackEvent('schedule_tab_click', 'schedule', 1, { tab: t });
+              }}
               className={`flex-1 py-2 md:py-4.5 px-3 md:px-6 rounded-[16px] md:rounded-[28px] text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] transition-colors duration-300 relative ${tab === t
                 ? 'text-white'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'

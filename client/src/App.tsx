@@ -13,6 +13,7 @@ import FeedbackPage from './pages/FeedbackPage';
 import SportsPage from './pages/SportsPage';
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { api } from './api/client';
+import { analytics } from './api/analytics';
 import MaintenanceBanner from './components/MaintenanceBanner';
 
 // Error Boundary to catch runtime crashes
@@ -57,6 +58,15 @@ class ErrorBoundary extends Component<
 function App() {
   const { user, loading } = useAuth();
   const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string } | null>(null);
+
+  // Initialize analytics when user is loaded
+  useEffect(() => {
+    if (!loading && user) {
+      analytics.initializeSession();
+      analytics.setupGlobalErrorTracking();
+      analytics.trackPageView('/app');
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     let cancelled = false;

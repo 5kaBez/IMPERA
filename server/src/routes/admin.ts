@@ -328,6 +328,20 @@ router.put('/feedback/:id', async (req: Request, res: Response) => {
   res.json(feedback);
 });
 
+// DELETE /api/admin/feedback/:id — delete feedback
+router.delete('/feedback/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const id = parseInt(String(req.params.id));
+  try {
+    const feedback = await prisma.feedback.delete({
+      where: { id },
+    });
+    res.json({ success: true, feedback });
+  } catch (err: any) {
+    res.status(400).json({ error: 'Не удалось удалить отзыв' });
+  }
+});
+
 // Teachers list with reviews
 router.get('/teachers', async (req: Request, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;
@@ -377,6 +391,20 @@ router.delete('/teachers/ghost', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('Ghost teacher cleanup error:', err);
     res.status(500).json({ error: 'Ошибка очистки преподавателей' });
+  }
+});
+
+// DELETE /api/admin/reviews/:id — delete a review
+router.delete('/reviews/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const id = parseInt(String(req.params.id));
+  try {
+    const review = await prisma.review.delete({
+      where: { id },
+    });
+    res.json({ success: true, review });
+  } catch (err: any) {
+    res.status(400).json({ error: 'Не удалось удалить отзыв' });
   }
 });
 

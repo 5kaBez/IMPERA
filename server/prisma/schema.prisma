@@ -104,6 +104,19 @@ model User {
   sportAttendances    SportAttendance[] @relation("AttendanceStudent")
   codesCreated        InviteCode[]      @relation("CodeCreator")
   codesUsed           InviteCode[]      @relation("CodeUsedBy")
+  // Analytics
+  sessions            UserSession[]
+  events              Event[]
+  pageViews           PageView[]
+  searches            Search[]
+  filters             Filter[]
+  clientErrors        ClientError[]
+  featureUsages       FeatureUsage[]
+  performanceMetrics  PerformanceMetric[]
+  contentInteractions ContentInteraction[]
+  subscriptions       Subscription[]
+  recommendations     Recommendation[]
+  metricsSnapshots    UserMetricsSnapshot[]
 }
 
 model Feedback {
@@ -297,6 +310,229 @@ model InviteCode {
   @@index([creatorId])
   @@index([usedById])
   @@index([createdAt])
+}
+
+// ===== АНАЛИТИКА И МЕТРИКИ =====
+
+// Сессии пользователей — отслеживание времени в приложении
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation("Sessions", fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique // UUID для отслеживания сессии
+  platform     String   @default("web") // web, mobile, telegram
+  userAgent    String?
+  ipAddress    String?
+  startedAt    DateTime @default(now())
+  endedAt      DateTime?
+  durationSec  Int? // Длительность сессии в секундах
+  pageViews    Int      @default(0) // Количество просмотров страниц в сессии
+  events       Int      @default(0) // Количество событий в сессии
+  
+  @@index([userId])
+  @@index([startedAt])
+}
+
+// Отслеживание пользовательских событий (клики, навигация, действия)
+model Event {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("Events", fields: [userId], references: [id], onDelete: Cascade)
+  sessionId Int?
+  session   UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  eventType String   // button_click, page_view, form_submit, search, filter_apply, etc.
+  eventName String   // Название события (e.g., "submit_feedback", "join_sport_section")
+  category  String?  // Категория события (schedule, profile, sports, feedback, etc.)
+  value     Int?     // Числовое значение (e.g., количество результатов поиска)
+  metadata  String?  // JSON с дополнительными данными
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([sessionId])
+  @@index([eventName])
+}
+
+// Просмотры страниц
+model PageView {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("PageViews", fields: [userId], references: [id], onDelete: Cascade)
+  sessionId Int?
+  session   UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  page      String   // /schedule, /profile, /sports, /feedback, /admin, etc.
+  referrer  String?  // Откуда пришел пользователь
+  timeOnPage Int?    // Время на странице в секундах
+  viewedAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([page])
+  @@index([viewedAt])
+}
+
+// Поиск — отслеживание того, что ищут пользователи
+model Search {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("Searches", fields: [userId], references: [id], onDelete: Cascade)
+  searchType String  // schedule, teachers, sports, etc.
+  query     String   // Поисковый запрос
+  resultCount Int?   // Количество результатов
+  hasClicked Boolean @default(false) // Нажал ли на результат
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([searchType])
+  @@index([timestamp])
+}
+
+// Фильтры — какие фильтры применяют пользователи
+model Filter {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("Filters", fields: [userId], references: [id], onDelete: Cascade)
+  page      String   // Страница, где применили фильтр
+  filterType String  // institute, direction, program, day_of_week, etc.
+  filterValue String // Значение фильтра
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([filterType])
+  @@index([timestamp])
+}
+
+// Ошибки на клиенте — отслеживание JavaScript ошибок
+model ClientError {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation("ClientErrors", fields: [userId], references: [id], onDelete: SetNull)
+  message   String
+  stack     String?
+  page      String?
+  userAgent String?
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([timestamp])
+}
+
+// Функции приложения — какие функции пользователи используют/не используют
+model FeatureUsage {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("FeatureUsages", fields: [userId], references: [id], onDelete: Cascade)
+  feature   String   // notifications, reviews, sports, referrals, etc.
+  action    String   // enabled, disabled, used
+  value     String?  // Значение (e.g., сколько друзей пригласили)
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([feature])
+  @@index([timestamp])
+}
+
+// Performance метрики — загрузка страниц
+model PerformanceMetric {
+  id               Int      @id @default(autoincrement())
+  userId           Int?
+  user             User?    @relation("PerformanceMetrics", fields: [userId], references: [id], onDelete: SetNull)
+  page             String
+  pageLoadTime     Int?     // мс
+  dnsTime          Int?     // мс
+  tcpTime          Int?     // мс
+  ttfb             Int?     // Time to First Byte (мс)
+  fcpTime          Int?     // First Contentful Paint (мс)
+  lcpTime          Int?     // Largest Contentful Paint (мс)
+  fid              Int?     // First Input Delay (мс)
+  cls              Float?   // Cumulative Layout Shift
+  memoryUsed       Int?     // Используемая память (MB)
+  timestamp        DateTime @default(now())
+
+  @@index([userId])
+  @@index([page])
+  @@index([timestamp])
+}
+
+// Взаимодействие с контентом
+model ContentInteraction {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation("ContentInteractions", fields: [userId], references: [id], onDelete: Cascade)
+  contentType String  // lesson, teacher, sport_section, feedback_item, etc.
+  contentId  Int
+  action     String   // view, favorite, share, report, etc.
+  duration   Int?     // Время взаимодействия (секунды)
+  timestamp  DateTime @default(now())
+
+  @@index([userId])
+  @@index([contentType])
+  @@index([timestamp])
+}
+
+// Покупки/подписки (для будущих платных функций)
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("Subscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // premium, vip, etc.
+  status    String   @default("active") // active, cancelled, expired
+  amount    Float?   // Сумма оплаты
+  currency  String?  // RUB, USD
+  startedAt DateTime @default(now())
+  expiresAt DateTime?
+  cancelledAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Рекомендации/sugestions для статистики
+model Recommendation {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation("Recommendations", fields: [userId], references: [id], onDelete: Cascade)
+  type         String   // schedule_tip, teacher_suggestion, sport_suggestion, etc.
+  recommendation String  // Текст рекомендации
+  shown        Boolean  @default(true)
+  clicked      Boolean  @default(false)
+  timestamp    DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([timestamp])
+}
+
+// Ежедневные/еженедельные/ежемесячные метрики пользователя (кэш)
+model UserMetricsSnapshot {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation("MetricsSnapshots", fields: [userId], references: [id], onDelete: Cascade)
+  period          String   @default("daily") // daily, weekly, monthly
+  date            DateTime // Дата снимка
+  sessionCount    Int      @default(0)
+  totalDuration   Int      @default(0) // Секунды
+  pageViews       Int      @default(0)
+  events          Int      @default(0)
+  lastActive      DateTime?
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, period, date])
+  @@index([date])
+}
+
+// Глобальные метрики приложения (статистика по всему приложению)
+model AppMetric {
+  id            Int      @id @default(autoincrement())
+  metricType    String   // dau, mau, new_users, active_sessions, etc.
+  metricValue   Int
+  metricDate    DateTime
+  metadata      String?  // JSON для дополнительных данных
+  createdAt     DateTime @default(now())
+
+  @@unique([metricType, metricDate])
+  @@index([metricType])
+  @@index([metricDate])
 }
 
 // ===== Глобальные настройки (инвайт-система и другое) =====
