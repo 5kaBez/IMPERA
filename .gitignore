@@ -9,6 +9,11 @@ server/dist/
 .env
 .env.local
 .env.production
+.env.staging
+server/.env
+
+# Imports
+server/imports/
 
 # IDE
 .vscode/
