@@ -712,16 +712,16 @@ router.get('/admin/top-buttons', authMiddleware, adminMiddleware, async (req: Re
 router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const prisma: PrismaClient = (req as any).prisma;
-    const { buttonName } = req.params;
-    const { days = 30 } = req.query;
+    const buttonNameParam = (req.params.buttonName || '').toString();
+    const daysParam = parseInt((req.query.days || '30').toString());
 
-    const dateFrom = new Date(Date.now() - (parseInt(days as string) || 30) * 24 * 60 * 60 * 1000);
+    const dateFrom = new Date(Date.now() - (daysParam || 30) * 24 * 60 * 60 * 1000);
 
     // Клики по дням
     const clicksByDay = await prisma.buttonClick.groupBy({
       by: ['buttonName'],
       where: {
-        buttonName,
+        buttonName: buttonNameParam,
         timestamp: { gte: dateFrom },
       },
       _count: { id: true },
@@ -731,7 +731,7 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
     const topUsers = await prisma.buttonClick.groupBy({
       by: ['userId'],
       where: {
-        buttonName,
+        buttonName: buttonNameParam,
         timestamp: { gte: dateFrom },
       },
       _count: { id: true },
@@ -743,7 +743,7 @@ router.get('/admin/button-details/:buttonName', authMiddleware, adminMiddleware,
     const butto_pages = await prisma.buttonClick.groupBy({
       by: ['page'],
       where: {
-        buttonName,
+        buttonName: buttonNameParam,
         timestamp: { gte: dateFrom },
       },
       _count: { id: true },
