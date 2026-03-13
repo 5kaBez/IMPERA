@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Calendar, User, LogOut, X, Shield, LayoutDashboard, Upload, Users, Dumbbell } from 'lucide-react';
+import { Calendar, User, Sun, Moon, LogOut, X, Shield, LayoutDashboard, Upload, Users, Dumbbell } from 'lucide-react';
 import CurrentLessonBanner from './CurrentLessonBanner';
 
 export default function Layout({ children }: { children: ReactNode }) {
