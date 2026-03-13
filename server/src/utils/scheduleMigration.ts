@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType } from './normalize';
+import { normalizeInstitute, normalizeDirection, normalizeTime, normalizeLessonType, getPairNumberByTime } from './normalize';
 
 const prisma = new PrismaClient();
 
@@ -289,10 +289,16 @@ export async function migrateSchedule(
         ? parseInt(lessonData.pairNumber)
         : lessonData.pairNumber;
 
-      // Если pairNum не валидное число (NaN) - пропускаем урок
+      // Если pairNum не валидное число (NaN или ≤ 0) - пытаемся определить по времени
       if (!pairNum || isNaN(pairNum) || pairNum <= 0) {
-        console.warn(`   ⚠️  Невалидный номер пары для урока в ${groupInfo.name}: "${lessonData.pairNumber}"`);
-        continue;
+        // Нормализуем время сначала
+        const { start: timeStart } = normalizeTime(lessonData.time);
+        // Определяем номер пары по времени
+        pairNum = getPairNumberByTime(timeStart);
+        if (!pairNum || pairNum <= 0) {
+          console.warn(`   ⚠️  Не удалось определить номер пары для урока в ${groupInfo.name}: время="${lessonData.time}", pairNumber="${lessonData.pairNumber}"`);
+          continue;
+        }
       }
 
       // Определяем четность

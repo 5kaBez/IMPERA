@@ -100,3 +100,75 @@ export function parseWeeks(weeks: string): { weekStart: number; weekEnd: number 
     weekEnd: parseInt(parts[1] || parts[0]) || 18,
   };
 }
+
+// Map start times to pair numbers
+const PAIR_TIME_MAP: Record<string, number> = {
+  '09:00': 1,
+  '09.00': 1,
+  '10:40': 2,
+  '10.40': 2,
+  '12:55': 3,
+  '12.55': 3,
+  '14:35': 4,
+  '14.35': 4,
+  '16:15': 5,
+  '16.15': 5,
+  '17:55': 6,
+  '17.55': 6,
+};
+
+/**
+ * Determine pair number by start time
+ * Tries to match timeStart to standard GUU schedule times
+ * Falls back to parsing the time string to match hours:minutes patterns
+ */
+export function getPairNumberByTime(timeStart: string): number {
+  if (!timeStart) return 1;
+  
+  const cleaned = timeStart.trim();
+  
+  // Exact match
+  if (PAIR_TIME_MAP[cleaned]) {
+    return PAIR_TIME_MAP[cleaned];
+  }
+  
+  // Try to extract hours:minutes and match
+  const match = cleaned.match(/^(\d{1,2})[:.](\d{2})/);
+  if (match) {
+    const hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    
+    // Check against known times
+    if (hours === 9 && minutes === 0) return 1;
+    if (hours === 10 && minutes === 40) return 2;
+    if (hours === 12 && minutes === 55) return 3;
+    if (hours === 14 && minutes === 35) return 4;
+    if (hours === 16 && minutes === 15) return 5;
+    if (hours === 17 && minutes === 55) return 6;
+    
+    // Fuzzy matching: check which standard time is closest
+    const times = [
+      { hour: 9, min: 0, pair: 1 },
+      { hour: 10, min: 40, pair: 2 },
+      { hour: 12, min: 55, pair: 3 },
+      { hour: 14, min: 35, pair: 4 },
+      { hour: 16, min: 15, pair: 5 },
+      { hour: 17, min: 55, pair: 6 },
+    ];
+    
+    let closest = times[0];
+    let minDiff = Math.abs((closest.hour * 60 + closest.min) - (hours * 60 + minutes));
+    
+    for (const t of times) {
+      const diff = Math.abs((t.hour * 60 + t.min) - (hours * 60 + minutes));
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = t;
+      }
+    }
+    
+    return closest.pair;
+  }
+  
+  return 1; // Default fallback
+}
