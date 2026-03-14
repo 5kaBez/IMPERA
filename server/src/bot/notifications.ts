@@ -35,8 +35,8 @@ function canSendNotification(lessonId: number, telegramId: string): boolean {
 }
 
 export function startNotifications(prisma: PrismaClient) {
-  // Check every 5 minutes
-  cron.schedule('*/5 * * * *', async () => {
+  // Check every minute for more reliable note notifications
+  cron.schedule('* * * * *', async () => {
     try {
       await checkAndNotify(prisma);
     } catch (err) {
@@ -44,7 +44,7 @@ export function startNotifications(prisma: PrismaClient) {
     }
   });
 
-  console.log('🔔 Notification system started');
+  console.log('🔔 Notification system started (checking every minute)');
 }
 
 async function checkAndNotify(prisma: PrismaClient) {
@@ -128,11 +128,14 @@ async function checkAndNotify(prisma: PrismaClient) {
   // ===== Homework reminder notifications =====
   try {
     const now = new Date();
-    const in5min = new Date(now.getTime() + 5 * 60 * 1000);
+    // Expand window to 2 minutes (1 minute before and after current time)
+    // This ensures we catch notifications even with 1-minute cron schedule timing variance
+    const oneMinuteBefore = new Date(now.getTime() - 60 * 1000);
+    const twoMinutesAfter = new Date(now.getTime() + 2 * 60 * 1000);
 
     const pendingNotes = await prisma.note.findMany({
       where: {
-        notifyAt: { gte: now, lte: in5min },
+        notifyAt: { gte: oneMinuteBefore, lte: twoMinutesAfter },
         notified: false,
         authorRole: 'student',
       },
