@@ -409,7 +409,8 @@ export default function SchedulePage() {
       {tab !== 'week' && (
         <button
           onClick={() => setEditingNote({ date: getCurrentDateStr() })}
-          className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-[9998] w-12 h-12 md:w-14 md:h-14 rounded-2xl iron-metal-bg text-white shadow-xl shadow-black/20 flex items-center justify-center active:scale-90 transition-transform"
+          className="fixed bottom-24 left-4 md:left-8 md:bottom-8 z-[9998] w-12 h-12 md:w-14 md:h-14 rounded-2xl iron-metal-bg text-white shadow-xl shadow-black/20 flex items-center justify-center active:scale-90 transition-transform hover:scale-110"
+          title="Создать заметку"
         >
           <Plus className="w-6 h-6" />
         </button>

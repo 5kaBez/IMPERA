@@ -176,12 +176,13 @@ export default function NoteEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[10001]">
+    <div className="fixed inset-0 z-[10001]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001, pointerEvents: 'auto' }}>
       {/* Overlay */}
       <div
         ref={overlayRef}
         onClick={handleClose}
         className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
 
       {/* Bottom sheet */}
@@ -190,7 +191,8 @@ export default function NoteEditorModal({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`absolute bottom-0 left-0 right-0 bg-[var(--color-bg-apple)] rounded-t-[32px] shadow-2xl border-t border-[var(--apple-border)] max-h-[85vh] overflow-y-auto transition-transform duration-300 ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`absolute bottom-0 left-0 right-0 bg-[var(--color-bg-apple)] rounded-t-[32px] shadow-2xl border-t border-[var(--apple-border)] max-h-[90vh] overflow-y-auto transition-transform duration-300 ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10002 }}
       >
         {/* Drag handle */}
         <div className="sticky top-0 z-10 bg-[var(--color-bg-apple)] rounded-t-[32px] pt-3 pb-2 px-4">
