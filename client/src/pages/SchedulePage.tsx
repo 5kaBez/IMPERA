@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { analytics } from '../api/analytics';
 import type { Lesson, ScheduleDay, ScheduleWeek, Note } from '../types';
 import { DAY_NAMES } from '../types';
-import { Calendar, User, ChevronRight, ChevronLeft, Dumbbell, Plus } from 'lucide-react';
+import { Calendar, User, ChevronRight, ChevronLeft, Dumbbell, Plus, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
@@ -642,9 +642,24 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03, duration: 0.3 }}
+              className="flex gap-2 items-stretch"
             >
-              <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
-              <NotesBadge notes={lessonNotes} onNoteClick={onNoteClick} />
+              <div className="flex-1">
+                <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
+                <NotesBadge notes={lessonNotes} onNoteClick={onNoteClick} />
+              </div>
+              {onAddNote && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddNote(lesson.id, lesson.subject, lesson.timeStart);
+                  }}
+                  className="px-3 py-2 md:px-4 md:py-3 rounded-2xl border-2 border-amber-500/40 hover:border-amber-500 bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 hover:text-amber-400 transition-all active:scale-90 flex items-center justify-center"
+                  title="Создать заметку на эту пару"
+                >
+                  <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
+              )}
             </motion.div>
           );
         })}
