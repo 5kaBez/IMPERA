@@ -164,7 +164,7 @@ export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteC
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className={`fixed inset-0 z-50 flex items-end justify-center transition-colors duration-300 ${isVisible ? 'bg-black/50' : 'bg-black/0'
+      className={`fixed inset-0 z-[10000] flex items-end justify-center transition-colors duration-300 ${isVisible ? 'bg-black/50' : 'bg-black/0'
         }`}
     >
       <div
