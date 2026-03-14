@@ -6,16 +6,21 @@ const router = Router();
 
 // PUT /api/user/group — update user's group
 router.put('/group', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const prisma: PrismaClient = req.app.locals.prisma;
-  const { groupId } = req.body;
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const { groupId } = req.body;
 
-  const user = await prisma.user.update({
-    where: { id: req.userId },
-    data: { groupId },
-    include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
-  });
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { groupId: groupId ?? null },
+      include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+    });
 
-  res.json({ user });
+    res.json({ user });
+  } catch (err) {
+    console.error('Error updating user group:', err);
+    res.status(500).json({ error: 'Ошибка при обновлении группы' });
+  }
 });
 
 // PUT /api/user/notifications — update notification settings

@@ -83,10 +83,17 @@ export default function ProfilePage() {
       <div className="space-y-2 md:space-y-3 mb-3 md:mb-8">
         {/* Change Group */}
         <button
-          onClick={() => {
+          onClick={async () => {
             analytics.trackButtonClick('change_group_btn', 'Сменить группу', 'profile');
             localStorage.removeItem('impera_skip_group');
-            api.put('/user/group', { groupId: null }).then(() => window.location.reload());
+            try {
+              await api.put('/user/group', { groupId: null });
+              // Update state directly instead of window.location.reload()
+              // reload() can crash Telegram Mini App WebView
+              updateUser({ ...user!, groupId: undefined, group: undefined } as any);
+            } catch (err) {
+              console.error('Failed to reset group:', err);
+            }
           }}
           className="w-full flex items-center gap-3 md:gap-5 p-3 md:p-5 rounded-2xl md:rounded-[28px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] active:scale-[0.98] transition-transform duration-200 group"
         >

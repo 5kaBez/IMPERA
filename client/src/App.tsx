@@ -154,7 +154,9 @@ function App() {
     return (
       <>
         {maintenanceBanner}
-        <SelectGroupPage />
+        <ErrorBoundary>
+          <SelectGroupPage />
+        </ErrorBoundary>
       </>
     );
   }

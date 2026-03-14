@@ -61,8 +61,13 @@ export default function SelectGroupPage() {
 
   const selectGroup = async (group: Group) => {
     setLoading(true);
-    const data = await api.put<{ user: any }>('/user/group', { groupId: group.id });
-    updateUser(data.user);
+    try {
+      const data = await api.put<{ user: any }>('/user/group', { groupId: group.id });
+      updateUser(data.user);
+    } catch (err) {
+      console.error('[SelectGroup] Error selecting group:', err);
+      setLoading(false);
+    }
   };
 
   const goBack = () => {
