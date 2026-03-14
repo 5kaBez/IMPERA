@@ -250,7 +250,7 @@ export default function NoteEditorModal({
               placeholder="Подробности, ссылки, задания..."
               maxLength={2000}
               rows={3}
-              className="w-full px-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] placeholder:opacity-40 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/40 transition-all outline-none resize-none"
+              className="w-full px-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] placeholder:opacity-40 focus:ring-2 focus:ring-[var(--color-primary-apple)]/20 focus:border-[var(--color-primary-apple)]/40 transition-all outline-none resize-none"
             />
           </div>
 
@@ -289,7 +289,7 @@ export default function NoteEditorModal({
                 type="time"
                 value={customTime}
                 onChange={e => setCustomTime(e.target.value)}
-                className="mt-2 px-4 py-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] outline-none focus:ring-2 focus:ring-amber-500/20"
+                className="mt-2 px-4 py-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] outline-none focus:ring-2 focus:ring-[var(--color-primary-apple)]/20"
               />
             )}
           </div>
