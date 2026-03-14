@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { analytics } from '../api/analytics';
-import type { Lesson, ScheduleDay, ScheduleWeek } from '../types';
+import type { Lesson, ScheduleDay, ScheduleWeek, Note } from '../types';
 import { DAY_NAMES } from '../types';
-import { Calendar, User, ChevronRight, ChevronLeft, Dumbbell } from 'lucide-react';
+import { Calendar, User, ChevronRight, ChevronLeft, Dumbbell, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
+import NotesBadge, { DayNotesBlock } from '../components/NotesBadge';
+import NoteEditorModal from '../components/NoteEditorModal';
 import { useDelayedLoading } from '../hooks/useDelayedLoading';
 
 /** Check if lesson is a sports/PE class */
@@ -44,6 +46,8 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const showLoader = useDelayedLoading(loading, 1500);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [notesForDate, setNotesForDate] = useState<Note[]>([]);
+  const [editingNote, setEditingNote] = useState<{ note?: Note; lessonId?: number; lessonSubject?: string; lessonTimeStart?: string; date: string } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   /** If it's a sport lesson -> navigate to /sports with time+day highlight, otherwise open detail modal */
@@ -127,6 +131,20 @@ export default function SchedulePage() {
       return;
     }
 
+    // Fetch notes in parallel (for day views)
+    if (tab !== 'week') {
+      const noteDateStr = tab === 'date' && selectedDate
+        ? formatDateISO(selectedDate)
+        : tab === 'tomorrow'
+          ? formatDateISO(new Date(Date.now() + 86400000))
+          : formatDateISO(new Date());
+      api.get<{ notes: Note[] }>(`/notes/date/${noteDateStr}`)
+        .then(data => setNotesForDate(data.notes || []))
+        .catch(() => setNotesForDate([]));
+    } else {
+      setNotesForDate([]);
+    }
+
     fetchTask.catch((err) => {
       console.warn('API fetch failed, showing mock data:', err);
       if (tab === 'today') {
@@ -160,6 +178,39 @@ export default function SchedulePage() {
     const buttonText = t === 'today' ? 'Сегодня' : t === 'tomorrow' ? 'Завтра' : 'Неделя';
     analytics.trackEvent('schedule_tab_click', 'schedule', 1, { tab: t });
     analytics.trackButtonClick(`schedule_${t}_btn`, buttonText, 'schedule');
+  };
+
+  const handleNoteSave = (note: Note) => {
+    setNotesForDate(prev => {
+      const idx = prev.findIndex(n => n.id === note.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = note;
+        return next;
+      }
+      return [...prev, note];
+    });
+  };
+
+  const handleNoteDelete = (noteId: number) => {
+    setNotesForDate(prev => prev.filter(n => n.id !== noteId));
+  };
+
+  const handleNoteClick = (note: Note) => {
+    const dateStr = note.date.split('T')[0];
+    setEditingNote({
+      note,
+      lessonId: note.lessonId ?? undefined,
+      lessonSubject: note.lesson?.subject,
+      lessonTimeStart: note.lesson?.timeStart,
+      date: dateStr,
+    });
+  };
+
+  const getCurrentDateStr = (): string => {
+    if (tab === 'date' && selectedDate) return formatDateISO(selectedDate);
+    if (tab === 'tomorrow') return formatDateISO(new Date(Date.now() + 86400000));
+    return formatDateISO(new Date());
   };
 
   const headerDate = tab === 'date' && selectedDate ? selectedDate : new Date();
@@ -332,10 +383,10 @@ export default function SchedulePage() {
             transition={{ duration: 0.25 }}
           >
             {tab === 'today' && todayData && (
-              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} />
+              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'tomorrow' && tomorrowData && (
-              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} />
+              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'week' && weekData && (
               <WeekSchedule data={weekData} onLessonClick={handleLessonClick} />
@@ -345,15 +396,48 @@ export default function SchedulePage() {
                 data={dateData}
                 emptyMessage={selectedDate ? `${selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} — нет занятий` : 'Нет занятий'}
                 onLessonClick={handleLessonClick}
+                notes={notesForDate}
+                onNoteClick={handleNoteClick}
+                onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })}
               />
             )}
           </motion.div>
         </AnimatePresence>
       )}
 
+      {/* FAB — Add Note */}
+      {tab !== 'week' && (
+        <button
+          onClick={() => setEditingNote({ date: getCurrentDateStr() })}
+          className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-30 w-12 h-12 md:w-14 md:h-14 rounded-2xl iron-metal-bg text-white shadow-xl shadow-black/20 flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Lesson Detail Modal */}
       {selectedLesson && (
-        <LessonDetailModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
+        <LessonDetailModal
+          lesson={selectedLesson}
+          onClose={() => setSelectedLesson(null)}
+          notes={notesForDate.filter(n => n.lessonId === selectedLesson.id)}
+          onNoteClick={handleNoteClick}
+          onAddNote={() => setEditingNote({ lessonId: selectedLesson.id, lessonSubject: selectedLesson.subject, lessonTimeStart: selectedLesson.timeStart, date: getCurrentDateStr() })}
+        />
+      )}
+
+      {/* Note Editor */}
+      {editingNote && (
+        <NoteEditorModal
+          lessonId={editingNote.lessonId}
+          lessonSubject={editingNote.lessonSubject}
+          lessonTimeStart={editingNote.lessonTimeStart}
+          date={editingNote.date}
+          existingNote={editingNote.note}
+          onSave={handleNoteSave}
+          onDelete={handleNoteDelete}
+          onClose={() => setEditingNote(null)}
+        />
       )}
     </div>
   );
@@ -506,23 +590,36 @@ function CalendarPicker({ selectedDate, onSelect }: {
 
 /* ─── Schedule Display Components ─── */
 
-function DaySchedule({ data, emptyMessage, onLessonClick }: { data: ScheduleDay; emptyMessage: string; onLessonClick: (l: Lesson) => void }) {
+function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClick, onAddNote }: {
+  data: ScheduleDay;
+  emptyMessage: string;
+  onLessonClick: (l: Lesson) => void;
+  notes?: Note[];
+  onNoteClick?: (n: Note) => void;
+  onAddNote?: (lessonId: number, subject: string, timeStart: string) => void;
+}) {
+  const dateOnlyNotes = notes.filter(n => !n.lessonId);
+
   if (data.lessons.length === 0) {
     return (
-      <div className="text-center py-12 md:py-24 apple-card border-dashed border-[var(--apple-border)] bg-black/5 dark:bg-white/5 squircle overflow-hidden">
-        <div className="w-16 md:w-24 h-16 md:h-24 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center mx-auto mb-4 md:mb-8 overflow-hidden">
-          <Calendar className="w-8 md:w-12 h-8 md:h-12 text-[var(--color-text-muted)] opacity-30" />
+      <div>
+        {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} onNoteClick={onNoteClick} />}
+        <div className="text-center py-12 md:py-24 apple-card border-dashed border-[var(--apple-border)] bg-black/5 dark:bg-white/5 squircle overflow-hidden">
+          <div className="w-16 md:w-24 h-16 md:h-24 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center mx-auto mb-4 md:mb-8 overflow-hidden">
+            <Calendar className="w-8 md:w-12 h-8 md:h-12 text-[var(--color-text-muted)] opacity-30" />
+          </div>
+          <p className="text-lg md:text-2xl font-black text-[var(--color-text-main)] tracking-tight mb-2 lowercase">{emptyMessage}</p>
+          <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] metallic-text">
+            {data.parity === 1 ? 'Нечётная' : 'Чётная'} &bull; №{data.weekNumber}
+          </p>
         </div>
-        <p className="text-lg md:text-2xl font-black text-[var(--color-text-main)] tracking-tight mb-2 lowercase">{emptyMessage}</p>
-        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] metallic-text">
-          {data.parity === 1 ? 'Нечётная' : 'Чётная'} &bull; №{data.weekNumber}
-        </p>
       </div>
     );
   }
 
   return (
     <div>
+      {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} onNoteClick={onNoteClick} />}
       <div className="flex items-center justify-between mb-2 md:mb-8 px-1 md:px-2">
         <div className="flex items-center gap-2 md:gap-4">
           <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.3em] metallic-text">
@@ -535,16 +632,20 @@ function DaySchedule({ data, emptyMessage, onLessonClick }: { data: ScheduleDay;
         </span>
       </div>
       <div className="grid gap-2 md:gap-4">
-        {data.lessons.map((lesson, idx) => (
-          <motion.div
-            key={lesson.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.03, duration: 0.3 }}
-          >
-            <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
-          </motion.div>
-        ))}
+        {data.lessons.map((lesson, idx) => {
+          const lessonNotes = notes.filter(n => n.lessonId === lesson.id);
+          return (
+            <motion.div
+              key={lesson.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03, duration: 0.3 }}
+            >
+              <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
+              <NotesBadge notes={lessonNotes} onNoteClick={onNoteClick} />
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

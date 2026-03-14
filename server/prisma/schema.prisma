@@ -48,6 +48,7 @@ model Group {
   program        Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
   lessons        Lesson[]
   users          User[]
+  notes          Note[]
   createdAt      DateTime @default(now())
 
   @@unique([number, programId, course, studyForm])
@@ -68,6 +69,7 @@ model Lesson {
   room       String
   weekStart  Int      @default(1)
   weekEnd    Int      @default(18)
+  notes      Note[]
   createdAt  DateTime @default(now())
 
   @@index([groupId, dayOfWeek])
@@ -97,6 +99,7 @@ model User {
   updatedAt           DateTime          @updatedAt
   feedbacks           Feedback[]
   reviews             Review[]
+  notes               Note[]
   sportFavorites      SportFavorite[]
   sportEnrollments    SportEnrollment[] // На какую секцию записан
   sportTeaching       SportTeacher[] // Секции, где юзер — преподаватель физры
@@ -264,6 +267,30 @@ model SportAttendance {
 
   @@unique([sessionId, studentId]) // Один студент — одна отметка за сессию
   @@index([studentId, checkedInAt])
+}
+
+// ===== Заметки / Домашка =====
+model Note {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    Int?
+  lesson      Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  date        DateTime
+  title       String
+  text        String?
+  notifyAt    DateTime?
+  notified    Boolean   @default(false)
+  authorRole  String    @default("student") // student | teacher
+  groupId     Int?
+  group       Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, date])
+  @@index([lessonId])
+  @@index([groupId, date])
+  @@index([notifyAt, notified])
 }
 
 // ===== История импорта расписания =====

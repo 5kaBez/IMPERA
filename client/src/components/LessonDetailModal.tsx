@@ -1,15 +1,18 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { Lesson, Teacher, Review } from '../types';
+import type { Lesson, Teacher, Review, Note } from '../types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { X, Star, MapPin, Clock, User, BookOpen, Send } from 'lucide-react';
+import { X, Star, MapPin, Clock, User, BookOpen, Send, FileText, Plus } from 'lucide-react';
 
 interface LessonDetailModalProps {
   lesson: Lesson;
   onClose: () => void;
+  notes?: Note[];
+  onNoteClick?: (note: Note) => void;
+  onAddNote?: () => void;
 }
 
-export default function LessonDetailModal({ lesson, onClose }: LessonDetailModalProps) {
+export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteClick, onAddNote }: LessonDetailModalProps) {
   const { user } = useAuth();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [teacherLoading, setTeacherLoading] = useState(false);
@@ -448,6 +451,42 @@ export default function LessonDetailModal({ lesson, onClose }: LessonDetailModal
               </div>
             </div>
           )}
+
+          {/* Notes / Homework section */}
+          <div className="px-4 md:px-5 py-4 border-t border-[var(--apple-border)]">
+            <h3 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-3 px-1 flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-amber-500" />
+              Заметки / ДЗ
+            </h3>
+
+            {notes.length > 0 && (
+              <div className="space-y-1.5 mb-3">
+                {notes.map(note => (
+                  <button
+                    key={note.id}
+                    onClick={() => onNoteClick?.(note)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/15 text-left active:scale-[0.98] transition-transform"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-500/60 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-[var(--color-text-main)] truncate">{note.title}</p>
+                      {note.text && (
+                        <p className="text-[9px] text-[var(--color-text-muted)] opacity-50 truncate">{note.text}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => onAddNote?.()}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 transition-colors active:scale-[0.98]"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Добавить заметку
+            </button>
+          </div>
 
           {/* Bottom safe area padding */}
           <div className="h-6" />

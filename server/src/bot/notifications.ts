@@ -125,6 +125,53 @@ async function checkAndNotify(prisma: PrismaClient) {
     }
   }
 
+  // ===== Homework reminder notifications =====
+  try {
+    const now = new Date();
+    const in5min = new Date(now.getTime() + 5 * 60 * 1000);
+
+    const pendingNotes = await prisma.note.findMany({
+      where: {
+        notifyAt: { gte: now, lte: in5min },
+        notified: false,
+        authorRole: 'student',
+      },
+      include: {
+        user: { select: { telegramId: true } },
+        lesson: { select: { subject: true, timeStart: true, room: true } },
+      },
+    });
+
+    for (const note of pendingNotes) {
+      const escMd = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+
+      let text = `📝 *Напоминание о ДЗ\\!*\n\n`;
+      text += `📌 *${escMd(note.title)}*\n`;
+      if (note.text) text += `${escMd(note.text.slice(0, 200))}\n`;
+      if (note.lesson) {
+        text += `\n📘 ${escMd(note.lesson.subject)}`;
+        if (note.lesson.timeStart) text += ` \\(${escMd(note.lesson.timeStart)}\\)`;
+        if (note.lesson.room) text += ` — ауд\\. ${escMd(note.lesson.room)}`;
+      }
+
+      try {
+        await sendMessage(note.user.telegramId, text, 'MarkdownV2');
+        await prisma.note.update({
+          where: { id: note.id },
+          data: { notified: true },
+        });
+      } catch (e) {
+        console.error(`Failed to notify note ${note.id}:`, e);
+      }
+    }
+
+    if (pendingNotes.length > 0) {
+      console.log(`[Notify] Sent ${pendingNotes.length} homework reminder(s)`);
+    }
+  } catch (err) {
+    console.error('Homework notification error:', err);
+  }
+
   // Morning schedule notification at 7:30 MSK (once per day only!)
   const MORNING_NOTIFY_KEY = `morning_${getMoscowDate().toISOString().split('T')[0]}`;
   

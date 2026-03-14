@@ -65,6 +65,22 @@ export interface User {
   teachingSections?: Array<{ id: number; name: string; emoji?: string }>;
 }
 
+export interface Note {
+  id: number;
+  userId: number;
+  lessonId?: number;
+  date: string;
+  title: string;
+  text?: string;
+  notifyAt?: string;
+  notified: boolean;
+  authorRole: 'student' | 'teacher';
+  groupId?: number;
+  lesson?: { id: number; subject: string; timeStart: string; pairNumber: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ScheduleDay {
   date: string;
   dayOfWeek: number;

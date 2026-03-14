@@ -15,6 +15,7 @@ import teacherRoutes from './routes/teachers';
 import sportsRoutes from './routes/sports';
 import sportsAttendanceRoutes from './routes/sports-attendance';
 import analyticsRoutes from './routes/analytics';
+import notesRoutes from './routes/notes';
 import { errorHandler } from './middleware/errorHandler';
 import { startBot } from './bot/index';
 import { startNotifications } from './bot/notifications';
@@ -70,6 +71,7 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/sports', sportsRoutes);
 app.use('/api/sports/attendance', sportsAttendanceRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/notes', notesRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {
