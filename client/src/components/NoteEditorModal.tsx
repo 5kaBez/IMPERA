@@ -176,7 +176,7 @@ export default function NoteEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0 z-[10001]">
       {/* Overlay */}
       <div
         ref={overlayRef}
