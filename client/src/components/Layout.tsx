@@ -128,7 +128,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content with space for fixed nav */}
-      <main className="flex-1 flex flex-col pt-1" style={{ paddingBottom: '20px' }}>
+      <main className="flex-1 flex flex-col pt-1" style={{ paddingBottom: '120px' }}>
         <div className="w-full flex flex-col px-3 md:px-6 lg:px-8 pt-0">
           <CurrentLessonBanner />
           <div className="mt-2 md:mt-6">
