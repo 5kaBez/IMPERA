@@ -204,7 +204,7 @@ export async function startBot(prisma: PrismaClient) {
   // Handle any other message
   bot.on('message', async (ctx: Context) => {
     const telegramId = ctx.from?.id?.toString();
-    const ADMIN_ID = '1038062816';
+    const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID || '';
 
     // Админ отправляет рассылку
     if (telegramId === ADMIN_ID) {
@@ -261,7 +261,7 @@ export async function startBot(prisma: PrismaClient) {
   // Handle broadcast confirmation
   bot.on('callback_query:data', async (ctx: Context) => {
     const data = ctx.callbackQuery?.data;
-    const ADMIN_ID = '1038062816';
+    const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID || '';
     const adminId = ctx.from?.id?.toString();
 
     if (!data?.startsWith('broadcast_')) return;

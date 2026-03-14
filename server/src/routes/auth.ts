@@ -9,9 +9,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'impera-secret-change-in-production
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 function verifyTelegramAuth(data: Record<string, string>): boolean {
-  // In dev mode without bot token, accept all
+  // SECURITY: Require valid bot token — never skip verification
   if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
-    return true;
+    console.error('SECURITY: BOT_TOKEN not configured, rejecting auth');
+    return false;
+  }
+
+  if (!data.hash) {
+    return false;
   }
 
   const checkString = Object.keys(data)
@@ -115,20 +120,24 @@ router.post('/webapp', async (req: Request, res: Response) => {
     const hash = params.get('hash') || '';
     params.delete('hash');
 
-    // Verify initData
-    if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_BOT_TOKEN_HERE') {
-      const dataCheckString = Array.from(params.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k}=${v}`)
-        .join('\n');
+    // SECURITY: Always verify initData signature — never skip
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
+      console.error('SECURITY: BOT_TOKEN not configured, rejecting webapp auth');
+      res.status(500).json({ error: 'Сервер не настроен для авторизации' });
+      return;
+    }
 
-      const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-      const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    const dataCheckString = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
 
-      if (hmac !== hash) {
-        res.status(401).json({ error: 'Невалидные данные Web App' });
-        return;
-      }
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+    const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+    if (hmac !== hash) {
+      res.status(401).json({ error: 'Невалидные данные Web App' });
+      return;
     }
 
     // Extract user data
@@ -202,76 +211,11 @@ router.post('/webapp', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/webapp-user — fallback auth for Telegram Desktop (initDataUnsafe)
-// Used when initData is empty but WebApp context has user info
-router.post('/webapp-user', async (req: Request, res: Response) => {
-  try {
-    const prisma: PrismaClient = req.app.locals.prisma;
-    const { user: tgUser } = req.body;
-
-    if (!tgUser?.id) {
-      res.status(400).json({ error: 'Данные пользователя отсутствуют' });
-      return;
-    }
-
-    const telegramId = String(tgUser.id);
-
-    // Try to find existing user first
-    let user = await prisma.user.findUnique({
-      where: { telegramId },
-      include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
-    });
-
-    if (user && !user.activated) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { activated: true },
-        include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
-      });
-    }
-
-    if (!user) {
-      // Create new user
-      user = await prisma.user.create({
-        data: {
-          telegramId,
-          firstName: tgUser.first_name || 'User',
-          lastName: tgUser.last_name || null,
-          username: tgUser.username || null,
-          photoUrl: tgUser.photo_url || null,
-          activated: true,
-        },
-        include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
-      });
-    }
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    const enriched = await enrichUserWithSportInfo(prisma, user);
-
-    res.json({
-      token,
-      user: {
-        id: enriched.id,
-        telegramId: enriched.telegramId,
-        firstName: enriched.firstName,
-        lastName: enriched.lastName,
-        username: enriched.username,
-        photoUrl: enriched.photoUrl,
-        role: enriched.role,
-        groupId: enriched.groupId,
-        group: enriched.group,
-        notifyBefore: enriched.notifyBefore,
-        notifyChanges: enriched.notifyChanges,
-        activated: enriched.activated,
-        banned: enriched.banned,
-        isSportTeacher: enriched.isSportTeacher,
-        teachingSections: enriched.teachingSections,
-      }
-    });
-  } catch (err: any) {
-    console.error('WebApp-user auth error:', err);
-    res.status(500).json({ error: 'Ошибка авторизации', debug: err?.message || String(err) });
-  }
+// POST /api/auth/webapp-user — DISABLED (security vulnerability)
+// This endpoint was exploited to gain admin access without Telegram verification.
+// All auth MUST go through /webapp with proper initData signature verification.
+router.post('/webapp-user', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Этот метод авторизации отключён по соображениям безопасности. Используйте авторизацию через Telegram Mini App.' });
 });
 
 // Helper: enrich user object with sport teacher info

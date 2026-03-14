@@ -112,22 +112,26 @@ app.use(errorHandler);
 app.listen(Number(PORT), HOST, async () => {
   console.log(`🚀 IMPERA server running on http://${HOST}:${PORT}`);
 
-  // Ensure admin user exists (TG ID 1038062816 @bogtradinga)
-  try {
-    await prisma.user.upsert({
-      where: { telegramId: '1038062816' },
-      update: { role: 'admin', activated: true },
-      create: {
-        telegramId: '1038062816',
-        firstName: 'Admin',
-        username: 'bogtradinga',
-        role: 'admin',
-        activated: true,
-      },
-    });
-    console.log('👤 Admin user ensured');
-  } catch (e) {
-    console.error('Failed to seed admin:', e);
+  // Ensure admin user exists (from ADMIN_TELEGRAM_ID env variable)
+  const ADMIN_TG_ID = process.env.ADMIN_TELEGRAM_ID;
+  if (ADMIN_TG_ID) {
+    try {
+      await prisma.user.upsert({
+        where: { telegramId: ADMIN_TG_ID },
+        update: { role: 'admin', activated: true },
+        create: {
+          telegramId: ADMIN_TG_ID,
+          firstName: 'Admin',
+          role: 'admin',
+          activated: true,
+        },
+      });
+      console.log('👤 Admin user ensured');
+    } catch (e) {
+      console.error('Failed to seed admin:', e);
+    }
+  } else {
+    console.warn('⚠️ ADMIN_TELEGRAM_ID not set in .env — no admin will be auto-created');
   }
 
   // Start Telegram bot

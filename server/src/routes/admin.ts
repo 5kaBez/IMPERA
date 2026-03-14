@@ -15,6 +15,17 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 router.use(authMiddleware, adminMiddleware);
 
+// Security audit logging — log all admin actions
+router.use((req: Request, _res: Response, next) => {
+  const authReq = req as any;
+  const userId = authReq.userId || 'unknown';
+  const method = req.method;
+  const path = req.path;
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  console.log(`🔐 [ADMIN AUDIT] userId=${userId} ${method} ${path} IP=${ip} ${new Date().toISOString()}`);
+  next();
+});
+
 // GET /api/admin/settings/maintenance — maintenance banner settings
 router.get('/settings/maintenance', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');

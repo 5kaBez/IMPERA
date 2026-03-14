@@ -40,6 +40,12 @@ export async function migrateSchedule(
   }>,
   newLessonsData: Array<{
     groupNumber: number;
+    instituteName?: string;
+    directionName?: string;
+    programName?: string;
+    course?: number;
+    studyForm?: string;
+    educationLevel?: string;
     dayOfWeek: string;
     pairNumber: number | string;
     time: string;
@@ -197,9 +203,37 @@ export async function migrateSchedule(
     };
 
     for (const lessonData of newLessonsData) {
-      // Ищем группу правильно - она должна быть в массиве созданных групп
-      const groupInfo = newGroupsData.find(g => g.number === lessonData.groupNumber);
-      
+      // Ищем группу по ПОЛНОМУ контексту из CSV (институт+направление+программа+номер)
+      // Если урок содержит полный контекст (новый формат) — используем его
+      // Иначе фоллбэк на старый поиск по номеру
+      let groupInfo: typeof newGroupsData[0] | undefined;
+
+      if (lessonData.instituteName && lessonData.directionName && lessonData.programName) {
+        // НОВЫЙ ФОРМАТ: точное совпадение по полному контексту
+        groupInfo = newGroupsData.find(g =>
+          g.number === lessonData.groupNumber &&
+          g.instituteName === lessonData.instituteName &&
+          g.directionName === lessonData.directionName &&
+          g.programName === lessonData.programName &&
+          g.course === (lessonData.course || g.course) &&
+          g.studyForm === (lessonData.studyForm || g.studyForm)
+        );
+        // Фоллбэк без курса/формы если не нашли
+        if (!groupInfo) {
+          groupInfo = newGroupsData.find(g =>
+            g.number === lessonData.groupNumber &&
+            g.instituteName === lessonData.instituteName &&
+            g.directionName === lessonData.directionName &&
+            g.programName === lessonData.programName
+          );
+        }
+      }
+
+      // Фоллбэк: старый формат (только по номеру)
+      if (!groupInfo) {
+        groupInfo = newGroupsData.find(g => g.number === lessonData.groupNumber);
+      }
+
       if (!groupInfo) {
         console.warn(`   ⚠️  Информация о группе ${lessonData.groupNumber} не найдена в парсере`);
         continue;

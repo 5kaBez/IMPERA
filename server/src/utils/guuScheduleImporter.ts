@@ -244,6 +244,12 @@ function parseCsvOutput(csvPath: string): {
   }>;
   lessons: Array<{
     groupNumber: number;
+    instituteName: string;
+    directionName: string;
+    programName: string;
+    course: number;
+    studyForm: string;
+    educationLevel: string;
     dayOfWeek: string;
     pairNumber: number | string;
     time: string;
@@ -301,6 +307,12 @@ function parseCsvOutput(csvPath: string): {
 
   const lessons: Array<{
     groupNumber: number;
+    instituteName: string;
+    directionName: string;
+    programName: string;
+    course: number;
+    studyForm: string;
+    educationLevel: string;
     dayOfWeek: string;
     pairNumber: number | string;
     time: string;
@@ -319,23 +331,37 @@ function parseCsvOutput(csvPath: string): {
     const groupNumber = parseInt(cols[iGroupNum]) || 0;
     if (groupNumber === 0) continue;
 
-    const groupKey = `${cols[iInstitute]}|${cols[iDirection]}|${cols[iProgram]}|${groupNumber}`;
+    const course = parseInt(cols[iCourse]) || 1;
+    const studyForm = cols[iForm] || 'Очная';
+    const instituteName = cols[iInstitute] || '-';
+    const directionName = cols[iDirection] || '-';
+    const programName = cols[iProgram] || '-';
+
+    // Ключ группы: ПОЛНАЯ комбинация (институт+направление+программа+номер+курс+форма)
+    const groupKey = `${instituteName}|${directionName}|${programName}|${groupNumber}|${course}|${studyForm}`;
 
     if (!groupsMap.has(groupKey)) {
       groupsMap.set(groupKey, {
         number: groupNumber,
         name: cols[iGroupName] || `Группа ${groupNumber}`,
-        course: parseInt(cols[iCourse]) || 1,
-        studyForm: cols[iForm] || 'Очная',
+        course,
+        studyForm,
         educationLevel: cols[iLevel] || 'Бакалавриат',
-        directionName: cols[iDirection] || '-',
-        instituteName: cols[iInstitute] || '-',
-        programName: cols[iProgram] || '-',
+        directionName,
+        instituteName,
+        programName,
       });
     }
 
+    // Каждый урок хранит ПОЛНЫЙ контекст своей группы
     lessons.push({
       groupNumber,
+      instituteName,
+      directionName,
+      programName,
+      course,
+      studyForm,
+      educationLevel: cols[iLevel] || 'Бакалавриат',
       dayOfWeek: (cols[iDay] || '').toUpperCase(),
       pairNumber: parseInt(cols[iPairNum]) || cols[iPairNum] || 1,
       time: cols[iTime] || '',
@@ -491,6 +517,68 @@ export async function runAutoImport(prisma: PrismaClient, source: 'auto' | 'manu
     }
 
     console.log(`[GUU Import] Parsed: ${groupsData.length} groups, ${lessonsData.length} lessons`);
+
+    // 4.5. PRE-IMPORT VALIDATION — проверяем данные перед миграцией
+    const uniqueInstitutes = new Set(groupsData.map(g => g.instituteName));
+    const uniqueDirectionNames = new Set(groupsData.map(g => g.directionName));
+    const uniqueDirectionCombos = new Set(groupsData.map(g => `${g.instituteName}|${g.directionName}`));
+    const uniqueProgramNames = new Set(groupsData.map(g => g.programName));
+    const uniqueProgramCombos = new Set(groupsData.map(g => `${g.instituteName}|${g.directionName}|${g.programName}`));
+    const uniqueGroupNumbers = new Set(groupsData.map(g => g.number));
+
+    console.log(`\n[GUU Import] 📋 PRE-IMPORT VALIDATION:`);
+    console.log(`  Институтов: ${uniqueInstitutes.size}`);
+    console.log(`  Направлений (уник. имена): ${uniqueDirectionNames.size}`);
+    console.log(`  Направлений (инст+направ): ${uniqueDirectionCombos.size}`);
+    console.log(`  Программ (уник. имена): ${uniqueProgramNames.size}`);
+    console.log(`  Программ (инст+направ+прог): ${uniqueProgramCombos.size}`);
+    console.log(`  Групп (уник. номера): ${uniqueGroupNumbers.size}`);
+    console.log(`  Групп (полные комбинации): ${groupsData.length}`);
+    console.log(`  Пар: ${lessonsData.length}`);
+
+    // Compare with previous successful import
+    const prevImport = await prisma.scheduleImport.findFirst({
+      where: { status: 'success' },
+      orderBy: { id: 'desc' },
+    });
+
+    if (prevImport) {
+      const prevGroups = prevImport.groups || 0;
+      const prevLessons = prevImport.importedRows || 0;
+      const prevInstitutes = prevImport.institutes || 0;
+
+      const groupsDiff = groupsData.length - prevGroups;
+      const lessonsDiff = lessonsData.length - prevLessons;
+      const instDiff = uniqueInstitutes.size - prevInstitutes;
+
+      console.log(`\n  📊 СРАВНЕНИЕ с предыдущим импортом #${prevImport.id}:`);
+      console.log(`  Институтов: ${prevInstitutes} → ${uniqueInstitutes.size} (${instDiff >= 0 ? '+' : ''}${instDiff})`);
+      console.log(`  Групп: ${prevGroups} → ${groupsData.length} (${groupsDiff >= 0 ? '+' : ''}${groupsDiff})`);
+      console.log(`  Пар: ${prevLessons} → ${lessonsData.length} (${lessonsDiff >= 0 ? '+' : ''}${lessonsDiff})`);
+
+      // Safety checks
+      if (uniqueInstitutes.size < 4) {
+        throw new Error(`VALIDATION FAILED: слишком мало институтов (${uniqueInstitutes.size}). Ожидается 6. Парсер мог сломаться.`);
+      }
+      if (lessonsData.length < prevLessons * 0.5) {
+        throw new Error(`VALIDATION FAILED: количество пар упало больше чем на 50% (${prevLessons} → ${lessonsData.length}). Возможно ошибка парсера.`);
+      }
+      if (groupsData.length < prevGroups * 0.5) {
+        throw new Error(`VALIDATION FAILED: количество групп упало больше чем на 50% (${prevGroups} → ${groupsData.length}). Возможно ошибка парсера.`);
+      }
+    } else {
+      console.log(`\n  ℹ️ Предыдущих импортов нет — пропускаем сравнение`);
+    }
+
+    // Sanity checks for any import
+    if (uniqueInstitutes.size === 0 || uniqueInstitutes.size > 20) {
+      throw new Error(`VALIDATION FAILED: подозрительное количество институтов: ${uniqueInstitutes.size}`);
+    }
+    if (lessonsData.length < 1000) {
+      throw new Error(`VALIDATION FAILED: слишком мало пар (${lessonsData.length}). Минимум 1000.`);
+    }
+
+    console.log(`  ✅ Валидация пройдена!\n`);
 
     // 5. Save the final xlsx to a permanent location
     const finalDir = path.join(dayDir, 'final');

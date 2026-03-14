@@ -1,6 +1,6 @@
 /**
  * Dev seed: создаёт тестовых пользователей для локальной разработки
- *  - Админ (telegramId 1038062816)
+ *  - Админ (из ADMIN_TELEGRAM_ID в .env)
  *  - Студент «Иван Иванов» (telegramId 100001)
  *  - Преподаватель «Дзигуа Д.В.» (telegramId 200001) → секция Атлетизм
  *  - Преподаватель «Цыганкова В.О.» (telegramId 200002) → секция Аэробика
@@ -15,14 +15,19 @@ const prisma = new PrismaClient();
 async function devSeed() {
   console.log('🌱 Dev seed: creating test users...');
 
+  const ADMIN_TG_ID = process.env.ADMIN_TELEGRAM_ID;
+  if (!ADMIN_TG_ID) {
+    console.error('❌ Set ADMIN_TELEGRAM_ID in .env first');
+    process.exit(1);
+  }
+
   // 1) Админ
   const admin = await prisma.user.upsert({
-    where: { telegramId: '1038062816' },
+    where: { telegramId: ADMIN_TG_ID },
     update: { role: 'admin' },
     create: {
-      telegramId: '1038062816',
+      telegramId: ADMIN_TG_ID,
       firstName: 'Admin',
-      username: 'bogtradinga',
       role: 'admin',
     },
   });
