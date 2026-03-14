@@ -455,7 +455,7 @@ export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteC
           {/* Notes / Homework section */}
           <div className="px-4 md:px-5 py-4 border-t border-[var(--apple-border)]">
             <h3 className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.15em] text-[var(--color-text-muted)] mb-3 px-1 flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5 text-amber-500" />
+              <FileText className="w-3.5 h-3.5 text-[var(--color-primary-apple)]" />
               Заметки / ДЗ
             </h3>
 
@@ -465,9 +465,9 @@ export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteC
                   <button
                     key={note.id}
                     onClick={() => onNoteClick?.(note)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/[0.06] dark:bg-amber-500/[0.08] border border-amber-500/15 text-left active:scale-[0.98] transition-transform"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--color-primary-apple)]/[0.06] dark:bg-[var(--color-primary-apple)]/[0.08] border border-[var(--color-primary-apple)]/15 text-left active:scale-[0.98] transition-transform hover:bg-[var(--color-primary-apple)]/[0.12] hover:border-[var(--color-primary-apple)]/25"
                   >
-                    <FileText className="w-3.5 h-3.5 text-amber-500/60 flex-shrink-0" />
+                    <FileText className="w-3.5 h-3.5 text-[var(--color-primary-apple)]/60 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-bold text-[var(--color-text-main)] truncate">{note.title}</p>
                       {note.text && (
@@ -481,7 +481,7 @@ export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteC
 
             <button
               onClick={() => onAddNote?.()}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 transition-colors active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-[var(--color-primary-apple)] bg-[var(--color-primary-apple)]/10 hover:bg-[var(--color-primary-apple)]/15 border border-[var(--color-primary-apple)]/20 transition-colors active:scale-[0.98] hover:scale-[1.02]"
             >
               <Plus className="w-3.5 h-3.5" />
               Добавить заметку

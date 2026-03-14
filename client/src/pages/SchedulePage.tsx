@@ -409,7 +409,7 @@ export default function SchedulePage() {
       {tab !== 'week' && (
         <button
           onClick={() => setEditingNote({ date: getCurrentDateStr() })}
-          className="fixed bottom-24 left-4 md:left-8 z-[9998] px-4 py-3 md:px-6 md:py-3 rounded-full border-2 border-amber-500/60 hover:border-amber-500 bg-black/10 hover:bg-black/20 text-amber-500 hover:text-amber-400 text-xs md:text-sm font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2"
+          className="fixed bottom-24 left-4 md:left-8 z-[9998] px-4 py-3 md:px-6 md:py-3 rounded-full iron-metal-bg text-white text-xs md:text-sm font-bold uppercase tracking-wider transition-all active:scale-95 hover:scale-110 flex items-center gap-2 shadow-lg"
           title="Добавить заметку"
         >
           <Plus className="w-5 h-5" />
@@ -654,7 +654,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
                     e.stopPropagation();
                     onAddNote(lesson.id, lesson.subject, lesson.timeStart);
                   }}
-                  className="px-3 py-2 md:px-4 md:py-3 rounded-2xl border-2 border-amber-500/40 hover:border-amber-500 bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 hover:text-amber-400 transition-all active:scale-90 flex items-center justify-center"
+                  className="px-3 py-2 md:px-4 md:py-3 rounded-2xl bg-[var(--color-primary-apple)]/10 hover:bg-[var(--color-primary-apple)]/20 border border-[var(--color-primary-apple)]/30 text-[var(--color-primary-apple)] hover:text-[var(--color-primary-apple)] transition-all active:scale-90 hover:scale-110 flex items-center justify-center shadow-sm hover:shadow-md"
                   title="Создать заметку на эту пару"
                 >
                   <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
