@@ -1,6 +1,10 @@
 import { Bot, InlineKeyboard, Context } from 'grammy';
 import { PrismaClient } from '@prisma/client';
 import { getMoscowDate, getDayOfWeek, getSemesterWeekNumber, getSemesterWeekParity } from './scheduleUtils';
+import path from 'path';
+import fs from 'fs';
+import https from 'https';
+import http from 'http';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL || 'https://xn--80ajiqph.xn--p1acf/';
@@ -12,13 +16,24 @@ let bot: Bot | null = null;
 // Store pending broadcasts waiting for confirmation
 const pendingBroadcasts = new Map<string, { messageId: number; chatId: number }>();
 
+// Uploads directory for note attachments
+const UPLOADS_DIR = path.resolve(__dirname, '../../uploads/notes');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
 // Note creation sessions (cache userId/groupId to avoid re-querying DB)
+interface TgFile {
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+}
 interface NoteSession {
   text: string;
   step: 'confirm' | 'day' | 'lesson';
   date?: string; // YYYY-MM-DD
   userId?: number;
   groupId?: number | null;
+  files?: TgFile[]; // files to attach after note creation
 }
 const noteSessions = new Map<string, NoteSession>();
 
@@ -293,28 +308,95 @@ export async function startBot(prisma: PrismaClient) {
 
     // Обычные пользователи — предложить создать заметку
     try {
-      const msgText = (ctx.message as any)?.text
-        || (ctx.message as any)?.caption
-        || ((ctx.message as any)?.forward_origin?.type ? 'Пересланное сообщение' : null);
+      const msg = ctx.message as any;
+      const msgText = msg?.text || msg?.caption || '';
 
-      if (!msgText || !telegramId) {
+      // Collect attached files (documents, photos)
+      const files: TgFile[] = [];
+      if (msg?.document) {
+        files.push({
+          fileId: msg.document.file_id,
+          fileName: msg.document.file_name || 'file',
+          fileSize: msg.document.file_size || 0,
+          mimeType: msg.document.mime_type || 'application/octet-stream',
+        });
+      }
+      if (msg?.photo && msg.photo.length > 0) {
+        // Take the largest photo
+        const photo = msg.photo[msg.photo.length - 1];
+        files.push({
+          fileId: photo.file_id,
+          fileName: 'photo.jpg',
+          fileSize: photo.file_size || 0,
+          mimeType: 'image/jpeg',
+        });
+      }
+
+      const noteText = msgText || (files.length > 0 ? files.map((f: TgFile) => f.fileName).join(', ') : '');
+      if ((!noteText && files.length === 0) || !telegramId) {
         await ctx.reply('Используй /help для списка команд.');
         return;
       }
 
-      noteSessions.set(telegramId, { text: msgText, step: 'confirm' });
+      const session: NoteSession = { text: noteText, step: 'confirm' };
+      if (files.length > 0) session.files = files;
+      noteSessions.set(telegramId, session);
       setTimeout(() => noteSessions.delete(telegramId), 5 * 60 * 1000);
 
       const keyboard = new InlineKeyboard()
         .text('📝 Создать заметку', 'note_create')
         .text('❌ Отмена', 'note_cancel');
 
-      const preview = msgText.length > 80 ? msgText.slice(0, 80) + '...' : msgText;
-      await ctx.reply(`📝 Создать заметку из этого сообщения?\n\n"${preview}"`, { reply_markup: keyboard });
+      const preview = noteText.length > 80 ? noteText.slice(0, 80) + '...' : noteText;
+      const fileInfo = files.length > 0 ? `\n📎 ${files.length} файл(ов)` : '';
+      await ctx.reply(`📝 Создать заметку?\n\n"${preview}"${fileInfo}`, { reply_markup: keyboard });
     } catch (err) {
       console.error('Error handling user message:', err);
     }
   });
+
+  // Helper: download TG file and save as note attachment
+  async function saveTgFiles(noteId: number, files: TgFile[]): Promise<void> {
+    for (const f of files) {
+      try {
+        const file = await bot!.api.getFile(f.fileId);
+        if (!file.file_path) continue;
+
+        const apiRoot = TG_API_ROOT || 'https://api.telegram.org';
+        const fileUrl = `${apiRoot}/file/bot${BOT_TOKEN}/${file.file_path}`;
+
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
+        const ext = path.extname(f.fileName) || '.bin';
+        const storedName = unique + ext;
+        const filePath = path.join(UPLOADS_DIR, storedName);
+
+        // Download file
+        await new Promise<void>((resolve, reject) => {
+          const mod = fileUrl.startsWith('https') ? https : http;
+          mod.get(fileUrl, (res) => {
+            if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+            const ws = fs.createWriteStream(filePath);
+            res.pipe(ws);
+            ws.on('finish', () => resolve());
+            ws.on('error', reject);
+          }).on('error', reject);
+        });
+
+        const stat = fs.statSync(filePath);
+        await prisma.noteAttachment.create({
+          data: {
+            noteId,
+            fileName: f.fileName,
+            fileSize: stat.size,
+            mimeType: f.mimeType,
+            filePath: storedName,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to save TG file:', f.fileName, err);
+      }
+    }
+  }
 
   // Helper: safe editMessageText that ignores "message is not modified" error
   async function safeEdit(ctx: Context, text: string, opts?: any) {
@@ -483,7 +565,7 @@ export async function startBot(prisma: PrismaClient) {
         if (lessons.length === 0) {
           // No lessons — create day-level note directly
           try {
-            await prisma.note.create({
+            const dayNote = await prisma.note.create({
               data: {
                 userId: session.userId!,
                 date: new Date(`${session.date}T00:00:00Z`),
@@ -493,10 +575,13 @@ export async function startBot(prisma: PrismaClient) {
                 groupId: groupId || null,
               },
             });
+            // Save attached files from Telegram
+            if (session.files?.length) await saveTgFiles(dayNote.id, session.files);
             noteSessions.delete(telegramId);
 
+            const fileInfo = session.files?.length ? `\n📎 ${session.files.length} файл(ов) прикреплено` : '';
             const kb = new InlineKeyboard().webApp('📱 Открыть в IMPERA', WEB_APP_URL);
-            await safeEdit(ctx, `✅ Заметка создана на ${dd}.${mm}!\n\nВ этот день нет пар — заметка привязана ко дню.`, { reply_markup: kb });
+            await safeEdit(ctx, `✅ Заметка создана на ${dd}.${mm}!${fileInfo}\n\nВ этот день нет пар — заметка привязана ко дню.`, { reply_markup: kb });
           } catch (err) {
             console.error('Note create error:', err);
             await safeEdit(ctx, '⚠️ Ошибка при создании заметки.');
@@ -542,6 +627,8 @@ export async function startBot(prisma: PrismaClient) {
             include: { lesson: true },
           });
 
+          // Save attached files from Telegram
+          if (session.files?.length) await saveTgFiles(note.id, session.files);
           noteSessions.delete(telegramId);
 
           const [, mm, dd] = session.date.split('-');
@@ -550,6 +637,7 @@ export async function startBot(prisma: PrismaClient) {
             msg += `\n📚 ${note.lesson.pairNumber} пара — ${note.lesson.subject}`;
           }
           msg += `\n\n"${note.title}"`;
+          if (session.files?.length) msg += `\n📎 ${session.files.length} файл(ов) прикреплено`;
 
           const kb = new InlineKeyboard().webApp('📱 Открыть в IMPERA', WEB_APP_URL);
           await safeEdit(ctx, msg, { reply_markup: kb });
