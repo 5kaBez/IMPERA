@@ -293,18 +293,20 @@ router.post('/:id/attachments', authMiddleware, upload.array('files', 5), async 
       return;
     }
 
-    const attachments = await Promise.all(files.map(f =>
-      prisma.noteAttachment.create({
+    const attachments = await Promise.all(files.map(f => {
+      // multer decodes originalname as latin1; convert to proper UTF-8
+      const fileName = Buffer.from(f.originalname, 'latin1').toString('utf8');
+      return prisma.noteAttachment.create({
         data: {
           noteId,
-          fileName: f.originalname,
+          fileName,
           fileSize: f.size,
           mimeType: f.mimetype,
           filePath: f.filename, // stored relative name
         },
         select: { id: true, fileName: true, fileSize: true, mimeType: true, createdAt: true },
-      })
-    ));
+      });
+    }));
 
     res.json({ attachments });
   } catch (err) {
@@ -313,8 +315,16 @@ router.post('/:id/attachments', authMiddleware, upload.array('files', 5), async 
   }
 });
 
+// Auth middleware that also accepts ?token= query param (for direct download links in Telegram WebView)
+function downloadAuth(req: AuthRequest, res: Response, next: Function) {
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
+  return authMiddleware(req, res, next as any);
+}
+
 // GET /api/notes/attachments/:attachmentId — download file
-router.get('/attachments/:attachmentId', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get('/attachments/:attachmentId', downloadAuth, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
     const attachmentId = parseInt(String(req.params.attachmentId));
@@ -337,7 +347,9 @@ router.get('/attachments/:attachmentId', authMiddleware, async (req: AuthRequest
     const filePath = path.join(UPLOADS_DIR, attachment.filePath);
     if (!fs.existsSync(filePath)) { res.status(404).json({ error: 'Файл не найден на диске' }); return; }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
+    // RFC 5987: proper non-ASCII filename encoding
+    const encodedName = encodeURIComponent(attachment.fileName).replace(/['()]/g, escape);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`);
     res.setHeader('Content-Type', attachment.mimeType);
     res.sendFile(filePath);
   } catch (err) {

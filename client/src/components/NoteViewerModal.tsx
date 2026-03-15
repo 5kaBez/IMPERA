@@ -63,23 +63,16 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
   };
 
   const handleDownload = (att: NoteAttachment) => {
-    const token = localStorage.getItem('impera_token');
-    fetch(`/api/notes/attachments/${att.id}`, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = att.fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-      })
-      .catch(err => console.error('Download failed:', err));
+    const token = localStorage.getItem('impera_token') || '';
+    const url = `/api/notes/attachments/${att.id}?token=${encodeURIComponent(token)}`;
+    // Open direct URL — works in Telegram WebView (blob+a.click doesn't)
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openLink) {
+      // Telegram WebApp: open in external browser for download
+      tg.openLink(window.location.origin + url);
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   return (
