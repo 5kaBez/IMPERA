@@ -139,7 +139,11 @@ export default function SchedulePage() {
           ? formatDateISO(new Date(Date.now() + 86400000))
           : formatDateISO(new Date());
       api.get<{ notes: Note[] }>(`/notes/date/${noteDateStr}`)
-        .then(data => setNotesForDate(data.notes || []))
+        .then(data => {
+          const hidden: number[] = JSON.parse(localStorage.getItem('hidden_notes') || '[]');
+          const notes = (data.notes || []).filter(n => !hidden.includes(n.id));
+          setNotesForDate(notes);
+        })
         .catch(() => setNotesForDate([]));
     } else {
       setNotesForDate([]);
@@ -199,6 +203,17 @@ export default function SchedulePage() {
   const handleBlockUser = (blockedUserId: number) => {
     // Убираем заметки заблокированного пользователя из списка
     setNotesForDate(prev => prev.filter(n => n.userId !== blockedUserId));
+  };
+
+  const handleHideNote = (noteId: number) => {
+    // Скрыть одну конкретную заметку (только из текущего view)
+    setNotesForDate(prev => prev.filter(n => n.id !== noteId));
+    // Сохраняем в localStorage чтобы не показывать снова
+    try {
+      const hidden = JSON.parse(localStorage.getItem('hidden_notes') || '[]');
+      hidden.push(noteId);
+      localStorage.setItem('hidden_notes', JSON.stringify(hidden));
+    } catch {}
   };
 
   const handleNoteClick = (note: Note) => {
@@ -390,10 +405,10 @@ export default function SchedulePage() {
             transition={{ duration: 0.25 }}
           >
             {tab === 'today' && todayData && (
-              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
+              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onHideNote={handleHideNote} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'tomorrow' && tomorrowData && (
-              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
+              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onHideNote={handleHideNote} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'week' && weekData && (
               <WeekSchedule data={weekData} onLessonClick={handleLessonClick} />
@@ -407,6 +422,7 @@ export default function SchedulePage() {
                 onNoteClick={handleNoteClick}
                 currentUserId={user?.id}
                 onBlockUser={handleBlockUser}
+                onHideNote={handleHideNote}
                 onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })}
               />
             )}
@@ -601,7 +617,7 @@ function CalendarPicker({ selectedDate, onSelect }: {
 
 /* ─── Schedule Display Components ─── */
 
-function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClick, onAddNote, currentUserId, onBlockUser }: {
+function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClick, onAddNote, currentUserId, onBlockUser, onHideNote }: {
   data: ScheduleDay;
   emptyMessage: string;
   onLessonClick: (l: Lesson) => void;
@@ -610,13 +626,14 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
   onAddNote?: (lessonId: number, subject: string, timeStart: string) => void;
   currentUserId?: number;
   onBlockUser?: (userId: number) => void;
+  onHideNote?: (noteId: number) => void;
 }) {
   const dateOnlyNotes = notes.filter(n => !n.lessonId);
 
   if (data.lessons.length === 0) {
     return (
       <div>
-        {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />}
+        {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} onHideNote={onHideNote} />}
         <div className="text-center py-12 md:py-24 apple-card border-dashed border-[var(--apple-border)] bg-black/5 dark:bg-white/5 squircle overflow-hidden">
           <div className="w-16 md:w-24 h-16 md:h-24 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center mx-auto mb-4 md:mb-8 overflow-hidden">
             <Calendar className="w-8 md:w-12 h-8 md:h-12 text-[var(--color-text-muted)] opacity-30" />
@@ -632,7 +649,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
 
   return (
     <div>
-      {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />}
+      {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} onHideNote={onHideNote} />}
       <div className="flex items-center justify-between mb-2 md:mb-8 px-1 md:px-2">
         <div className="flex items-center gap-2 md:gap-4">
           <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.3em] metallic-text">
@@ -657,7 +674,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
             >
               <div className="flex-1">
                 <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
-                <NotesBadge notes={lessonNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />
+                <NotesBadge notes={lessonNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} onHideNote={onHideNote} />
               </div>
               {onAddNote && (
                 <button

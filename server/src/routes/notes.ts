@@ -1,6 +1,25 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// File upload config — max 10MB, stored in /uploads/notes/
+const UPLOADS_DIR = path.resolve(__dirname, '../../uploads/notes');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename: (_req, file, cb) => {
+      const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
+      const ext = path.extname(file.originalname);
+      cb(null, unique + ext);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
 
 const router = Router();
 
@@ -17,6 +36,7 @@ async function getBlockedIds(prisma: PrismaClient, userId: number): Promise<numb
 const noteInclude = {
   lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
   user: { select: { id: true, firstName: true, lastName: true, avatarId: true, username: true } },
+  attachments: { select: { id: true, fileName: true, fileSize: true, mimeType: true, createdAt: true } },
 };
 
 // GET /api/notes/date/:date — заметки на конкретную дату (личные + shared группы)
@@ -242,6 +262,112 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
   } catch (err) {
     console.error('Error deleting note:', err);
     res.status(500).json({ error: 'Ошибка при удалении заметки' });
+  }
+});
+
+// ── File Attachments ──
+
+// POST /api/notes/:id/attachments — upload file(s)
+router.post('/:id/attachments', authMiddleware, upload.array('files', 5), async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const noteId = parseInt(String(req.params.id));
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'Файл не загружен' });
+      return;
+    }
+
+    // Verify note ownership
+    const note = await prisma.note.findUnique({ where: { id: noteId } });
+    if (!note) { res.status(404).json({ error: 'Заметка не найдена' }); return; }
+    if (note.userId !== req.userId) { res.status(403).json({ error: 'Нет доступа' }); return; }
+
+    // Check total attachments (max 5 per note)
+    const existingCount = await prisma.noteAttachment.count({ where: { noteId } });
+    if (existingCount + files.length > 5) {
+      // Clean up uploaded files
+      files.forEach(f => fs.unlinkSync(f.path));
+      res.status(400).json({ error: `Максимум 5 файлов. Уже прикреплено: ${existingCount}` });
+      return;
+    }
+
+    const attachments = await Promise.all(files.map(f =>
+      prisma.noteAttachment.create({
+        data: {
+          noteId,
+          fileName: f.originalname,
+          fileSize: f.size,
+          mimeType: f.mimetype,
+          filePath: f.filename, // stored relative name
+        },
+        select: { id: true, fileName: true, fileSize: true, mimeType: true, createdAt: true },
+      })
+    ));
+
+    res.json({ attachments });
+  } catch (err) {
+    console.error('Error uploading attachment:', err);
+    res.status(500).json({ error: 'Ошибка загрузки файла' });
+  }
+});
+
+// GET /api/notes/attachments/:attachmentId — download file
+router.get('/attachments/:attachmentId', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const attachmentId = parseInt(String(req.params.attachmentId));
+
+    const attachment = await prisma.noteAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { note: { select: { userId: true, isPublic: true, groupId: true } } },
+    });
+
+    if (!attachment) { res.status(404).json({ error: 'Файл не найден' }); return; }
+
+    // Access check: owner OR public note from same group
+    const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { groupId: true } });
+    const isOwner = attachment.note.userId === req.userId;
+    const isGroupmate = attachment.note.isPublic && attachment.note.groupId && user?.groupId === attachment.note.groupId;
+
+    if (!isOwner && !isGroupmate) { res.status(403).json({ error: 'Нет доступа' }); return; }
+
+    const filePath = path.join(UPLOADS_DIR, attachment.filePath);
+    if (!fs.existsSync(filePath)) { res.status(404).json({ error: 'Файл не найден на диске' }); return; }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error('Error downloading attachment:', err);
+    res.status(500).json({ error: 'Ошибка скачивания файла' });
+  }
+});
+
+// DELETE /api/notes/attachments/:attachmentId — delete file
+router.delete('/attachments/:attachmentId', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const attachmentId = parseInt(String(req.params.attachmentId));
+
+    const attachment = await prisma.noteAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { note: { select: { userId: true } } },
+    });
+
+    if (!attachment) { res.status(404).json({ error: 'Файл не найден' }); return; }
+    if (attachment.note.userId !== req.userId) { res.status(403).json({ error: 'Нет доступа' }); return; }
+
+    // Delete from disk
+    const filePath = path.join(UPLOADS_DIR, attachment.filePath);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    await prisma.noteAttachment.delete({ where: { id: attachmentId } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting attachment:', err);
+    res.status(500).json({ error: 'Ошибка удаления файла' });
   }
 });
 

@@ -272,28 +272,42 @@ model SportAttendance {
 
 // ===== Заметки / Домашка =====
 model Note {
-  id          Int       @id @default(autoincrement())
+  id          Int              @id @default(autoincrement())
   userId      Int
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   lessonId    Int?
-  lesson      Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  lesson      Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   date        DateTime
   title       String
   text        String?
-  isPublic    Boolean   @default(false) // видна одногруппникам
+  isPublic    Boolean          @default(false) // видна одногруппникам
   notifyAt    DateTime?
-  notified    Boolean   @default(false)
-  authorRole  String    @default("student") // student | teacher
+  notified    Boolean          @default(false)
+  authorRole  String           @default("student") // student | teacher
   groupId     Int?
-  group       Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  group       Group?           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  attachments NoteAttachment[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([userId, date])
   @@index([lessonId])
   @@index([groupId, date])
   @@index([groupId, isPublic, date])
   @@index([notifyAt, notified])
+}
+
+model NoteAttachment {
+  id        Int      @id @default(autoincrement())
+  noteId    Int
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileSize  Int
+  mimeType  String
+  filePath  String   // path on server filesystem
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
 }
 
 // ===== Блокировка пользователей =====

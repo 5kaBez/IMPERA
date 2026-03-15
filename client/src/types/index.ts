@@ -66,6 +66,14 @@ export interface User {
   teachingSections?: Array<{ id: number; name: string; emoji?: string }>;
 }
 
+export interface NoteAttachment {
+  id: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  createdAt: string;
+}
+
 export interface Note {
   id: number;
   userId: number;
@@ -80,6 +88,7 @@ export interface Note {
   groupId?: number;
   lesson?: { id: number; subject: string; timeStart: string; pairNumber: number };
   user?: { id: number; firstName: string; lastName?: string; avatarId?: number; username?: string };
+  attachments?: NoteAttachment[];
   createdAt: string;
   updatedAt: string;
 }

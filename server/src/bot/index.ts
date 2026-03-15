@@ -321,6 +321,7 @@ export async function startBot(prisma: PrismaClient) {
     const telegramId = ctx.from?.id?.toString();
     if (!data || !telegramId) return;
 
+    try {
     // ── Broadcast callbacks (admin only) ──
     if (data.startsWith('broadcast_')) {
       const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID || '';
@@ -562,6 +563,11 @@ export async function startBot(prisma: PrismaClient) {
         await ctx.answerCallbackQuery();
         return;
       }
+    }
+
+    } catch (err) {
+      console.error('🤖 Callback error:', err);
+      try { await ctx.answerCallbackQuery({ text: '❌ Ошибка, попробуй ещё раз', show_alert: false }); } catch {}
     }
   });
 

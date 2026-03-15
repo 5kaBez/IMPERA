@@ -507,6 +507,69 @@ router.put('/users/:id/ban', async (req: Request, res: Response) => {
   res.json({ success: true, banned: updated.banned });
 });
 
+// ===== Notes (admin view) =====
+
+// GET /api/admin/notes — all notes grouped by group
+router.get('/notes', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  try {
+    const { groupId, page = '1', limit = '50' } = req.query;
+    const where: any = {};
+    if (groupId) where.groupId = parseInt(groupId as string);
+
+    const [notes, total] = await Promise.all([
+      prisma.note.findMany({
+        where,
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, username: true, avatarId: true, telegramId: true } },
+          lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
+          group: { select: { id: true, name: true, course: true, number: true } },
+          attachments: { select: { id: true, fileName: true, fileSize: true, mimeType: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+        take: parseInt(limit as string),
+      }),
+      prisma.note.count({ where }),
+    ]);
+
+    // Get groups that have notes for sidebar filter
+    const groupsWithNotes = await prisma.group.findMany({
+      where: { notes: { some: {} } },
+      select: { id: true, name: true, course: true, number: true, _count: { select: { notes: true } } },
+      orderBy: { name: 'asc' },
+    });
+
+    res.json({ notes, total, groups: groupsWithNotes, page: parseInt(page as string) });
+  } catch (err: any) {
+    console.error('Admin notes error:', err);
+    res.status(500).json({ error: 'Ошибка получения заметок' });
+  }
+});
+
+// DELETE /api/admin/notes/:id — admin delete any note
+router.delete('/notes/:id', async (req: Request, res: Response) => {
+  const prisma: PrismaClient = req.app.locals.prisma;
+  const noteId = parseInt(String(req.params.id));
+  try {
+    // Delete attachments from disk first
+    const attachments = await prisma.noteAttachment.findMany({
+      where: { noteId },
+      select: { filePath: true },
+    });
+    for (const att of attachments) {
+      const fp = path.join(process.cwd(), 'uploads', 'notes', att.filePath);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    }
+
+    await prisma.note.delete({ where: { id: noteId } });
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Admin delete note error:', err);
+    res.status(500).json({ error: 'Ошибка удаления заметки' });
+  }
+});
+
 // ===== Backup Routes =====
 
 // Helper: Get or create backups directory

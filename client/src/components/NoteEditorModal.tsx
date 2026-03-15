@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Bell, BellOff, Trash2, Save, Users, Lock } from 'lucide-react';
+import { X, Bell, BellOff, Trash2, Save, Users, Lock, Paperclip, File, Image, FileText as FileIcon, Download } from 'lucide-react';
 import { api } from '../api/client';
-import type { Note } from '../types';
+import type { Note, NoteAttachment } from '../types';
 
 interface NoteEditorModalProps {
   lessonId?: number;
@@ -38,6 +38,9 @@ export default function NoteEditorModal({
   const [error, setError] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<NoteAttachment[]>(existingNote?.attachments || []);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -128,6 +131,21 @@ export default function NoteEditorModal({
     return null;
   };
 
+  const uploadFiles = async (noteId: number) => {
+    if (pendingFiles.length === 0) return;
+    const formData = new FormData();
+    pendingFiles.forEach(f => formData.append('files', f));
+    try {
+      await fetch(`/api/notes/${noteId}/attachments`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: formData,
+      });
+    } catch (e) {
+      console.error('File upload error:', e);
+    }
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       setError('Введите заголовок');
@@ -140,17 +158,16 @@ export default function NoteEditorModal({
     try {
       const notifyAt = calcNotifyAt();
 
+      let savedNote: Note;
       if (existingNote) {
-        // Обновление
         const data = await api.put<{ note: Note }>(`/notes/${existingNote.id}`, {
           title: title.trim(),
           text: text.trim() || null,
           notifyAt,
           isPublic,
         });
-        onSave(data.note);
+        savedNote = data.note;
       } else {
-        // Создание
         const data = await api.post<{ note: Note }>('/notes', {
           lessonId: lessonId || null,
           date,
@@ -159,8 +176,13 @@ export default function NoteEditorModal({
           notifyAt,
           isPublic,
         });
-        onSave(data.note);
+        savedNote = data.note;
       }
+
+      // Upload pending files
+      await uploadFiles(savedNote.id);
+
+      onSave(savedNote);
       handleClose();
     } catch (err) {
       console.error('Save note error:', err);
@@ -249,6 +271,80 @@ export default function NoteEditorModal({
               maxLength={2000}
               rows={3}
               className="w-full px-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] placeholder:opacity-40 focus:ring-2 focus:ring-[var(--color-primary-apple)]/20 focus:border-[var(--color-primary-apple)]/40 transition-all outline-none resize-none"
+            />
+          </div>
+
+          {/* File Attachments */}
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--color-text-muted)] opacity-60 mb-2 block flex items-center gap-1.5">
+              <Paperclip className="w-3 h-3" />
+              Файлы ({existingAttachments.length + pendingFiles.length}/5)
+            </label>
+
+            {/* Existing attachments */}
+            {existingAttachments.map(att => (
+              <div key={att.id} className="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)]">
+                {att.mimeType.startsWith('image/') ? (
+                  <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                ) : (
+                  <FileIcon className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
+                )}
+                <span className="text-[10px] font-medium text-[var(--color-text-main)] truncate flex-1">{att.fileName}</span>
+                <span className="text-[8px] text-[var(--color-text-muted)] opacity-50 flex-shrink-0">
+                  {att.fileSize < 1024 ? `${att.fileSize}B` : att.fileSize < 1048576 ? `${(att.fileSize / 1024).toFixed(0)}KB` : `${(att.fileSize / 1048576).toFixed(1)}MB`}
+                </span>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.delete(`/notes/attachments/${att.id}`);
+                      setExistingAttachments(prev => prev.filter(a => a.id !== att.id));
+                    } catch {}
+                  }}
+                  className="p-1 rounded-lg hover:bg-red-500/10 active:scale-90 transition-all flex-shrink-0"
+                >
+                  <X className="w-3 h-3 text-red-400" />
+                </button>
+              </div>
+            ))}
+
+            {/* Pending files (not yet uploaded) */}
+            {pendingFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl bg-blue-500/5 border border-blue-500/15">
+                <File className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-[10px] font-medium text-[var(--color-text-main)] truncate flex-1">{f.name}</span>
+                <span className="text-[8px] text-blue-500 opacity-60 flex-shrink-0">новый</span>
+                <button
+                  onClick={() => setPendingFiles(prev => prev.filter((_, idx) => idx !== i))}
+                  className="p-1 rounded-lg hover:bg-red-500/10 active:scale-90 transition-all flex-shrink-0"
+                >
+                  <X className="w-3 h-3 text-red-400" />
+                </button>
+              </div>
+            ))}
+
+            {/* Add file button */}
+            {existingAttachments.length + pendingFiles.length < 5 && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-black/10 dark:border-white/10 text-[10px] font-bold text-[var(--color-text-muted)] opacity-60 hover:opacity-100 hover:border-[var(--color-primary-apple)]/30 active:scale-[0.98] transition-all"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+                Прикрепить файл
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={e => {
+                const files = Array.from(e.target.files || []);
+                const maxCount = 5 - existingAttachments.length - pendingFiles.length;
+                const toAdd = files.slice(0, maxCount).filter(f => f.size <= 10 * 1024 * 1024);
+                if (toAdd.length < files.length) setError('Макс. 10MB на файл, макс. 5 файлов');
+                setPendingFiles(prev => [...prev, ...toAdd]);
+                e.target.value = '';
+              }}
             />
           </div>
 
