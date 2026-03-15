@@ -36,6 +36,29 @@ router.put('/notifications', authMiddleware, async (req: AuthRequest, res: Respo
   res.json({ user });
 });
 
+// PUT /api/user/avatar — update user's avatar
+router.put('/avatar', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const { avatarId } = req.body;
+
+    if (typeof avatarId !== 'number' || avatarId < 0 || avatarId > 8) {
+      return res.status(400).json({ error: 'avatarId must be 0-8' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { avatarId },
+      include: { group: { include: { program: { include: { direction: { include: { institute: true } } } } } } }
+    });
+
+    res.json({ user });
+  } catch (err) {
+    console.error('Error updating avatar:', err);
+    res.status(500).json({ error: 'Ошибка при обновлении аватарки' });
+  }
+});
+
 // GET /api/user/profile — get full profile
 router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.locals.prisma;

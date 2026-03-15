@@ -53,6 +53,7 @@ export interface User {
   username?: string;
   photoUrl?: string;
   role: string;
+  avatarId?: number;
   groupId?: number;
   group?: Group;
   notifyBefore: boolean;

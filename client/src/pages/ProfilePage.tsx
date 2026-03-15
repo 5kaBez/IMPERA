@@ -4,14 +4,17 @@ import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
 import { analytics } from '../api/analytics';
 import type { User as UserType } from '../types';
-import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare } from 'lucide-react';
+import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare, Pencil } from 'lucide-react';
 import { FeedbackModal } from '../components/FeedbackModal';
+import UserAvatar from '../components/UserAvatar';
+import AvatarPickerModal from '../components/AvatarPickerModal';
 
 export default function ProfilePage() {
   const { user, updateUser, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [saving, setSaving] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
   useEffect(() => {
     analytics.trackPageView('/profile');
@@ -49,8 +52,19 @@ export default function ProfilePage() {
       {/* User Card — Compact on mobile */}
       <div className="rounded-2xl md:rounded-[40px] bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] p-4 md:p-10 mb-3 md:mb-8">
         <div className="flex items-center gap-3 md:gap-10 mb-3 md:mb-8">
-          <div className="w-14 h-14 md:w-28 md:h-28 rounded-2xl md:squircle iron-metal-bg flex items-center justify-center text-white text-xl md:text-5xl font-black shadow-lg md:shadow-2xl border border-white/10 overflow-hidden flex-shrink-0">
-            {user.firstName[0]}
+          <div className="relative">
+            <UserAvatar
+              avatarId={user.avatarId || 0}
+              firstName={user.firstName}
+              size="md"
+              onClick={() => setAvatarPickerOpen(true)}
+            />
+            <button
+              onClick={() => setAvatarPickerOpen(true)}
+              className="absolute -bottom-1 -right-1 w-7 h-7 md:w-9 md:h-9 rounded-full bg-[var(--color-bg-apple)] border border-[var(--apple-border)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-primary-apple)] transition-colors shadow-md"
+            >
+              <Pencil className="w-3 h-3 md:w-4 md:h-4" />
+            </button>
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg md:text-4xl font-black text-[var(--color-text-main)] tracking-tighter lowercase leading-tight">
@@ -168,6 +182,20 @@ export default function ProfilePage() {
       </button>
 
       <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+
+      {/* Avatar Picker */}
+      {avatarPickerOpen && (
+        <AvatarPickerModal
+          currentAvatarId={user.avatarId || 0}
+          firstName={user.firstName}
+          onSelect={async (avatarId) => {
+            const data = await api.put<{ user: UserType }>('/user/avatar', { avatarId });
+            updateUser(data.user);
+            analytics.trackEvent('avatar_change', 'profile', avatarId);
+          }}
+          onClose={() => setAvatarPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

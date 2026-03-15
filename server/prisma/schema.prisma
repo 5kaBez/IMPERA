@@ -93,6 +93,7 @@ model User {
   referralCount       Int               @default(0) // сколько людей пригласил
   activated           Boolean           @default(true) // false = нужен инвайт-код для доступа
   banned              Boolean           @default(false) // заблокированный пользователь
+  avatarId            Int               @default(0) // 0 = буква, 1-8 = аватарки Даши
   lastCodeGeneration  DateTime? // Время последней генерации инвайт-кода
   codesGeneratedTotal Int               @default(0) // Общий счётчик созданных кодов
   createdAt           DateTime          @default(now())
