@@ -12,11 +12,13 @@ let bot: Bot | null = null;
 // Store pending broadcasts waiting for confirmation
 const pendingBroadcasts = new Map<string, { messageId: number; chatId: number }>();
 
-// Note creation sessions
+// Note creation sessions (cache userId/groupId to avoid re-querying DB)
 interface NoteSession {
   text: string;
   step: 'confirm' | 'day' | 'lesson';
   date?: string; // YYYY-MM-DD
+  userId?: number;
+  groupId?: number | null;
 }
 const noteSessions = new Map<string, NoteSession>();
 
@@ -407,6 +409,12 @@ export async function startBot(prisma: PrismaClient) {
           return;
         }
 
+        // Cache user data to avoid DB lookups on every step
+        if (!session.userId) {
+          const user = await prisma.user.findUnique({ where: { telegramId }, select: { id: true, groupId: true } });
+          if (user) { session.userId = user.id; session.groupId = user.groupId; }
+        }
+
         // Show day picker
         session.step = 'day';
         const now = getMoscowDate();
@@ -440,16 +448,15 @@ export async function startBot(prisma: PrismaClient) {
         const targetDate = new Date(now);
         targetDate.setDate(targetDate.getDate() + offset);
 
-        // Store date as YYYY-MM-DD
         const yyyy = targetDate.getFullYear();
         const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
         const dd = String(targetDate.getDate()).padStart(2, '0');
         session.date = `${yyyy}-${mm}-${dd}`;
         session.step = 'lesson';
 
-        // Fetch schedule for this day
-        const user = await prisma.user.findUnique({ where: { telegramId } });
-        if (!user?.groupId) {
+        // Use cached groupId from session (set in note_create)
+        const groupId = session.groupId;
+        if (!groupId) {
           noteSessions.delete(telegramId);
           const kb = new InlineKeyboard().webApp('📱 Выбрать группу', WEB_APP_URL);
           await safeEdit(ctx, '⚠️ Сначала выбери группу в приложении!', { reply_markup: kb });
@@ -457,8 +464,6 @@ export async function startBot(prisma: PrismaClient) {
         }
 
         const dayOfWeek = getDayOfWeek(targetDate);
-
-        // Calculate parity for the target date
         const SEMESTER_START = new Date(2026, 1, 9);
         const diffMs = targetDate.getTime() - SEMESTER_START.getTime();
         const weekNum = diffMs < 0 ? 1 : Math.min(Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1, 18);
@@ -466,7 +471,7 @@ export async function startBot(prisma: PrismaClient) {
 
         const lessons = await prisma.lesson.findMany({
           where: {
-            groupId: user.groupId,
+            groupId,
             dayOfWeek,
             OR: [{ parity }, { parity: 2 }],
             weekStart: { lte: weekNum },
@@ -480,12 +485,12 @@ export async function startBot(prisma: PrismaClient) {
           try {
             await prisma.note.create({
               data: {
-                userId: user.id,
+                userId: session.userId!,
                 date: new Date(`${session.date}T00:00:00Z`),
                 title: session.text.slice(0, 100),
                 text: session.text.length > 100 ? session.text : null,
                 isPublic: false,
-                groupId: user.groupId || null,
+                groupId: groupId || null,
               },
             });
             noteSessions.delete(telegramId);
@@ -516,14 +521,8 @@ export async function startBot(prisma: PrismaClient) {
       }
 
       if (data.startsWith('note_lesson_')) {
-        if (!session || !session.date) {
+        if (!session || !session.date || !session.userId) {
           await safeEdit(ctx, '⏳ Сессия истекла.');
-          return;
-        }
-
-        const user = await prisma.user.findUnique({ where: { telegramId } });
-        if (!user) {
-          await safeEdit(ctx, '⚠️ Пользователь не найден.');
           return;
         }
 
@@ -532,13 +531,13 @@ export async function startBot(prisma: PrismaClient) {
         try {
           const note = await prisma.note.create({
             data: {
-              userId: user.id,
+              userId: session.userId,
               date: new Date(`${session.date}T00:00:00Z`),
               title: session.text.slice(0, 100),
               text: session.text.length > 100 ? session.text : null,
               lessonId,
               isPublic: false,
-              groupId: user.groupId || null,
+              groupId: session.groupId || null,
             },
             include: { lesson: true },
           });
