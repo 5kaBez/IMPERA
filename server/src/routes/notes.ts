@@ -350,7 +350,11 @@ router.get('/attachments/:attachmentId', downloadAuth, async (req: AuthRequest, 
     // RFC 5987: proper non-ASCII filename encoding
     const encodedName = encodeURIComponent(attachment.fileName).replace(/['()]/g, escape);
     res.setHeader('Content-Disposition', `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`);
-    res.setHeader('Content-Type', attachment.mimeType);
+    // Add charset for text files to prevent encoding issues
+    const contentType = attachment.mimeType.startsWith('text/')
+      ? `${attachment.mimeType}; charset=utf-8`
+      : attachment.mimeType;
+    res.setHeader('Content-Type', contentType);
     res.sendFile(filePath);
   } catch (err) {
     console.error('Error downloading attachment:', err);
