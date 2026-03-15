@@ -1,5 +1,6 @@
 import { Bot, InlineKeyboard, Context } from 'grammy';
 import { PrismaClient } from '@prisma/client';
+import { getMoscowDate, getDayOfWeek, getSemesterWeekNumber, getSemesterWeekParity } from './scheduleUtils';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL || 'https://xn--80ajiqph.xn--p1acf/';
@@ -142,8 +143,6 @@ export async function startBot(prisma: PrismaClient) {
         });
         return;
       }
-
-      const { getSemesterWeekNumber, getSemesterWeekParity, getDayOfWeek } = await import('./scheduleUtils');
 
       const now = new Date();
       const dayOfWeek = getDayOfWeek(now);
@@ -315,29 +314,39 @@ export async function startBot(prisma: PrismaClient) {
     }
   });
 
+  // Helper: safe editMessageText that ignores "message is not modified" error
+  async function safeEdit(ctx: Context, text: string, opts?: any) {
+    try {
+      await ctx.editMessageText(text, opts);
+    } catch (e: any) {
+      if (e.message?.includes('message is not modified')) return; // ignore duplicate edits
+      throw e;
+    }
+  }
+
   // Handle all callback queries (broadcast + notes)
   bot.on('callback_query:data', async (ctx: Context) => {
     const data = ctx.callbackQuery?.data;
     const telegramId = ctx.from?.id?.toString();
     if (!data || !telegramId) return;
 
+    // Answer callback IMMEDIATELY so Telegram hides the loading spinner
+    try { await ctx.answerCallbackQuery(); } catch {}
+
     try {
     // ── Broadcast callbacks (admin only) ──
     if (data.startsWith('broadcast_')) {
       const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID || '';
-      if (telegramId !== ADMIN_ID) {
-        await ctx.answerCallbackQuery({ text: '❌ Только админ', show_alert: true });
-        return;
-      }
+      if (telegramId !== ADMIN_ID) return;
 
       if (data === 'broadcast_cancel') {
-        await ctx.editMessageText('❌ Рассылка отменена');
+        await safeEdit(ctx, '❌ Рассылка отменена');
         return;
       }
 
       if (data === 'broadcast_confirm') {
         try {
-          await ctx.editMessageText('⏳ Отправляю сообщение...');
+          await safeEdit(ctx, '⏳ Отправляю сообщение...');
           if (!globalPrisma) throw new Error('Database not available');
 
           const users = await globalPrisma.user.findMany({
@@ -374,9 +383,9 @@ export async function startBot(prisma: PrismaClient) {
             message += '\n\n*Ошибки:*\n';
             errors.forEach(e => { message += `• ${e.telegramId}: ${e.reason}\n`; });
           }
-          await ctx.editMessageText(message, { parse_mode: 'MarkdownV2' });
+          await safeEdit(ctx, message, { parse_mode: 'MarkdownV2' });
         } catch (err: any) {
-          await ctx.editMessageText(`❌ Ошибка: ${err.message}`);
+          await safeEdit(ctx, `❌ Ошибка: ${err.message}`);
         }
       }
       return;
@@ -388,21 +397,18 @@ export async function startBot(prisma: PrismaClient) {
 
       if (data === 'note_cancel') {
         noteSessions.delete(telegramId);
-        await ctx.editMessageText('❌ Отменено');
-        await ctx.answerCallbackQuery();
+        await safeEdit(ctx, '🚫 Отменено');
         return;
       }
 
       if (data === 'note_create') {
         if (!session) {
-          await ctx.editMessageText('⏳ Сессия истекла. Отправь сообщение ещё раз.');
-          await ctx.answerCallbackQuery();
+          await safeEdit(ctx, '⏳ Сессия истекла. Отправь сообщение ещё раз.');
           return;
         }
 
         // Show day picker
         session.step = 'day';
-        const { getMoscowDate } = await import('./scheduleUtils');
         const now = getMoscowDate();
 
         const DAY_NAMES_SHORT = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -417,22 +423,19 @@ export async function startBot(prisma: PrismaClient) {
           keyboard.text(`${label} (${dayName} ${dateStr})`, `note_day_${i}`);
           if (i < 2) keyboard.row();
         }
-        keyboard.row().text('❌ Отмена', 'note_cancel');
+        keyboard.row().text('🚫 Отмена', 'note_cancel');
 
-        await ctx.editMessageText('📅 На какой день?', { reply_markup: keyboard });
-        await ctx.answerCallbackQuery();
+        await safeEdit(ctx, '📅 На какой день?', { reply_markup: keyboard });
         return;
       }
 
       if (data.startsWith('note_day_')) {
         if (!session) {
-          await ctx.editMessageText('⏳ Сессия истекла.');
-          await ctx.answerCallbackQuery();
+          await safeEdit(ctx, '⏳ Сессия истекла.');
           return;
         }
 
         const offset = parseInt(data.replace('note_day_', ''));
-        const { getMoscowDate, getDayOfWeek, getSemesterWeekNumber, getSemesterWeekParity } = await import('./scheduleUtils');
         const now = getMoscowDate();
         const targetDate = new Date(now);
         targetDate.setDate(targetDate.getDate() + offset);
@@ -449,8 +452,7 @@ export async function startBot(prisma: PrismaClient) {
         if (!user?.groupId) {
           noteSessions.delete(telegramId);
           const kb = new InlineKeyboard().webApp('📱 Выбрать группу', WEB_APP_URL);
-          await ctx.editMessageText('⚠️ Сначала выбери группу в приложении!', { reply_markup: kb });
-          await ctx.answerCallbackQuery();
+          await safeEdit(ctx, '⚠️ Сначала выбери группу в приложении!', { reply_markup: kb });
           return;
         }
 
@@ -489,12 +491,11 @@ export async function startBot(prisma: PrismaClient) {
             noteSessions.delete(telegramId);
 
             const kb = new InlineKeyboard().webApp('📱 Открыть в IMPERA', WEB_APP_URL);
-            await ctx.editMessageText(`✅ Заметка создана на ${dd}.${mm}!\n\nВ этот день нет пар — заметка привязана ко дню.`, { reply_markup: kb });
+            await safeEdit(ctx, `✅ Заметка создана на ${dd}.${mm}!\n\nВ этот день нет пар — заметка привязана ко дню.`, { reply_markup: kb });
           } catch (err) {
             console.error('Note create error:', err);
-            await ctx.editMessageText('❌ Ошибка при создании заметки.');
+            await safeEdit(ctx, '⚠️ Ошибка при создании заметки.');
           }
-          await ctx.answerCallbackQuery();
           return;
         }
 
@@ -508,24 +509,21 @@ export async function startBot(prisma: PrismaClient) {
           keyboard.text(`${type} ${l.pairNumber}п ${l.timeStart} ${subj}`, `note_lesson_${l.id}`).row();
         }
         keyboard.text('📌 На весь день', 'note_lesson_day').row();
-        keyboard.text('❌ Отмена', 'note_cancel');
+        keyboard.text('🚫 Отмена', 'note_cancel');
 
-        await ctx.editMessageText(`📚 На какую пару? (${dd}.${mm})`, { reply_markup: keyboard });
-        await ctx.answerCallbackQuery();
+        await safeEdit(ctx, `📚 На какую пару? (${dd}.${mm})`, { reply_markup: keyboard });
         return;
       }
 
       if (data.startsWith('note_lesson_')) {
         if (!session || !session.date) {
-          await ctx.editMessageText('⏳ Сессия истекла.');
-          await ctx.answerCallbackQuery();
+          await safeEdit(ctx, '⏳ Сессия истекла.');
           return;
         }
 
         const user = await prisma.user.findUnique({ where: { telegramId } });
         if (!user) {
-          await ctx.editMessageText('❌ Пользователь не найден.');
-          await ctx.answerCallbackQuery();
+          await safeEdit(ctx, '⚠️ Пользователь не найден.');
           return;
         }
 
@@ -555,19 +553,17 @@ export async function startBot(prisma: PrismaClient) {
           msg += `\n\n"${note.title}"`;
 
           const kb = new InlineKeyboard().webApp('📱 Открыть в IMPERA', WEB_APP_URL);
-          await ctx.editMessageText(msg, { reply_markup: kb });
+          await safeEdit(ctx, msg, { reply_markup: kb });
         } catch (err) {
           console.error('Note create error:', err);
-          await ctx.editMessageText('❌ Ошибка при создании заметки.');
+          await safeEdit(ctx, '⚠️ Ошибка при создании заметки.');
         }
-        await ctx.answerCallbackQuery();
         return;
       }
     }
 
     } catch (err) {
       console.error('🤖 Callback error:', err);
-      try { await ctx.answerCallbackQuery({ text: '❌ Ошибка, попробуй ещё раз', show_alert: false }); } catch {}
     }
   });
 

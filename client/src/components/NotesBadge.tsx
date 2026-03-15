@@ -4,11 +4,6 @@ import { api } from '../api/client';
 import type { Note } from '../types';
 import UserAvatar from './UserAvatar';
 
-/** Open author's Telegram profile */
-function openTg(username?: string) {
-  if (username) window.open(`https://t.me/${username}`, '_blank');
-}
-
 /** Shared action popover — "hide note" + "block user" */
 function NoteActionMenu({ note, onHide, onBlock, onClose }: {
   note: Note;
@@ -78,10 +73,7 @@ export default function NotesBadge({ notes, currentUserId, onNoteClick, onBlockU
             >
               {/* Avatar + name cluster for shared, icon for own */}
               {isShared && note.user ? (
-                <div
-                  className="flex items-center gap-1.5 flex-shrink-0"
-                  onClick={(e) => { e.stopPropagation(); openTg(note.user?.username); }}
-                >
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <UserAvatar
                     avatarId={note.user.avatarId || 0}
                     firstName={note.user.firstName}
@@ -187,10 +179,7 @@ export function DayNotesBlock({ notes, currentUserId, onNoteClick, onBlockUser, 
                 {/* Header row: avatar + name or icon */}
                 <div className="flex items-center gap-2.5 mb-1.5">
                   {isShared && note.user ? (
-                    <div
-                      className="flex items-center gap-2 flex-shrink-0"
-                      onClick={(e) => { e.stopPropagation(); openTg(note.user?.username); }}
-                    >
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <UserAvatar
                         avatarId={note.user.avatarId || 0}
                         firstName={note.user.firstName}

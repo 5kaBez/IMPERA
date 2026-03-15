@@ -131,19 +131,24 @@ export default function NoteEditorModal({
     return null;
   };
 
-  const uploadFiles = async (noteId: number) => {
-    if (pendingFiles.length === 0) return;
+  const uploadFiles = async (noteId: number): Promise<NoteAttachment[]> => {
+    if (pendingFiles.length === 0) return [];
     const formData = new FormData();
     pendingFiles.forEach(f => formData.append('files', f));
     try {
-      await fetch(`/api/notes/${noteId}/attachments`, {
+      const resp = await fetch(`/api/notes/${noteId}/attachments`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: formData,
       });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data.attachments || [];
+      }
     } catch (e) {
       console.error('File upload error:', e);
     }
+    return [];
   };
 
   const handleSave = async () => {
@@ -179,8 +184,23 @@ export default function NoteEditorModal({
         savedNote = data.note;
       }
 
-      // Upload pending files
-      await uploadFiles(savedNote.id);
+      // Upload pending files and merge attachments into savedNote
+      const newAttachments = await uploadFiles(savedNote.id);
+      if (newAttachments.length > 0) {
+        savedNote = {
+          ...savedNote,
+          attachments: [...(savedNote.attachments || []), ...newAttachments],
+        };
+      }
+      // Also keep existing attachments that weren't deleted
+      if (existingAttachments.length > 0 && !savedNote.attachments?.length) {
+        savedNote = { ...savedNote, attachments: existingAttachments };
+      } else if (existingAttachments.length > 0 && savedNote.attachments) {
+        // Merge: existing (survived) + new uploaded
+        const existingIds = new Set(savedNote.attachments.map(a => a.id));
+        const kept = existingAttachments.filter(a => !existingIds.has(a.id));
+        savedNote = { ...savedNote, attachments: [...kept, ...savedNote.attachments] };
+      }
 
       onSave(savedNote);
       handleClose();

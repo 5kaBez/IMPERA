@@ -11,6 +11,7 @@ import EmojiLoader from '../components/EmojiLoader';
 import LessonDetailModal from '../components/LessonDetailModal';
 import NotesBadge, { DayNotesBlock } from '../components/NotesBadge';
 import NoteEditorModal from '../components/NoteEditorModal';
+import NoteViewerModal from '../components/NoteViewerModal';
 import { useDelayedLoading } from '../hooks/useDelayedLoading';
 
 /** Check if lesson is a sports/PE class */
@@ -48,6 +49,7 @@ export default function SchedulePage() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [notesForDate, setNotesForDate] = useState<Note[]>([]);
   const [editingNote, setEditingNote] = useState<{ note?: Note; lessonId?: number; lessonSubject?: string; lessonTimeStart?: string; date: string } | null>(null);
+  const [viewingNote, setViewingNote] = useState<Note | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   /** If it's a sport lesson -> navigate to /sports with time+day highlight, otherwise open detail modal */
@@ -217,16 +219,21 @@ export default function SchedulePage() {
   };
 
   const handleNoteClick = (note: Note) => {
-    // Чужие shared-заметки — только просмотр (не открываем редактор)
-    if (note.userId !== user?.id) return;
-    const dateStr = note.date.split('T')[0];
+    // Open read-only viewer for all notes
+    setViewingNote(note);
+  };
+
+  const handleEditFromViewer = () => {
+    if (!viewingNote) return;
+    const dateStr = viewingNote.date.split('T')[0];
     setEditingNote({
-      note,
-      lessonId: note.lessonId ?? undefined,
-      lessonSubject: note.lesson?.subject,
-      lessonTimeStart: note.lesson?.timeStart,
+      note: viewingNote,
+      lessonId: viewingNote.lessonId ?? undefined,
+      lessonSubject: viewingNote.lesson?.subject,
+      lessonTimeStart: viewingNote.lesson?.timeStart,
       date: dateStr,
     });
+    setViewingNote(null);
   };
 
   const getCurrentDateStr = (): string => {
@@ -450,6 +457,16 @@ export default function SchedulePage() {
           notes={notesForDate.filter(n => n.lessonId === selectedLesson.id)}
           onNoteClick={handleNoteClick}
           onAddNote={() => setEditingNote({ lessonId: selectedLesson.id, lessonSubject: selectedLesson.subject, lessonTimeStart: selectedLesson.timeStart, date: getCurrentDateStr() })}
+        />
+      )}
+
+      {/* Note Viewer (read-only) */}
+      {viewingNote && (
+        <NoteViewerModal
+          note={viewingNote}
+          currentUserId={user?.id}
+          onEdit={handleEditFromViewer}
+          onClose={() => setViewingNote(null)}
         />
       )}
 

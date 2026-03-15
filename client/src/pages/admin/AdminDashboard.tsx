@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
 import type { Feedback, Teacher } from '../../types';
-import { Users, BookOpen, Calendar, Building2, Upload, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Download, RefreshCw, Clock, AlertCircle, Trash2, BarChart3 } from 'lucide-react';
+import { Users, BookOpen, Calendar, Building2, Upload, TrendingUp, Activity, GraduationCap, Layers, Bell, MessageSquare, CheckCircle, Eye, Star, Download, RefreshCw, Clock, AlertCircle, Trash2, BarChart3, FileText, Paperclip, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import EmojiLoader from '../../components/EmojiLoader';
 import AdminBackup from '../../components/AdminBackup';
 import MetricsTab from './MetricsTab';
@@ -22,7 +22,7 @@ interface Stats {
   feedbackNew: number;
 }
 
-type Tab = 'dashboard' | 'metrics' | 'analytics' | 'feedback' | 'teachers' | 'autoimport' | 'backup';
+type Tab = 'dashboard' | 'metrics' | 'analytics' | 'feedback' | 'teachers' | 'notes' | 'autoimport' | 'backup';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -61,6 +61,7 @@ export default function AdminDashboard() {
             { key: 'analytics', label: 'Аналитика' },
             { key: 'feedback', label: 'Фидбек' },
             { key: 'teachers', label: 'Учителя' },
+            { key: 'notes', label: 'Заметки' },
             { key: 'autoimport', label: 'Авто-импорт' },
             { key: 'backup', label: 'Бекап' },
           ] as const).map(t => (
@@ -90,6 +91,7 @@ export default function AdminDashboard() {
       {tab === 'analytics' && stats && <AnalyticsTab stats={stats} />}
       {tab === 'feedback' && <FeedbackTab />}
       {tab === 'teachers' && <TeachersTab />}
+      {tab === 'notes' && <NotesTab />}
       {tab === 'autoimport' && <AutoImportTab />}
       {tab === 'backup' && <AdminBackup />}
     </div>
@@ -1106,6 +1108,247 @@ function AutoImportTab() {
               )}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────── Notes Tab ──────────────────
+interface AdminNote {
+  id: number;
+  title: string;
+  text: string | null;
+  date: string;
+  isPublic: boolean;
+  authorRole: string;
+  createdAt: string;
+  user: { id: number; firstName: string; lastName: string | null; username: string | null; avatarId: number | null; telegramId: string };
+  lesson: { id: number; subject: string; timeStart: string; pairNumber: number } | null;
+  group: { id: number; name: string; course: number; number: string } | null;
+  attachments: { id: number; fileName: string; fileSize: number; mimeType: string }[];
+}
+
+interface AdminGroup {
+  id: number;
+  name: string;
+  course: number;
+  number: string;
+  _count: { notes: number };
+}
+
+function NotesTab() {
+  const [notes, setNotes] = useState<AdminNote[]>([]);
+  const [groups, setGroups] = useState<AdminGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const LIMIT = 30;
+
+  const fetchNotes = async (groupId: number | null, pg: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(pg), limit: String(LIMIT) });
+      if (groupId) params.set('groupId', String(groupId));
+      const data = await api.get<{ notes: AdminNote[]; total: number; groups: AdminGroup[]; page: number }>(`/admin/notes?${params}`);
+      setNotes(data.notes);
+      setTotal(data.total);
+      setGroups(data.groups);
+    } catch (err) {
+      console.error('Failed to fetch admin notes:', err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchNotes(selectedGroupId, page); }, [selectedGroupId, page]);
+
+  const handleDelete = async (noteId: number) => {
+    if (!confirm('Удалить эту заметку?')) return;
+    try {
+      await api.delete(`/admin/notes/${noteId}`);
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+      setTotal(prev => prev - 1);
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  const filteredNotes = search.trim()
+    ? notes.filter(n =>
+        n.title.toLowerCase().includes(search.toLowerCase()) ||
+        n.text?.toLowerCase().includes(search.toLowerCase()) ||
+        n.user.firstName.toLowerCase().includes(search.toLowerCase()) ||
+        n.user.lastName?.toLowerCase().includes(search.toLowerCase())
+      )
+    : notes;
+
+  const formatDate = (d: string) => {
+    const dt = new Date(d);
+    return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <FileText className="w-5 h-5 text-[var(--color-primary-apple)]" />
+          <h2 className="text-lg font-black text-[var(--color-text-main)] tracking-tight lowercase">заметки</h2>
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--color-text-muted)] bg-black/5 dark:bg-white/5 px-2 py-1 rounded-lg">
+            {total}
+          </span>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] opacity-40" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Поиск..."
+            className="pl-9 pr-4 py-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-xs font-medium text-[var(--color-text-main)] outline-none focus:ring-2 focus:ring-[var(--color-primary-apple)]/20 w-48"
+          />
+        </div>
+      </div>
+
+      {/* Group filter chips */}
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => { setSelectedGroupId(null); setPage(1); }}
+          className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
+            selectedGroupId === null
+              ? 'iron-metal-bg text-white shadow-md'
+              : 'bg-black/[0.04] dark:bg-white/[0.06] text-[var(--color-text-muted)] border border-[var(--apple-border)]'
+          }`}
+        >
+          Все группы
+        </button>
+        {groups.map(g => (
+          <button
+            key={g.id}
+            onClick={() => { setSelectedGroupId(g.id); setPage(1); }}
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
+              selectedGroupId === g.id
+                ? 'iron-metal-bg text-white shadow-md'
+                : 'bg-black/[0.04] dark:bg-white/[0.06] text-[var(--color-text-muted)] border border-[var(--apple-border)]'
+            }`}
+          >
+            {g.name} ({g._count.notes})
+          </button>
+        ))}
+      </div>
+
+      {/* Notes list */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : filteredNotes.length === 0 ? (
+        <div className="apple-card border border-[var(--apple-border)] p-8 text-center">
+          <FileText className="w-12 h-12 mx-auto mb-3 text-zinc-300 dark:text-zinc-700" />
+          <p className="text-sm font-bold text-[var(--color-text-muted)]">Заметок нет</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredNotes.map(note => (
+            <div key={note.id} className="apple-card border border-[var(--apple-border)] p-4 relative group">
+              <div className="flex items-start gap-3">
+                {/* User info */}
+                <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-[var(--color-primary-apple)]/10 flex items-center justify-center text-[10px] font-black text-[var(--color-primary-apple)]">
+                  {note.user.firstName.charAt(0)}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  {/* Title + badges row */}
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-[12px] font-bold text-[var(--color-text-main)] truncate">
+                      {note.title}
+                    </span>
+                    {note.isPublic && (
+                      <span className="text-[7px] font-black uppercase tracking-wider text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-md">
+                        Public
+                      </span>
+                    )}
+                    {note.authorRole === 'teacher' && (
+                      <span className="text-[7px] font-black uppercase tracking-wider text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                        ДЗ
+                      </span>
+                    )}
+                    {note.attachments.length > 0 && (
+                      <span className="flex items-center gap-0.5 text-[8px] font-bold text-[var(--color-text-muted)]">
+                        <Paperclip className="w-2.5 h-2.5" /> {note.attachments.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Text preview */}
+                  {note.text && (
+                    <p className="text-[10px] text-[var(--color-text-muted)] opacity-60 truncate mb-1.5">
+                      {note.text}
+                    </p>
+                  )}
+
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 flex-wrap text-[9px] text-[var(--color-text-muted)] opacity-50">
+                    <span className="font-bold">
+                      {note.user.firstName}{note.user.lastName ? ` ${note.user.lastName}` : ''}
+                      {note.user.username ? ` @${note.user.username}` : ''}
+                    </span>
+                    <span>·</span>
+                    <span>{formatDate(note.date)}</span>
+                    {note.lesson && (
+                      <>
+                        <span>·</span>
+                        <span>{note.lesson.pairNumber}п {note.lesson.subject}</span>
+                      </>
+                    )}
+                    {note.group && (
+                      <>
+                        <span>·</span>
+                        <span className="font-bold text-[var(--color-primary-apple)]">{note.group.name}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Delete button */}
+                <button
+                  onClick={() => handleDelete(note.id)}
+                  className="flex-shrink-0 p-2 rounded-xl bg-red-500/5 hover:bg-red-500/15 text-red-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                  title="Удалить заметку"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="p-2 rounded-xl bg-black/5 dark:bg-white/5 disabled:opacity-30 active:scale-90 transition-all"
+          >
+            <ChevronLeft className="w-4 h-4 text-[var(--color-text-muted)]" />
+          </button>
+          <span className="text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-wider">
+            {page} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="p-2 rounded-xl bg-black/5 dark:bg-white/5 disabled:opacity-30 active:scale-90 transition-all"
+          >
+            <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)]" />
+          </button>
         </div>
       )}
     </div>
