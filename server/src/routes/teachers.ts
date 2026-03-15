@@ -42,7 +42,7 @@ router.get('/by-name', async (req: Request, res: Response) => {
     include: {
       reviews: {
         include: {
-          user: { select: { firstName: true, lastName: true, username: true } },
+          user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },
         },
         orderBy: { createdAt: 'desc' },
       },
@@ -109,7 +109,7 @@ router.post('/reviews', authMiddleware, async (req: AuthRequest, res: Response) 
         anonymous: anonymous !== false,
       },
       include: {
-        user: { select: { firstName: true, lastName: true, username: true } },
+        user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },
       },
     });
     res.json(review);
@@ -142,7 +142,7 @@ router.post('/:teacherId/reviews', authMiddleware, async (req: AuthRequest, res:
         anonymous: anonymous !== false,
       },
       include: {
-        user: { select: { firstName: true, lastName: true, username: true } },
+        user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },
       },
     });
     res.json(review);
@@ -163,7 +163,7 @@ router.get('/:teacherId', async (req: Request, res: Response) => {
     include: {
       reviews: {
         include: {
-          user: { select: { firstName: true, lastName: true, username: true } },
+          user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },
         },
         orderBy: { createdAt: 'desc' },
       },

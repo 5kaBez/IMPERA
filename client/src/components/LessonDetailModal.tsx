@@ -3,6 +3,7 @@ import type { Lesson, Teacher, Review, Note } from '../types';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { X, Star, MapPin, Clock, User, BookOpen, Send, FileText, Plus } from 'lucide-react';
+import UserAvatar from './UserAvatar';
 
 interface LessonDetailModalProps {
   lesson: Lesson;
@@ -303,11 +304,17 @@ export default function LessonDetailModal({ lesson, onClose, notes = [], onNoteC
                     >
                       <div className="flex items-start gap-2.5">
                         {/* Avatar */}
-                        <div className="flex-shrink-0 w-8 h-8 rounded-lg iron-metal-bg flex items-center justify-center border border-white/10 shadow">
-                          <span className="text-[10px] font-black text-white">
-                            {getInitials(review)}
-                          </span>
-                        </div>
+                        {review.anonymous ? (
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg iron-metal-bg flex items-center justify-center border border-white/10 shadow">
+                            <span className="text-[10px] font-black text-white">?</span>
+                          </div>
+                        ) : (
+                          <UserAvatar
+                            avatarId={review.user?.avatarId || 0}
+                            firstName={review.user?.firstName || '?'}
+                            size="sm"
+                          />
+                        )}
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">

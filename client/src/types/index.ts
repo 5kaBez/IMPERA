@@ -157,6 +157,7 @@ export interface Review {
     firstName: string;
     lastName?: string;
     username?: string;
+    avatarId?: number;
   };
 }
 

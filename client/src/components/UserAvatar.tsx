@@ -16,7 +16,7 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   { id: 1, name: 'Баблс' },
   { id: 2, name: 'Старк' },
   { id: 3, name: 'Блюи' },
-  { id: 4, name: 'Зигги' },
+  { id: 4, name: 'Вайпер' },
   { id: 5, name: 'Минт' },
   { id: 6, name: 'Кубик' },
   { id: 7, name: 'Арчи' },
