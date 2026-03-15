@@ -554,7 +554,7 @@ export async function startBot(prisma: PrismaClient) {
     console.error('Bot error:', err);
   });
 
-  // Start the bot
+  // Configure bot metadata (non-critical — don't block startup)
   try {
     await bot.api.setMyCommands([
       { command: 'start', description: 'Запустить бота' },
@@ -564,50 +564,49 @@ export async function startBot(prisma: PrismaClient) {
       { command: 'notify_on', description: 'Включить уведомления' },
       { command: 'notify_off', description: 'Выключить уведомления' },
     ]);
-
-    // Set bot description (shown before user starts the bot)
-    try {
-      await bot.api.setMyDescription(
-        'IMPERA — цифровая платформа для студентов ГУУ. Расписание, уведомления о парах, отзывы о преподавателях. Нажми /start чтобы начать!'
-      );
-      await bot.api.setMyShortDescription(
-        'Расписание ГУУ, уведомления о парах, отзывы о преподавателях'
-      );
-    } catch (e) {
-      console.log('⚠️  Could not set bot description');
-    }
-
-    // Configure Mini App menu button
-    try {
-      await bot.api.setChatMenuButton({
-        menu_button: {
-          type: 'web_app',
-          text: 'IMPERA',
-          web_app: { url: WEB_APP_URL },
-        },
-      });
-    } catch (e) {
-      console.log('⚠️  Could not set menu button (need valid HTTPS URL)');
-    }
-
-    // Start polling with conflict handling (during Render redeploys)
-    const startPolling = (attempt = 1) => {
-      bot!.start({
-        drop_pending_updates: true,
-        onStart: () => console.log('🤖 Telegram bot started successfully'),
-      }).catch((err: any) => {
-        if (err?.error_code === 409 && attempt <= 5) {
-          console.log(`⚠️ Bot conflict (attempt ${attempt}/5), retrying in ${attempt * 3}s...`);
-          setTimeout(() => startPolling(attempt + 1), attempt * 3000);
-        } else {
-          console.error('Bot polling error:', err.message || err);
-        }
-      });
-    };
-    startPolling();
-  } catch (err) {
-    console.error('Failed to start bot:', err);
+  } catch (e) {
+    console.log('⚠️  Could not set bot commands (will retry on next restart)');
   }
+
+  try {
+    await bot.api.setMyDescription(
+      'IMPERA — цифровая платформа для студентов ГУУ. Расписание, уведомления о парах, отзывы о преподавателях. Нажми /start чтобы начать!'
+    );
+    await bot.api.setMyShortDescription(
+      'Расписание ГУУ, уведомления о парах, отзывы о преподавателях'
+    );
+  } catch (e) {
+    console.log('⚠️  Could not set bot description');
+  }
+
+  try {
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: 'IMPERA',
+        web_app: { url: WEB_APP_URL },
+      },
+    });
+  } catch (e) {
+    console.log('⚠️  Could not set menu button (need valid HTTPS URL)');
+  }
+
+  // Start polling with retry on network/conflict errors
+  const startPolling = (attempt = 1) => {
+    bot!.start({
+      drop_pending_updates: true,
+      onStart: () => console.log('🤖 Telegram bot started successfully'),
+    }).catch((err: any) => {
+      if (attempt <= 5) {
+        const delay = attempt * 3;
+        console.log(`⚠️ Bot start failed (attempt ${attempt}/5), retrying in ${delay}s... [${err.message || err}]`);
+        setTimeout(() => startPolling(attempt + 1), delay * 1000);
+      } else {
+        console.error('❌ Bot failed to start after 5 attempts:', err.message || err);
+      }
+    });
+  };
+  startPolling();
 
   return bot;
 }
