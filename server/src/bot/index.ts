@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL || 'https://xn--80ajiqph.xn--p1acf/';
+// Cloudflare Worker proxy for Telegram API (bypasses DPI blocking on Russian VPS)
+const TG_API_ROOT = process.env.TG_API_ROOT || undefined; // e.g. "https://impera-tg.username.workers.dev"
 
 let bot: Bot | null = null;
 
@@ -34,7 +36,12 @@ export async function startBot(prisma: PrismaClient) {
   }
 
   globalPrisma = prisma;
-  bot = new Bot(BOT_TOKEN);
+  const botConfig: any = {};
+  if (TG_API_ROOT) {
+    botConfig.client = { apiRoot: TG_API_ROOT };
+    console.log(`🔀 Bot using API proxy: ${TG_API_ROOT}`);
+  }
+  bot = new Bot(BOT_TOKEN, botConfig);
 
   // /start command — welcome message
   bot.command('start', async (ctx: Context) => {
