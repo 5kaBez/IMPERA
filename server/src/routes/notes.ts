@@ -321,15 +321,16 @@ router.get('/attachments/:attachmentId', authMiddleware, async (req: AuthRequest
 
     const attachment = await prisma.noteAttachment.findUnique({
       where: { id: attachmentId },
-      include: { note: { select: { userId: true, isPublic: true, groupId: true } } },
+      include: { note: { select: { userId: true, isPublic: true, groupId: true, authorRole: true } } },
     });
 
     if (!attachment) { res.status(404).json({ error: 'Файл не найден' }); return; }
 
-    // Access check: owner OR public note from same group
+    // Access check: owner OR public/teacher note from same group
     const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { groupId: true } });
     const isOwner = attachment.note.userId === req.userId;
-    const isGroupmate = attachment.note.isPublic && attachment.note.groupId && user?.groupId === attachment.note.groupId;
+    const sameGroup = !!attachment.note.groupId && !!user?.groupId && user.groupId === attachment.note.groupId;
+    const isGroupmate = sameGroup && (attachment.note.isPublic || attachment.note.authorRole === 'teacher');
 
     if (!isOwner && !isGroupmate) { res.status(403).json({ error: 'Нет доступа' }); return; }
 

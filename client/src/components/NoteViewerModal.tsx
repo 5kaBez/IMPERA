@@ -64,11 +64,13 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
 
   const handleDownload = (att: NoteAttachment) => {
     const token = localStorage.getItem('impera_token');
-    // Fetch with auth then download
     fetch(`/api/notes/attachments/${att.id}`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     })
-      .then(r => r.blob())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
       .then(blob => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -77,7 +79,7 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
         a.click();
         URL.revokeObjectURL(url);
       })
-      .catch(console.error);
+      .catch(err => console.error('Download failed:', err));
   };
 
   return (
@@ -195,8 +197,8 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
 
           {/* Note text */}
           {note.text && (
-            <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-[var(--apple-border)]">
-              <p className="text-[12px] md:text-[13px] font-medium text-[var(--color-text-main)] leading-relaxed whitespace-pre-wrap">
+            <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-[var(--apple-border)] overflow-hidden">
+              <p className="text-[12px] md:text-[13px] font-medium text-[var(--color-text-main)] leading-relaxed whitespace-pre-wrap break-words">
                 {note.text}
               </p>
             </div>
