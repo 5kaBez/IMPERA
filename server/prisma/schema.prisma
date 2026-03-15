@@ -280,6 +280,7 @@ model Note {
   date        DateTime
   title       String
   text        String?
+  isPublic    Boolean   @default(false) // видна одногруппникам
   notifyAt    DateTime?
   notified    Boolean   @default(false)
   authorRole  String    @default("student") // student | teacher
@@ -291,7 +292,19 @@ model Note {
   @@index([userId, date])
   @@index([lessonId])
   @@index([groupId, date])
+  @@index([groupId, isPublic, date])
   @@index([notifyAt, notified])
+}
+
+// ===== Блокировка пользователей =====
+model BlockedUser {
+  id            Int      @id @default(autoincrement())
+  userId        Int      // кто блокирует
+  blockedUserId Int      // кого заблокировали
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, blockedUserId])
+  @@index([userId])
 }
 
 // ===== История импорта расписания =====

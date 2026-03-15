@@ -69,4 +69,71 @@ router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
   res.json({ user });
 });
 
+// ===== Блокировка пользователей =====
+
+// GET /api/user/blocked — список заблокированных
+router.get('/blocked', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const blocks = await prisma.blockedUser.findMany({
+      where: { userId: req.userId! },
+    });
+
+    // Подгрузим инфо о заблокированных юзерах
+    const blockedUserIds = blocks.map(b => b.blockedUserId);
+    const users = blockedUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: blockedUserIds } },
+          select: { id: true, firstName: true, lastName: true, avatarId: true },
+        })
+      : [];
+
+    res.json({ blocked: users });
+  } catch (err) {
+    console.error('Error fetching blocked users:', err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// POST /api/user/block/:userId — заблокировать пользователя
+router.post('/block/:userId', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const blockedUserId = parseInt(String(req.params.userId));
+
+    if (isNaN(blockedUserId) || blockedUserId === req.userId) {
+      res.status(400).json({ error: 'Невалидный ID' });
+      return;
+    }
+
+    await prisma.blockedUser.upsert({
+      where: { userId_blockedUserId: { userId: req.userId!, blockedUserId } },
+      create: { userId: req.userId!, blockedUserId },
+      update: {},
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error blocking user:', err);
+    res.status(500).json({ error: 'Ошибка при блокировке' });
+  }
+});
+
+// DELETE /api/user/block/:userId — разблокировать пользователя
+router.delete('/block/:userId', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma: PrismaClient = req.app.locals.prisma;
+    const blockedUserId = parseInt(String(req.params.userId));
+
+    await prisma.blockedUser.deleteMany({
+      where: { userId: req.userId!, blockedUserId },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error unblocking user:', err);
+    res.status(500).json({ error: 'Ошибка при разблокировке' });
+  }
+});
+
 export default router;

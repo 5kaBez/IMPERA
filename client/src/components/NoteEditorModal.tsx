@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Bell, BellOff, Trash2, Save } from 'lucide-react';
+import { X, Bell, BellOff, Trash2, Save, Users, Lock } from 'lucide-react';
 import { api } from '../api/client';
 import type { Note } from '../types';
 
@@ -32,6 +32,7 @@ export default function NoteEditorModal({
     existingNote?.notifyAt ? 'custom' : 'none'
   );
   const [customTime, setCustomTime] = useState('');
+  const [isPublic, setIsPublic] = useState(existingNote?.isPublic || false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -145,6 +146,7 @@ export default function NoteEditorModal({
           title: title.trim(),
           text: text.trim() || null,
           notifyAt,
+          isPublic,
         });
         onSave(data.note);
       } else {
@@ -155,6 +157,7 @@ export default function NoteEditorModal({
           title: title.trim(),
           text: text.trim() || null,
           notifyAt,
+          isPublic,
         });
         onSave(data.note);
       }
@@ -230,7 +233,7 @@ export default function NoteEditorModal({
               onChange={e => setTitle(e.target.value)}
               placeholder="Например: ДЗ — упр. 5-10"
               maxLength={100}
-              className="w-full px-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] placeholder:opacity-40 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/40 transition-all outline-none"
+              className="w-full px-4 py-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] placeholder:opacity-40 focus:ring-2 focus:ring-[var(--color-primary-apple)]/20 focus:border-[var(--color-primary-apple)]/40 transition-all outline-none"
             />
           </div>
 
@@ -252,7 +255,7 @@ export default function NoteEditorModal({
           {/* Reminder */}
           <div>
             <label className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--color-text-muted)] opacity-60 mb-2 block flex items-center gap-1.5">
-              {reminder !== 'none' ? <Bell className="w-3 h-3 text-amber-500" /> : <BellOff className="w-3 h-3" />}
+              {reminder !== 'none' ? <Bell className="w-3 h-3 text-[var(--color-secondary-apple)]" /> : <BellOff className="w-3 h-3" />}
               Напоминание
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -287,6 +290,39 @@ export default function NoteEditorModal({
                 className="mt-2 px-4 py-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)] text-sm font-medium text-[var(--color-text-main)] outline-none focus:ring-2 focus:ring-[var(--color-primary-apple)]/20"
               />
             )}
+          </div>
+
+          {/* Share with group */}
+          <div>
+            <button
+              onClick={() => setIsPublic(!isPublic)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-200 ${
+                isPublic
+                  ? 'bg-[var(--color-primary-apple)]/10 border-[var(--color-primary-apple)]/25 dark:bg-[var(--color-primary-apple-dark)]/15 dark:border-[var(--color-primary-apple-dark)]/30'
+                  : 'bg-black/[0.02] dark:bg-white/[0.03] border-[var(--apple-border)]'
+              }`}
+            >
+              {isPublic ? (
+                <Users className="w-4 h-4 text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)]" />
+              ) : (
+                <Lock className="w-4 h-4 text-[var(--color-text-muted)] opacity-50" />
+              )}
+              <div className="flex-1 text-left">
+                <p className={`text-[11px] font-bold ${isPublic ? 'text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)]' : 'text-[var(--color-text-main)]'}`}>
+                  {isPublic ? 'Видна группе' : 'Только мне'}
+                </p>
+                <p className="text-[9px] text-[var(--color-text-muted)] opacity-50">
+                  {isPublic ? 'Одногруппники увидят эту заметку' : 'Нажми, чтобы поделиться с группой'}
+                </p>
+              </div>
+              <div className={`w-9 h-5 rounded-full transition-all duration-200 relative ${
+                isPublic ? 'bg-[var(--color-primary-apple)] dark:bg-[var(--color-primary-apple-dark)]' : 'bg-zinc-300 dark:bg-zinc-600'
+              }`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                  isPublic ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </div>
+            </button>
           </div>
 
           {/* Error */}

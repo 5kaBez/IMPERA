@@ -16,14 +16,17 @@ function isAdminRequest(req: Request): boolean {
   } catch { return false; }
 }
 
-// Helper: strip user info from reviews for non-admin (all reviews appear anonymous)
+// Helper: strip user info from anonymous reviews (non-admin only)
 function anonymizeReviews(reviews: any[], isAdmin: boolean) {
-  if (isAdmin) return reviews;
-  return reviews.map(r => ({
-    ...r,
-    anonymous: true,
-    user: undefined,
-  }));
+  if (isAdmin) return reviews; // Админ видит всех авторов
+  return reviews.map(r => {
+    if (r.anonymous) {
+      // Анонимный отзыв — скрываем данные автора
+      return { ...r, user: undefined };
+    }
+    // Не анонимный — показываем имя и аватарку
+    return r;
+  });
 }
 
 // GET /api/teachers/by-name?name=... — lookup teacher by name (NO auto-create!)
@@ -100,13 +103,13 @@ router.post('/reviews', authMiddleware, async (req: AuthRequest, res: Response) 
 
     const review = await prisma.review.upsert({
       where: { teacherId_userId: { teacherId: resolvedTeacherId, userId: req.userId! } },
-      update: { rating, text: text || null, anonymous: anonymous !== false },
+      update: { rating, text: text || null, anonymous: !!anonymous },
       create: {
         teacherId: resolvedTeacherId,
         userId: req.userId!,
         rating,
         text: text || null,
-        anonymous: anonymous !== false,
+        anonymous: !!anonymous,
       },
       include: {
         user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },
@@ -133,13 +136,13 @@ router.post('/:teacherId/reviews', authMiddleware, async (req: AuthRequest, res:
   try {
     const review = await prisma.review.upsert({
       where: { teacherId_userId: { teacherId, userId: req.userId! } },
-      update: { rating, text: text || null, anonymous: anonymous !== false },
+      update: { rating, text: text || null, anonymous: !!anonymous },
       create: {
         teacherId,
         userId: req.userId!,
         rating,
         text: text || null,
-        anonymous: anonymous !== false,
+        anonymous: !!anonymous,
       },
       include: {
         user: { select: { firstName: true, lastName: true, username: true, avatarId: true } },

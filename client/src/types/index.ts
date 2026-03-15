@@ -73,11 +73,13 @@ export interface Note {
   date: string;
   title: string;
   text?: string;
+  isPublic: boolean;
   notifyAt?: string;
   notified: boolean;
   authorRole: 'student' | 'teacher';
   groupId?: number;
   lesson?: { id: number; subject: string; timeStart: string; pairNumber: number };
+  user?: { id: number; firstName: string; lastName?: string; avatarId?: number };
   createdAt: string;
   updatedAt: string;
 }
@@ -113,7 +115,7 @@ export const DAY_NAMES_SHORT: Record<number, string> = {
 export const LESSON_TYPE_COLORS: Record<string, string> = {
   'Лекция': 'iron-metal-bg text-white',
   'Практика': 'bg-stone-500/12 text-stone-600 dark:text-stone-400',
-  'Лабораторная': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  'Лабораторная': 'bg-[var(--color-secondary-apple)]/12 text-[var(--color-secondary-apple)]',
   'Другое': 'bg-zinc-500/15 text-zinc-500 dark:text-zinc-400',
 };
 

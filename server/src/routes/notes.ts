@@ -4,7 +4,22 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/notes/date/:date — заметки на конкретную дату (личные + групповые)
+// Хелпер: получить список заблокированных юзеров
+async function getBlockedIds(prisma: PrismaClient, userId: number): Promise<number[]> {
+  const blocks = await prisma.blockedUser.findMany({
+    where: { userId },
+    select: { blockedUserId: true },
+  });
+  return blocks.map(b => b.blockedUserId);
+}
+
+// Общий include для заметок — с автором для shared
+const noteInclude = {
+  lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
+  user: { select: { id: true, firstName: true, lastName: true, avatarId: true } },
+};
+
+// GET /api/notes/date/:date — заметки на конкретную дату (личные + shared группы)
 router.get('/date/:date', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
@@ -17,23 +32,30 @@ router.get('/date/:date', authMiddleware, async (req: AuthRequest, res: Response
       return;
     }
 
-    // Получаем группу пользователя для shared-заметок (задел на будущее)
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       select: { groupId: true },
     });
 
+    const blockedIds = await getBlockedIds(prisma, req.userId!);
+
     const notes = await prisma.note.findMany({
       where: {
         date: { gte: dateStart, lte: dateEnd },
         OR: [
-          { userId: req.userId, authorRole: 'student' },
+          // Мои заметки (любые)
+          { userId: req.userId },
+          // Публичные заметки одногруппников
+          ...(user?.groupId ? [{
+            groupId: user.groupId,
+            isPublic: true,
+            userId: { not: req.userId!, ...(blockedIds.length ? { notIn: blockedIds } : {}) },
+          }] : []),
+          // Заметки от преподавателя (teacher role)
           ...(user?.groupId ? [{ groupId: user.groupId, authorRole: 'teacher' as const }] : []),
         ],
       },
-      include: {
-        lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
-      },
+      include: noteInclude,
       orderBy: { createdAt: 'asc' },
     });
 
@@ -60,14 +82,22 @@ router.get('/lesson/:lessonId', authMiddleware, async (req: AuthRequest, res: Re
       select: { groupId: true },
     });
 
+    const blockedIds = await getBlockedIds(prisma, req.userId!);
+
     const notes = await prisma.note.findMany({
       where: {
         lessonId,
         OR: [
-          { userId: req.userId, authorRole: 'student' },
+          { userId: req.userId },
+          ...(user?.groupId ? [{
+            groupId: user.groupId,
+            isPublic: true,
+            userId: { not: req.userId!, ...(blockedIds.length ? { notIn: blockedIds } : {}) },
+          }] : []),
           ...(user?.groupId ? [{ groupId: user.groupId, authorRole: 'teacher' as const }] : []),
         ],
       },
+      include: noteInclude,
       orderBy: { createdAt: 'asc' },
     });
 
@@ -82,7 +112,7 @@ router.get('/lesson/:lessonId', authMiddleware, async (req: AuthRequest, res: Re
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
-    const { lessonId, date, title, text, notifyAt } = req.body;
+    const { lessonId, date, title, text, notifyAt, isPublic } = req.body;
 
     if (!title || !date) {
       res.status(400).json({ error: 'Заголовок и дата обязательны' });
@@ -104,6 +134,16 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Если public — автоматически привязываем к группе
+    let groupId: number | null = null;
+    if (isPublic) {
+      const user = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { groupId: true },
+      });
+      groupId = user?.groupId || null;
+    }
+
     const note = await prisma.note.create({
       data: {
         userId: req.userId!,
@@ -112,11 +152,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
         title: String(title).slice(0, 100),
         text: text ? String(text).slice(0, 2000) : null,
         notifyAt: notifyAt ? new Date(notifyAt) : null,
+        isPublic: !!isPublic,
+        groupId,
         authorRole: 'student',
       },
-      include: {
-        lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
-      },
+      include: noteInclude,
     });
 
     res.json({ note });
@@ -131,7 +171,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const prisma: PrismaClient = req.app.locals.prisma;
     const noteId = parseInt(String(req.params.id));
-    const { title, text, notifyAt } = req.body;
+    const { title, text, notifyAt, isPublic } = req.body;
 
     // Проверяем владельца
     const existing = await prisma.note.findUnique({ where: { id: noteId } });
@@ -152,12 +192,26 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       updateData.notified = false; // Сброс при смене времени напоминания
     }
 
+    // Toggle public/private
+    if (isPublic !== undefined) {
+      updateData.isPublic = !!isPublic;
+      if (isPublic) {
+        // Привязываем к группе при публикации
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId },
+          select: { groupId: true },
+        });
+        updateData.groupId = user?.groupId || null;
+      } else {
+        // Убираем из группы при скрытии
+        updateData.groupId = null;
+      }
+    }
+
     const note = await prisma.note.update({
       where: { id: noteId },
       data: updateData,
-      include: {
-        lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
-      },
+      include: noteInclude,
     });
 
     res.json({ note });

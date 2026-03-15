@@ -196,7 +196,14 @@ export default function SchedulePage() {
     setNotesForDate(prev => prev.filter(n => n.id !== noteId));
   };
 
+  const handleBlockUser = (blockedUserId: number) => {
+    // Убираем заметки заблокированного пользователя из списка
+    setNotesForDate(prev => prev.filter(n => n.userId !== blockedUserId));
+  };
+
   const handleNoteClick = (note: Note) => {
+    // Чужие shared-заметки — только просмотр (не открываем редактор)
+    if (note.userId !== user?.id) return;
     const dateStr = note.date.split('T')[0];
     setEditingNote({
       note,
@@ -383,10 +390,10 @@ export default function SchedulePage() {
             transition={{ duration: 0.25 }}
           >
             {tab === 'today' && todayData && (
-              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
+              <DaySchedule data={todayData} emptyMessage="Сегодня нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'tomorrow' && tomorrowData && (
-              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
+              <DaySchedule data={tomorrowData} emptyMessage="Завтра нет занятий" onLessonClick={handleLessonClick} notes={notesForDate} onNoteClick={handleNoteClick} currentUserId={user?.id} onBlockUser={handleBlockUser} onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })} />
             )}
             {tab === 'week' && weekData && (
               <WeekSchedule data={weekData} onLessonClick={handleLessonClick} />
@@ -398,6 +405,8 @@ export default function SchedulePage() {
                 onLessonClick={handleLessonClick}
                 notes={notesForDate}
                 onNoteClick={handleNoteClick}
+                currentUserId={user?.id}
+                onBlockUser={handleBlockUser}
                 onAddNote={(lessonId, subject, timeStart) => setEditingNote({ lessonId, lessonSubject: subject, lessonTimeStart: timeStart, date: getCurrentDateStr() })}
               />
             )}
@@ -592,20 +601,22 @@ function CalendarPicker({ selectedDate, onSelect }: {
 
 /* ─── Schedule Display Components ─── */
 
-function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClick, onAddNote }: {
+function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClick, onAddNote, currentUserId, onBlockUser }: {
   data: ScheduleDay;
   emptyMessage: string;
   onLessonClick: (l: Lesson) => void;
   notes?: Note[];
   onNoteClick?: (n: Note) => void;
   onAddNote?: (lessonId: number, subject: string, timeStart: string) => void;
+  currentUserId?: number;
+  onBlockUser?: (userId: number) => void;
 }) {
   const dateOnlyNotes = notes.filter(n => !n.lessonId);
 
   if (data.lessons.length === 0) {
     return (
       <div>
-        {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} onNoteClick={onNoteClick} />}
+        {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />}
         <div className="text-center py-12 md:py-24 apple-card border-dashed border-[var(--apple-border)] bg-black/5 dark:bg-white/5 squircle overflow-hidden">
           <div className="w-16 md:w-24 h-16 md:h-24 squircle bg-black/5 dark:bg-white/5 flex items-center justify-center mx-auto mb-4 md:mb-8 overflow-hidden">
             <Calendar className="w-8 md:w-12 h-8 md:h-12 text-[var(--color-text-muted)] opacity-30" />
@@ -621,7 +632,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
 
   return (
     <div>
-      {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} onNoteClick={onNoteClick} />}
+      {dateOnlyNotes.length > 0 && <DayNotesBlock notes={dateOnlyNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />}
       <div className="flex items-center justify-between mb-2 md:mb-8 px-1 md:px-2">
         <div className="flex items-center gap-2 md:gap-4">
           <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.3em] metallic-text">
@@ -646,7 +657,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
             >
               <div className="flex-1">
                 <CompactLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
-                <NotesBadge notes={lessonNotes} onNoteClick={onNoteClick} />
+                <NotesBadge notes={lessonNotes} currentUserId={currentUserId} onNoteClick={onNoteClick} onBlockUser={onBlockUser} />
               </div>
               {onAddNote && (
                 <button
@@ -654,7 +665,7 @@ function DaySchedule({ data, emptyMessage, onLessonClick, notes = [], onNoteClic
                     e.stopPropagation();
                     onAddNote(lesson.id, lesson.subject, lesson.timeStart);
                   }}
-                  className="px-3 py-2 md:px-4 md:py-3 rounded-2xl bg-black/80 dark:bg-black border border-zinc-400 dark:border-zinc-600 text-zinc-100 hover:text-white hover:border-zinc-300 dark:hover:border-zinc-500 transition-all active:scale-90 hover:scale-110 flex items-center justify-center shadow-sm hover:shadow-md"
+                  className="px-3 py-2 md:px-4 md:py-3 rounded-2xl bg-[var(--color-primary-apple)]/10 dark:bg-[var(--color-primary-apple-dark)]/15 border border-[var(--color-primary-apple)]/20 dark:border-[var(--color-primary-apple-dark)]/25 text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)] hover:bg-[var(--color-primary-apple)]/20 dark:hover:bg-[var(--color-primary-apple-dark)]/25 transition-all active:scale-90 hover:scale-110 flex items-center justify-center shadow-sm hover:shadow-md"
                   title="Создать заметку на эту пару"
                 >
                   <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
@@ -747,7 +758,7 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
                 : lesson.lessonType === 'Практика'
                   ? 'bg-stone-500/10 text-stone-600 dark:text-stone-400 border border-stone-500/20'
                   : lesson.lessonType === 'Лабораторная'
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    ? 'bg-[var(--color-secondary-apple)]/10 text-[var(--color-secondary-apple)] border border-[var(--color-secondary-apple)]/20'
                     : 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border border-zinc-500/20'
                 }`}>
                 {lesson.lessonType}
@@ -802,7 +813,7 @@ function CompactLessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () =>
                   : lesson.lessonType === 'Практика'
                     ? 'bg-stone-500/10 text-stone-600 dark:text-stone-400 border-stone-500/20'
                     : lesson.lessonType === 'Лабораторная'
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                      ? 'bg-[var(--color-secondary-apple)]/10 text-[var(--color-secondary-apple)] border-[var(--color-secondary-apple)]/20'
                       : 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/20'
                   }`}>
                   {lesson.lessonType}

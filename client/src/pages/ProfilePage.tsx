@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
 import { analytics } from '../api/analytics';
 import type { User as UserType } from '../types';
-import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare, Pencil } from 'lucide-react';
+import { Bell, BellOff, Moon, Sun, Building2, BookOpen, Users, GraduationCap, RefreshCw, LogOut, ChevronRight, MessageSquare, Pencil, ShieldBan, X } from 'lucide-react';
 import { FeedbackModal } from '../components/FeedbackModal';
 import UserAvatar from '../components/UserAvatar';
 import AvatarPickerModal from '../components/AvatarPickerModal';
@@ -15,9 +15,15 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<Array<{ id: number; firstName: string; lastName?: string; avatarId?: number }>>([]);
+  const [blockedLoaded, setBlockedLoaded] = useState(false);
 
   useEffect(() => {
     analytics.trackPageView('/profile');
+    // Load blocked users
+    api.get<{ blocked: typeof blockedUsers }>('/user/blocked')
+      .then(data => { setBlockedUsers(data.blocked); setBlockedLoaded(true); })
+      .catch(() => setBlockedLoaded(true));
   }, []);
 
   if (!user) return null;
@@ -166,6 +172,46 @@ export default function ProfilePage() {
           onChange={toggleTheme}
         />
       </div>
+
+      {/* Blocked Users */}
+      {blockedLoaded && blockedUsers.length > 0 && (
+        <div className="mb-3 md:mb-8">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <ShieldBan className="w-3.5 h-3.5 text-[var(--color-text-muted)] opacity-50" />
+            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--color-text-muted)] opacity-50">
+              Скрытые пользователи ({blockedUsers.length})
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {blockedUsers.map(bu => (
+              <div key={bu.id} className="flex items-center gap-3 p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--apple-border)]">
+                <div className="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                  <ShieldBan className="w-4 h-4 text-red-500/60" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-[var(--color-text-main)]">
+                    {bu.firstName}{bu.lastName ? ` ${bu.lastName}` : ''}
+                  </p>
+                  <p className="text-[9px] text-[var(--color-text-muted)] opacity-50">Заметки скрыты</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.delete(`/user/block/${bu.id}`);
+                      setBlockedUsers(prev => prev.filter(u => u.id !== bu.id));
+                    } catch (e) {
+                      console.error('Unblock error:', e);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[var(--color-primary-apple)]/10 text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)] text-[9px] font-bold active:scale-95 transition-transform"
+                >
+                  Разблокировать
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Logout */}
       <button
