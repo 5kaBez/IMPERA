@@ -64,15 +64,33 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
 
   const handleDownload = (att: NoteAttachment) => {
     const token = localStorage.getItem('impera_token') || '';
-    const url = `/api/notes/attachments/${att.id}?token=${encodeURIComponent(token)}`;
-    // Use <a download> with direct URL — triggers real download (not display)
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = att.fileName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Fetch file as blob, then trigger download via blob URL
+    // (direct URL + a.click doesn't work in Telegram WebView)
+    fetch(`/api/notes/attachments/${att.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = att.fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }, 200);
+      })
+      .catch(err => {
+        // Fallback: direct URL with token in query (opens in browser)
+        console.error('Blob download failed, trying direct URL:', err);
+        const directUrl = `/api/notes/attachments/${att.id}?token=${encodeURIComponent(token)}`;
+        window.location.href = directUrl;
+      });
   };
 
   return (
