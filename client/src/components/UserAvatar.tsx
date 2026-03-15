@@ -13,14 +13,14 @@ export interface AvatarPreset {
 
 // 8 avatars — names match Dasha's designs (left to right, top to bottom)
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: 1, name: 'Розовое облако' },
-  { id: 2, name: 'Солнечная звезда' },
-  { id: 3, name: 'Синий блоб' },
-  { id: 4, name: 'Зелёный зигзаг' },
-  { id: 5, name: 'Бирюзовое облако' },
-  { id: 6, name: 'Фиолетовый квадрат' },
-  { id: 7, name: 'Красный полукруг' },
-  { id: 8, name: 'Жёлтая капля' },
+  { id: 1, name: 'Баблс' },
+  { id: 2, name: 'Старк' },
+  { id: 3, name: 'Блюи' },
+  { id: 4, name: 'Зигги' },
+  { id: 5, name: 'Минт' },
+  { id: 6, name: 'Кубик' },
+  { id: 7, name: 'Арчи' },
+  { id: 8, name: 'Лимон' },
 ];
 
 /** Get the public URL for an avatar PNG */

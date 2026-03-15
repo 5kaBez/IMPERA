@@ -14,14 +14,18 @@ interface AvatarPickerModalProps {
 export default function AvatarPickerModal({ currentAvatarId, firstName, onSelect, onClose }: AvatarPickerModalProps) {
   const [selected, setSelected] = useState(currentAvatarId);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (selected === currentAvatarId) { onClose(); return; }
     setSaving(true);
+    setError('');
     try {
       await onSelect(selected);
       onClose();
-    } catch {
+    } catch (err) {
+      console.error('Avatar save failed:', err);
+      setError('Не удалось сохранить. Попробуй ещё раз');
       setSaving(false);
     }
   };
@@ -117,6 +121,11 @@ export default function AvatarPickerModal({ currentAvatarId, firstName, onSelect
               {selected === 0 ? 'Буква имени' : AVATAR_PRESETS.find(a => a.id === selected)?.name}
             </p>
           </div>
+
+          {/* Error */}
+          {error && (
+            <p className="text-center text-[11px] font-bold text-rose-500 px-5 -mt-2 mb-2">{error}</p>
+          )}
 
           {/* Actions */}
           <div className="px-5 pb-5 flex gap-3">
