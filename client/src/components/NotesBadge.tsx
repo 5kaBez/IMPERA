@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileText, Bell, Users, Ban } from 'lucide-react';
 import { api } from '../api/client';
 import type { Note } from '../types';
+import UserAvatar from './UserAvatar';
 
 interface NotesBadgeProps {
   notes: Note[];
@@ -39,8 +40,8 @@ export default function NotesBadge({ notes, currentUserId, onNoteClick, onBlockU
                   : 'bg-[var(--color-primary-apple)]/10 dark:bg-[var(--color-primary-apple-dark)]/15 border-[var(--color-primary-apple)]/20 dark:border-[var(--color-primary-apple-dark)]/25 hover:bg-[var(--color-primary-apple)]/15 dark:hover:bg-[var(--color-primary-apple-dark)]/20'
               }`}
             >
-              {isShared ? (
-                <Users className="w-3.5 h-3.5 text-[var(--color-secondary-apple)] opacity-70 flex-shrink-0" />
+              {isShared && note.user ? (
+                <UserAvatar avatarId={note.user.avatarId || 0} firstName={note.user.firstName} size="sm" className="!w-5 !h-5 !text-[7px] !rounded-lg flex-shrink-0" />
               ) : (
                 <FileText className="w-3.5 h-3.5 text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)] flex-shrink-0" />
               )}
@@ -48,7 +49,19 @@ export default function NotesBadge({ notes, currentUserId, onNoteClick, onBlockU
                 {note.title}
               </span>
               {isShared && note.user && (
-                <span className="text-[8px] font-bold text-[var(--color-text-muted)] opacity-50 flex-shrink-0">
+                <span
+                  onClick={(e) => {
+                    if (note.user?.username) {
+                      e.stopPropagation();
+                      window.open(`https://t.me/${note.user.username}`, '_blank');
+                    }
+                  }}
+                  className={`text-[8px] font-bold flex-shrink-0 ${
+                    note.user.username
+                      ? 'text-[var(--color-secondary-apple)] opacity-70 active:opacity-100'
+                      : 'text-[var(--color-text-muted)] opacity-50'
+                  }`}
+                >
                   {note.user.firstName}
                 </span>
               )}
@@ -151,17 +164,23 @@ export function DayNotesBlock({ notes, currentUserId, onNoteClick, onBlockUser }
                     : 'bg-[var(--color-primary-apple)]/8 dark:bg-[var(--color-primary-apple-dark)]/10 border-[var(--color-primary-apple)]/15 dark:border-[var(--color-primary-apple-dark)]/20 hover:bg-[var(--color-primary-apple)]/12 dark:hover:bg-[var(--color-primary-apple-dark)]/15'
                 }`}
               >
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 border ${
-                  isShared
-                    ? 'bg-[var(--color-secondary-apple)]/10 border-[var(--color-secondary-apple)]/15'
-                    : 'bg-[var(--color-primary-apple)]/15 dark:bg-[var(--color-primary-apple-dark)]/20 border-[var(--color-primary-apple)]/20 dark:border-[var(--color-primary-apple-dark)]/25'
-                }`}>
-                  {isShared ? (
-                    <Users className="w-4 h-4 text-[var(--color-secondary-apple)]" />
-                  ) : (
+                {isShared && note.user ? (
+                  <div
+                    onClick={(e) => {
+                      if (note.user?.username) {
+                        e.stopPropagation();
+                        window.open(`https://t.me/${note.user.username}`, '_blank');
+                      }
+                    }}
+                    className={note.user.username ? 'cursor-pointer active:scale-95 transition-transform' : ''}
+                  >
+                    <UserAvatar avatarId={note.user.avatarId || 0} firstName={note.user.firstName} size="sm" className="!w-8 !h-8 !rounded-xl flex-shrink-0 mt-0.5" />
+                  </div>
+                ) : (
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 border bg-[var(--color-primary-apple)]/15 dark:bg-[var(--color-primary-apple-dark)]/20 border-[var(--color-primary-apple)]/20 dark:border-[var(--color-primary-apple-dark)]/25`}>
                     <FileText className="w-4 h-4 text-[var(--color-primary-apple)] dark:text-[var(--color-primary-apple-dark)]" />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[12px] md:text-[13px] font-bold text-[var(--color-text-main)] truncate">
@@ -172,7 +191,19 @@ export function DayNotesBlock({ notes, currentUserId, onNoteClick, onBlockUser }
                     )}
                   </div>
                   {isShared && note.user && (
-                    <p className="text-[9px] font-bold text-[var(--color-secondary-apple)] opacity-70 mt-0.5">
+                    <p
+                      onClick={(e) => {
+                        if (note.user?.username) {
+                          e.stopPropagation();
+                          window.open(`https://t.me/${note.user.username}`, '_blank');
+                        }
+                      }}
+                      className={`text-[9px] font-bold mt-0.5 ${
+                        note.user.username
+                          ? 'text-[var(--color-secondary-apple)] opacity-80 active:opacity-100'
+                          : 'text-[var(--color-secondary-apple)] opacity-70'
+                      }`}
+                    >
                       {note.user.firstName}{note.user.lastName ? ` ${note.user.lastName}` : ''}
                     </p>
                   )}

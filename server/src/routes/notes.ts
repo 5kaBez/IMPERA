@@ -16,7 +16,7 @@ async function getBlockedIds(prisma: PrismaClient, userId: number): Promise<numb
 // Общий include для заметок — с автором для shared
 const noteInclude = {
   lesson: { select: { id: true, subject: true, timeStart: true, pairNumber: true } },
-  user: { select: { id: true, firstName: true, lastName: true, avatarId: true } },
+  user: { select: { id: true, firstName: true, lastName: true, avatarId: true, username: true } },
 };
 
 // GET /api/notes/date/:date — заметки на конкретную дату (личные + shared группы)

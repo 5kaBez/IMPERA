@@ -43,6 +43,11 @@ export async function startBot(prisma: PrismaClient) {
   }
   bot = new Bot(BOT_TOKEN, botConfig);
 
+  // Global error handler — prevents bot from crashing
+  bot.catch((err) => {
+    console.error('🤖 Bot error (non-fatal):', err.message || err);
+  });
+
   // /start command — welcome message
   bot.command('start', async (ctx: Context) => {
     const firstName = ctx.from?.first_name || 'студент';
@@ -286,24 +291,28 @@ export async function startBot(prisma: PrismaClient) {
     }
 
     // Обычные пользователи — предложить создать заметку
-    const msgText = (ctx.message as any)?.text
-      || (ctx.message as any)?.caption
-      || (ctx.message as any)?.forward_origin?.type && 'Пересланное сообщение';
+    try {
+      const msgText = (ctx.message as any)?.text
+        || (ctx.message as any)?.caption
+        || ((ctx.message as any)?.forward_origin?.type ? 'Пересланное сообщение' : null);
 
-    if (!msgText || !telegramId) {
-      await ctx.reply('Используй /help для списка команд.');
-      return;
+      if (!msgText || !telegramId) {
+        await ctx.reply('Используй /help для списка команд.');
+        return;
+      }
+
+      noteSessions.set(telegramId, { text: msgText, step: 'confirm' });
+      setTimeout(() => noteSessions.delete(telegramId), 5 * 60 * 1000);
+
+      const keyboard = new InlineKeyboard()
+        .text('📝 Создать заметку', 'note_create')
+        .text('❌ Отмена', 'note_cancel');
+
+      const preview = msgText.length > 80 ? msgText.slice(0, 80) + '...' : msgText;
+      await ctx.reply(`📝 Создать заметку из этого сообщения?\n\n"${preview}"`, { reply_markup: keyboard });
+    } catch (err) {
+      console.error('Error handling user message:', err);
     }
-
-    noteSessions.set(telegramId, { text: msgText, step: 'confirm' });
-    setTimeout(() => noteSessions.delete(telegramId), 5 * 60 * 1000);
-
-    const keyboard = new InlineKeyboard()
-      .text('📝 Создать заметку', 'note_create')
-      .text('❌ Отмена', 'note_cancel');
-
-    const preview = msgText.length > 80 ? msgText.slice(0, 80) + '...' : msgText;
-    await ctx.reply(`📝 Создать заметку из этого сообщения?\n\n"${preview}"`, { reply_markup: keyboard });
   });
 
   // Handle all callback queries (broadcast + notes)

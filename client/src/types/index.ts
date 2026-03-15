@@ -79,7 +79,7 @@ export interface Note {
   authorRole: 'student' | 'teacher';
   groupId?: number;
   lesson?: { id: number; subject: string; timeStart: string; pairNumber: number };
-  user?: { id: number; firstName: string; lastName?: string; avatarId?: number };
+  user?: { id: number; firstName: string; lastName?: string; avatarId?: number; username?: string };
   createdAt: string;
   updatedAt: string;
 }
