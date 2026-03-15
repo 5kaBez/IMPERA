@@ -64,33 +64,21 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
 
   const handleDownload = (att: NoteAttachment) => {
     const token = localStorage.getItem('impera_token') || '';
-    // Fetch file as blob, then trigger download via blob URL
-    // (direct URL + a.click doesn't work in Telegram WebView)
-    fetch(`/api/notes/attachments/${att.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.blob();
-      })
-      .then(blob => {
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = att.fileName;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(blobUrl);
-        }, 200);
-      })
-      .catch(err => {
-        // Fallback: direct URL with token in query (opens in browser)
-        console.error('Blob download failed, trying direct URL:', err);
-        const directUrl = `/api/notes/attachments/${att.id}?token=${encodeURIComponent(token)}`;
-        window.location.href = directUrl;
-      });
+    const url = `${window.location.origin}/api/notes/attachments/${att.id}?token=${encodeURIComponent(token)}`;
+
+    // 1) Telegram WebApp native download (Bot API 8.0+)
+    const tg = (window as any).Telegram?.WebApp;
+    if (typeof tg?.downloadFile === 'function') {
+      tg.downloadFile({ url, file_name: att.fileName });
+      return;
+    }
+
+    // 2) Fallback: hidden iframe triggers Content-Disposition: attachment download
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 30000);
   };
 
   return (
