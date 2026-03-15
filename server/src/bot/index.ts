@@ -465,6 +465,8 @@ export async function startBot(prisma: PrismaClient) {
                 date: new Date(`${session.date}T00:00:00Z`),
                 title: session.text.slice(0, 100),
                 text: session.text.length > 100 ? session.text : null,
+                isPublic: false,
+                groupId: user.groupId || null,
               },
             });
             noteSessions.delete(telegramId);
@@ -520,6 +522,8 @@ export async function startBot(prisma: PrismaClient) {
               title: session.text.slice(0, 100),
               text: session.text.length > 100 ? session.text : null,
               lessonId,
+              isPublic: false,
+              groupId: user.groupId || null,
             },
             include: { lesson: true },
           });

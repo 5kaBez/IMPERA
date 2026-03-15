@@ -6,6 +6,8 @@
  *   1.png, 2.png, 3.png, 4.png, 5.png, 6.png, 7.png, 8.png
  */
 
+import { useState } from 'react';
+
 export interface AvatarPreset {
   id: number;
   name: string;
@@ -42,19 +44,23 @@ const SIZE_MAP = {
   lg: 'w-20 h-20 md:w-32 md:h-32 text-3xl md:text-6xl',
 };
 
+function LetterAvatar({ firstName, size = 'md', className = '', onClick }: Omit<UserAvatarProps, 'avatarId'>) {
+  return (
+    <div
+      onClick={onClick}
+      className={`${SIZE_MAP[size]} rounded-2xl ${size === 'md' ? 'md:squircle' : 'squircle'} iron-metal-bg flex items-center justify-center text-white font-black shadow-lg ${size === 'md' ? 'md:shadow-2xl' : 'shadow-2xl'} border border-white/10 overflow-hidden flex-shrink-0 ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''} ${className}`}
+    >
+      {firstName[0]}
+    </div>
+  );
+}
+
 export default function UserAvatar({ avatarId, firstName, size = 'md', className = '', onClick }: UserAvatarProps) {
-  const hasAvatar = avatarId >= 1 && avatarId <= 8;
+  const [imgError, setImgError] = useState(false);
+  const hasAvatar = avatarId >= 1 && avatarId <= 8 && !imgError;
 
   if (!hasAvatar) {
-    // Fallback: letter avatar
-    return (
-      <div
-        onClick={onClick}
-        className={`${SIZE_MAP[size]} rounded-2xl ${size === 'md' ? 'md:squircle' : 'squircle'} iron-metal-bg flex items-center justify-center text-white font-black shadow-lg ${size === 'md' ? 'md:shadow-2xl' : 'shadow-2xl'} border border-white/10 overflow-hidden flex-shrink-0 ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''} ${className}`}
-      >
-        {firstName[0]}
-      </div>
-    );
+    return <LetterAvatar firstName={firstName} size={size} className={className} onClick={onClick} />;
   }
 
   return (
@@ -67,6 +73,7 @@ export default function UserAvatar({ avatarId, firstName, size = 'md', className
         alt={AVATAR_PRESETS.find(a => a.id === avatarId)?.name || 'Avatar'}
         className="w-full h-full object-cover"
         draggable={false}
+        onError={() => setImgError(true)}
       />
     </div>
   );
