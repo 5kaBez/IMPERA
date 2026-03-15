@@ -63,12 +63,10 @@ export default function NoteViewerModal({ note, currentUserId, onEdit, onClose }
   };
 
   const handleDownload = (att: NoteAttachment) => {
-    const token = localStorage.getItem('token');
-    const link = document.createElement('a');
-    link.href = `/api/notes/attachments/${att.id}`;
+    const token = localStorage.getItem('impera_token');
     // Fetch with auth then download
     fetch(`/api/notes/attachments/${att.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     })
       .then(r => r.blob())
       .then(blob => {

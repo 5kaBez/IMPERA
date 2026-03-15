@@ -136,14 +136,17 @@ export default function NoteEditorModal({
     const formData = new FormData();
     pendingFiles.forEach(f => formData.append('files', f));
     try {
+      const token = localStorage.getItem('impera_token');
       const resp = await fetch(`/api/notes/${noteId}/attachments`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,
       });
       if (resp.ok) {
         const data = await resp.json();
         return data.attachments || [];
+      } else {
+        console.error('File upload failed:', resp.status, await resp.text());
       }
     } catch (e) {
       console.error('File upload error:', e);
