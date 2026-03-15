@@ -91,18 +91,22 @@ export default function NoteEditorModal({
   const calcNotifyAt = (): string | null => {
     if (reminder === 'none') return null;
 
+    // Get browser's timezone offset in milliseconds
+    const tzOffset = new Date().getTimezoneOffset() * 60000;
+    
     const lessonDate = new Date(date + 'T00:00:00');
 
     if (reminder === '30min' && lessonTimeStart) {
       const [h, m] = lessonTimeStart.split(':').map(Number);
       lessonDate.setHours(h, m - 30);
-      return lessonDate.toISOString();
+      // Convert from local time to UTC by subtracting the timezone offset
+      return new Date(lessonDate.getTime() - tzOffset).toISOString();
     }
 
     if (reminder === '1hour' && lessonTimeStart) {
       const [h, m] = lessonTimeStart.split(':').map(Number);
       lessonDate.setHours(h - 1, m);
-      return lessonDate.toISOString();
+      return new Date(lessonDate.getTime() - tzOffset).toISOString();
     }
 
     if (reminder === 'evening') {
@@ -110,13 +114,14 @@ export default function NoteEditorModal({
       const prev = new Date(lessonDate);
       prev.setDate(prev.getDate() - 1);
       prev.setHours(20, 0, 0, 0);
-      return prev.toISOString();
+      return new Date(prev.getTime() - tzOffset).toISOString();
     }
 
     if (reminder === 'custom' && customTime) {
       const [h, m] = customTime.split(':').map(Number);
       lessonDate.setHours(h, m, 0, 0);
-      return lessonDate.toISOString();
+      // Convert from local time to UTC by subtracting the timezone offset
+      return new Date(lessonDate.getTime() - tzOffset).toISOString();
     }
 
     return null;
