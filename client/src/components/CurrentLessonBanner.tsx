@@ -217,8 +217,8 @@ function ProgressBar({ lesson }: { lesson: CurrentLessonData }) {
         className="h-full rounded-full transition-all duration-1000 ease-linear relative"
         style={{ 
           width: `${progress}%`,
-          background: 'linear-gradient(135deg, #D4AF37 0%, #F3DA8F 50%, #C5A02E 100%)',
-          boxShadow: '0 0 25px rgba(212, 175, 55, 0.3)'
+          background: 'linear-gradient(135deg, #142240 0%, #20426C 40%, #2B5A8F 100%)',
+          boxShadow: '0 0 20px rgba(32, 66, 108, 0.35)'
         }}
       >
         <div className="absolute inset-0 bg-white/20 animate-pulse" />

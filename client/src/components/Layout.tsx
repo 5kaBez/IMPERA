@@ -33,7 +33,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="flex flex-col min-h-screen w-screen bg-[var(--color-bg-apple)] text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20" style={{ position: 'relative', overflow: 'visible' }}>
+    <div className="flex flex-col min-h-screen w-screen text-[var(--color-text-main)] transition-colors duration-700 font-sans selection:bg-[var(--color-primary-apple)]/20" style={{ position: 'relative', overflow: 'visible' }}>
+      {/* Gradient accent glow - top right */}
+      <div className="fixed top-0 right-0 w-[600px] h-[600px] pointer-events-none z-0 opacity-40 dark:opacity-20" style={{ background: 'radial-gradient(ellipse at 70% 20%, rgba(32, 66, 108, 0.18) 0%, transparent 60%)' }} />
+      <div className="fixed bottom-[20%] left-0 w-[500px] h-[500px] pointer-events-none z-0 opacity-30 dark:opacity-15" style={{ background: 'radial-gradient(ellipse at 20% 60%, rgba(229, 30, 64, 0.08) 0%, transparent 55%)' }} />
       {/* Sidebar overlay - for all users, hidden by default */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-[60]">

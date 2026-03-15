@@ -91,42 +91,32 @@ export default function NoteEditorModal({
   const calcNotifyAt = (): string | null => {
     if (reminder === 'none') return null;
 
-    // Get timezone offset to convert local time to UTC
-    const offset = new Date().getTimezoneOffset() * 60000; // in milliseconds
     const lessonDate = new Date(date + 'T00:00:00');
 
     if (reminder === '30min' && lessonTimeStart) {
       const [h, m] = lessonTimeStart.split(':').map(Number);
-      const localTime = new Date(lessonDate);
-      localTime.setHours(h, m - 30);
-      const utcTime = new Date(localTime.getTime() + offset);
-      return utcTime.toISOString();
+      lessonDate.setHours(h, m - 30);
+      return lessonDate.toISOString();
     }
 
     if (reminder === '1hour' && lessonTimeStart) {
       const [h, m] = lessonTimeStart.split(':').map(Number);
-      const localTime = new Date(lessonDate);
-      localTime.setHours(h - 1, m);
-      const utcTime = new Date(localTime.getTime() + offset);
-      return utcTime.toISOString();
+      lessonDate.setHours(h - 1, m);
+      return lessonDate.toISOString();
     }
 
     if (reminder === 'evening') {
       // Вечер накануне — 20:00 предыдущего дня
       const prev = new Date(lessonDate);
       prev.setDate(prev.getDate() - 1);
-      const localTime = new Date(prev);
-      localTime.setHours(20, 0, 0, 0);
-      const utcTime = new Date(localTime.getTime() + offset);
-      return utcTime.toISOString();
+      prev.setHours(20, 0, 0, 0);
+      return prev.toISOString();
     }
 
     if (reminder === 'custom' && customTime) {
       const [h, m] = customTime.split(':').map(Number);
-      const localTime = new Date(lessonDate);
-      localTime.setHours(h, m, 0, 0);
-      const utcTime = new Date(localTime.getTime() + offset);
-      return utcTime.toISOString();
+      lessonDate.setHours(h, m, 0, 0);
+      return lessonDate.toISOString();
     }
 
     return null;
